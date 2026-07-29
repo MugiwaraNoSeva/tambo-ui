@@ -7,11 +7,11 @@
 // —campos requeridos y tipos de input— y el único gesto de dominio es el que la
 // decisión 50 declara: que un rechazo forzable se puede confirmar.
 //
-// El evento viaja con **su propio id** cuando el browser puede generar uno. No
-// es capricho: en el corral la señal se corta, y un POST cuya respuesta se
-// pierde deja al tambero sin saber si el evento entró. Con el id del cliente, el
-// reintento vuelve como `EVENTO_DUPLICADO` en vez de cargar el parto dos veces
-// (decisión 41, y decisión 63 por el lado de la UI).
+// El evento viaja con **su propio id**. No es capricho: en el corral la señal se
+// corta, y un POST cuya respuesta se pierde deja al tambero sin saber si el
+// evento entró. Con el id del cliente, el reintento vuelve como
+// `EVENTO_DUPLICADO` en vez de cargar el parto dos veces (decisión 41, y
+// decisiones 63 y 67 por el lado de la UI).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
@@ -31,6 +31,7 @@ import {
 } from '../formato';
 import { hoyDelServidor } from '../reloj';
 import { aAnimal, ir } from '../ruteo';
+import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 /**
@@ -49,22 +50,6 @@ const CARGABLES: readonly TipoEvento[] = [
   'control_lechero',
   'baja',
 ];
-
-/**
- * Un id para el evento, si el browser lo sabe generar.
- *
- * `crypto.randomUUID` **no existe fuera de un contexto seguro**, y el celular
- * del tambo entra por `http://192.168.x.x` en la red del establecimiento — que
- * no lo es. Por eso se degrada en silencio: sin id, el servidor genera el suyo
- * y se pierde la protección contra el reintento duplicado, no la carga.
- */
-function nuevoIdDeEvento(): string | undefined {
-  try {
-    return globalThis.crypto?.randomUUID?.();
-  } catch {
-    return undefined;
-  }
-}
 
 const CRIA_NUEVA: Cria = { sexo: 'hembra', resultado: 'viva' };
 
@@ -113,7 +98,7 @@ function Formulario({ animalId }: { animalId: string }) {
 
   // El id se genera **una vez por formulario** y sobrevive a los reintentos: es
   // lo que hace que insistir después de un corte de red no duplique el evento.
-  const idDelEvento = useMemo(nuevoIdDeEvento, []);
+  const idDelEvento = useMemo(nuevoUuid, []);
 
   const payload = (): unknown => {
     switch (tipo) {

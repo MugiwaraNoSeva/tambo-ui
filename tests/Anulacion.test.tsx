@@ -84,6 +84,11 @@ describe('anular', () => {
 
     await waitFor(() => expect(falsa.cuerpoDe(RUTA_POST)).toBeDefined());
     expect(falsa.cuerpoDe(RUTA_POST)).toEqual({
+      // Con su id, como cualquier carga: una anulación reintentada después de un
+      // corte de red vuelve como EVENTO_DUPLICADO (decisión 67).
+      id: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      ),
       tipo: 'anulacion',
       payload: { evento_anulado_id: 'e102-4' },
       observaciones: 'Los litros eran de la 103.',

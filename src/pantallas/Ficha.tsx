@@ -13,7 +13,7 @@
 // decisión 37 sobre los `null`).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ErrorApi, api } from '../api/cliente';
 import type { Ciclo, CuerpoError, EventoHistorial, RespuestaAnimal } from '../api/tipos';
 import { EtiquetasDeEstado } from '../componentes/animales';
@@ -40,6 +40,7 @@ import {
   porcentaje,
 } from '../formato';
 import { aCargar, aRodeo } from '../ruteo';
+import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 export function Ficha({ id }: { id: string }) {
@@ -437,12 +438,16 @@ function Anulacion({
   const [observaciones, setObservaciones] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [rechazo, setRechazo] = useState<CuerpoError | null>(null);
+  // Con su id, como cualquier carga: una anulación reintentada después de un
+  // corte de red vuelve como `EVENTO_DUPLICADO` (decisión 67).
+  const idDeLaAnulacion = useMemo(nuevoUuid, []);
 
   async function anular() {
     setEnviando(true);
     setRechazo(null);
     try {
       await api.cargarEvento(est, animalId, {
+        ...(idDeLaAnulacion === undefined ? {} : { id: idDeLaAnulacion }),
         tipo: 'anulacion',
         payload: { evento_anulado_id: evento.id },
         observaciones: observaciones.trim(),
