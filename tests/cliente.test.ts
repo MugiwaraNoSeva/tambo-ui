@@ -4,7 +4,17 @@
 import { describe, expect, it } from 'vitest';
 import { ErrorApi, ErrorDeRed, api } from '../src/api/cliente';
 import { montarApi, montarApiCaida } from './servidor';
-import { EST, V102, alertas, establecimiento, rechazoForzable, tanque } from './fixtures';
+import {
+  EST,
+  V102,
+  alertas,
+  animales,
+  animalesConBajas,
+  establecimiento,
+  rechazoForzable,
+  rechazoNoForzable,
+  tanque,
+} from './fixtures';
 
 describe('las rutas de §9', () => {
   it('pega en la ruta del establecimiento', async () => {
@@ -23,17 +33,24 @@ describe('las rutas de §9', () => {
 
   it('el listado del rodeo pide `todas` solo cuando se lo piden', async () => {
     const falsa = montarApi({
-      [`GET /establecimientos/${EST}/animales`]: { cuerpo: { fecha: '2026-07-29', animales: [] } },
-      [`GET /establecimientos/${EST}/animales?todas=true`]: {
-        cuerpo: { fecha: '2026-07-29', animales: [] },
-      },
+      [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
+      [`GET /establecimientos/${EST}/animales?todas=true`]: { cuerpo: animalesConBajas },
     });
-    await api.animales(EST);
-    await api.animales(EST, true);
+
+    const activas = await api.animales(EST);
+    const todas = await api.animales(EST, true);
+
     expect(falsa.pedidos.map((p) => p.ruta)).toEqual([
       `/establecimientos/${EST}/animales`,
       `/establecimientos/${EST}/animales?todas=true`,
     ]);
+    expect(activas.animales).toHaveLength(3);
+    expect(activas.animales.every((a) => a.vida === 'ACTIVA')).toBe(true);
+    // La de baja llega con su `vida` y sin categoría: no se la esconde, se la
+    // distingue (decisión 53).
+    const vendida = todas.animales.find((a) => a.vida === 'BAJA');
+    expect(vendida?.caravana).toBe('107');
+    expect(vendida?.categoria).toBeNull();
   });
 
   it('arma el período del tanque como query, y sin período no manda query', async () => {
@@ -91,6 +108,20 @@ describe('los rechazos', () => {
     // El mensaje del núcleo viaja SIN tocar: está redactado para el tambero.
     expect(apiError.message).toBe(rechazoForzable.mensaje);
     expect(apiError.forzable).toBe(true);
+  });
+
+  it('un rechazo que la API marca no forzable no se ofrece confirmar', async () => {
+    montarApi({
+      [`POST /establecimientos/${EST}/animales/${V102}/eventos`]: {
+        status: 422,
+        cuerpo: rechazoNoForzable,
+      },
+    });
+    const error = (await api
+      .cargarEvento(EST, V102, { tipo: 'control_lechero' })
+      .catch((e: unknown) => e)) as ErrorApi;
+    expect(error.cuerpo.codigo).toBe('SIN_LACTANCIA_ABIERTA');
+    expect(error.forzable).toBe(false);
   });
 
   it('sin `forzable` en el cuerpo, no se ofrece confirmar', async () => {

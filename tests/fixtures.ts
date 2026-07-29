@@ -15,6 +15,7 @@ import type {
   CuerpoError,
   RespuestaAlertas,
   RespuestaAnimal,
+  RespuestaAnimales,
   RespuestaEstablecimiento,
   RespuestaEventos,
   RespuestaKPIs,
@@ -33,11 +34,63 @@ export const EST = '11111111-1111-1111-1111-111111111111';
 export const V102 = '22222222-2222-2222-2222-222222222222';
 export const V103 = '33333333-3333-3333-3333-333333333333';
 export const V104 = '44444444-4444-4444-4444-444444444444';
+export const V107 = '77777777-7777-7777-7777-777777777777';
 export const HOY = '2026-07-29';
 
 export const establecimiento: RespuestaEstablecimiento = {
   id: EST,
+  nombre: 'La Esperanza',
   config: CONFIG_DEFAULT,
+};
+
+export const animales: RespuestaAnimales = {
+  fecha: HOY,
+  animales: [
+    {
+      animal_id: V102,
+      caravana: '102',
+      vida: 'ACTIVA',
+      reproductivo: 'VACIA',
+      productivo: 'EN_LACTANCIA',
+      categoria: 'LACTANCIA_MEDIA',
+      fecha_ultimo_parto: '2026-01-13',
+    },
+    {
+      animal_id: V103,
+      caravana: '103',
+      vida: 'ACTIVA',
+      reproductivo: 'PRENADA',
+      productivo: 'EN_LACTANCIA',
+      categoria: 'LACTANCIA_TARDIA',
+      fecha_ultimo_parto: '2025-10-05',
+    },
+    {
+      animal_id: V104,
+      caravana: '104',
+      vida: 'ACTIVA',
+      reproductivo: 'INSEMINADA',
+      productivo: 'SECA',
+      categoria: 'RECRIA',
+      fecha_ultimo_parto: null,
+    },
+  ],
+};
+
+/** La vendida del mes pasado: solo aparece con `?todas=true`. */
+export const animalesConBajas: RespuestaAnimales = {
+  fecha: HOY,
+  animales: [
+    ...animales.animales,
+    {
+      animal_id: V107,
+      caravana: '107',
+      vida: 'BAJA',
+      reproductivo: null,
+      productivo: null,
+      categoria: null,
+      fecha_ultimo_parto: null,
+    },
+  ],
 };
 
 export const alertas: RespuestaAlertas = {

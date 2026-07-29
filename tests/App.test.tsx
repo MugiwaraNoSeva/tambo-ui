@@ -23,7 +23,7 @@ describe('conexión con el tambo', () => {
     await userEvent.type(screen.getByLabelText(/id del establecimiento/i), EST);
     await userEvent.click(screen.getByRole('button', { name: 'Conectar' }));
 
-    expect(await screen.findByText(/^Conectado a /)).toBeInTheDocument();
+    expect(await screen.findByText('Conectado a La Esperanza')).toBeInTheDocument();
     expect(falsa.pedidos[0]?.ruta).toBe(`/establecimientos/${EST}`);
     expect(window.localStorage.getItem('tambo.establecimiento')).toBe(EST);
   });
@@ -50,18 +50,20 @@ describe('conexión con el tambo', () => {
     montarApi({ [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento } });
     render(<App />);
 
-    expect(await screen.findByText(/^Conectado a /)).toBeInTheDocument();
+    expect(await screen.findByText('Conectado a La Esperanza')).toBeInTheDocument();
     expect(screen.queryByLabelText(/id del establecimiento/i)).not.toBeInTheDocument();
   });
 
-  it('lo muestra por su nombre cuando la API lo manda', async () => {
+  it('lo saluda por su nombre, que es lo que el tambero reconoce (decisión 53)', async () => {
     window.localStorage.setItem('tambo.establecimiento', EST);
     montarApi({
-      [`GET /establecimientos/${EST}`]: { cuerpo: { ...establecimiento, nombre: 'La Esperanza' } },
+      [`GET /establecimientos/${EST}`]: { cuerpo: { ...establecimiento, nombre: 'El Ombú' } },
     });
     render(<App />);
 
-    expect(await screen.findByText('Conectado a La Esperanza')).toBeInTheDocument();
+    // El nombre, y no el uuid: en el encabezado y en la tarjeta.
+    expect(await screen.findByText('Conectado a El Ombú')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'El Ombú' })).toBeInTheDocument();
   });
 
   it('cambiar de tambo olvida el guardado y vuelve a preguntar', async () => {
@@ -69,7 +71,8 @@ describe('conexión con el tambo', () => {
     montarApi({ [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento } });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: /cambiar de tambo/i }));
+    await screen.findByText('Conectado a La Esperanza');
+    await userEvent.click(screen.getByRole('button', { name: /cambiar de tambo/i }));
 
     await waitFor(() =>
       expect(screen.getByLabelText(/id del establecimiento/i)).toBeInTheDocument(),

@@ -8,8 +8,7 @@ import type { Config } from './api/tipos';
 
 export interface EstablecimientoActivo {
   id: string;
-  /** Ausente mientras la API no lo devuelva; ver `RespuestaEstablecimiento`. */
-  nombre?: string;
+  nombre: string;
   config: Config;
 }
 
@@ -26,7 +25,3 @@ export function usarEstablecimiento(): EstablecimientoActivo {
   }
   return valor;
 }
-
-/** Cómo se lo nombra en pantalla mientras el nombre no venga de la API. */
-export const nombreVisible = (est: EstablecimientoActivo): string =>
-  est.nombre !== undefined && est.nombre !== '' ? est.nombre : `establecimiento ${est.id.slice(0, 8)}`;

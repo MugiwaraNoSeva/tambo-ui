@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
+  CategoriaAlimentacion,
   Config,
   ControlLechero,
   Cria,
@@ -56,10 +57,12 @@ export type {
 /**
  * Un rechazo, con la forma única de §9.1.
  *
- * `forzable` es la columna "¿Forzable?" de §5.6 servida por HTTP: lo único que
- * la UI necesita saber para ofrecer "Confirmar igual", y viene del servidor
- * justamente para no tener que mantener esa tabla acá. Es opcional mientras la
- * API todavía no lo mande — lo agrega la Parte 2.
+ * `forzable` es la columna "¿Forzable?" de §5.6 servida por HTTP (decisión 54):
+ * lo único que la UI necesita saber para ofrecer "Confirmar igual", y viene del
+ * servidor justamente para no tener que mantener esa tabla acá. Se declara
+ * opcional aunque la API lo mande siempre, porque un rechazo puede venir de un
+ * proxy o de un servidor viejo — y ausente se lee como "no forzable", que es el
+ * lado seguro.
  */
 export interface CuerpoError {
   codigo: string;
@@ -77,30 +80,26 @@ export interface ConflictoPosterior {
 
 // ── Establecimiento ──────────────────────────────────────────────────────────
 
-/**
- * `nombre` es opcional porque hoy **la API no lo devuelve**: `GET
- * /establecimientos/{est}` contesta `{id, config}` y el nombre solo sale del
- * `POST` que creó el tambo. Es el mismo hueco de la decisión 49 —un dato que el
- * sistema ya tiene guardado y no sirve—, así que se anota acá y se cierra en la
- * Parte 2, que es donde `api/` se puede tocar. Mientras tanto la pantalla de
- * conexión muestra el id, que es lo que hay.
- */
 export interface RespuestaEstablecimiento {
   id: string;
-  nombre?: string;
+  nombre: string;
   config: Config;
 }
 
 // ── Animales ─────────────────────────────────────────────────────────────────
 
-/** Una fila del listado del rodeo (`GET …/animales`). */
+/**
+ * Una fila del listado del rodeo (`GET …/animales`, decisión 53). Es lo justo
+ * para elegir cuál abrir: lo demás está en la ficha.
+ */
 export interface FilaAnimal {
   animal_id: string;
-  caravana: string;
+  caravana: string | null;
   vida: EstadoVida;
   reproductivo: EstadoReproductivo | null;
   productivo: EstadoProductivo | null;
-  categoria: string | null;
+  /** Null en las de baja: al que ya no está en el rodeo no se le da dieta. */
+  categoria: CategoriaAlimentacion | null;
   fecha_ultimo_parto: string | null;
 }
 

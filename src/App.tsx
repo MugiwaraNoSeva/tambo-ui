@@ -16,7 +16,7 @@ import {
   olvidarEstablecimiento,
 } from './almacen';
 import { Aviso, Cargando, Tarjeta } from './componentes/basicos';
-import { ProveedorEstablecimiento, nombreVisible } from './establecimiento';
+import { ProveedorEstablecimiento } from './establecimiento';
 import { Conexion } from './pantallas/Conexion';
 import { usarPedido } from './usarPedido';
 
@@ -70,16 +70,16 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
     );
   }
 
-  const activo = { id, config: datos.config, ...(datos.nombre === undefined ? {} : { nombre: datos.nombre }) };
+  const activo = { id, nombre: datos.nombre, config: datos.config };
 
   return (
     <ProveedorEstablecimiento value={activo}>
       <div className="app">
         <header className="encabezado">
-          <h1>{nombreVisible(activo)}</h1>
+          <h1>{activo.nombre}</h1>
         </header>
         <main className="contenido">
-          <Tarjeta titulo={`Conectado a ${nombreVisible(activo)}`}>
+          <Tarjeta titulo={`Conectado a ${activo.nombre}`}>
             <p className="vacio">
               Las pantallas del tambero —el tablero de la mañana, el rodeo y la carga— llegan en
               las partes que siguen.
