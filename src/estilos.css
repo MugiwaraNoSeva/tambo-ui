@@ -1,0 +1,396 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   CSS propio, en un archivo.
+
+   Se descartó Tailwind y se descartó una librería de componentes (MUI,
+   Chakra): las dos resuelven el problema de un equipo grande manteniendo
+   consistencia entre decenas de pantallas, y acá hay cinco. A cambio, Tailwind
+   mete un paso de build más y las clases utilitarias en el JSX; una librería de
+   componentes trae un sistema de temas entero, y su idea de "botón" no es la de
+   acá — el botón de esta app se toca con guante mojado (decisión 51).
+
+   Las variables de abajo son el sistema de diseño completo. Que sea corto es el
+   punto: si hay que agregarle una escala tipográfica, es que la app creció y la
+   decisión hay que revisarla.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Verde de campo para lo que manda, y ningún color solo: al lado de cada
+     color hay siempre una palabra (convención 4 del prompt). */
+  --verde: #1b4332;
+  --verde-claro: #2d6a4f;
+  --verde-tenue: #d8f3dc;
+  --ambar: #9a6700;
+  --ambar-tenue: #fff4d6;
+  --rojo: #a4161a;
+  --rojo-tenue: #fde8e8;
+  --tinta: #1a1a1a;
+  --tinta-suave: #5c5c5c;
+  --papel: #ffffff;
+  --fondo: #f4f5f3;
+  --borde: #dcdfda;
+
+  /* 44 px es el mínimo con el que un dedo acierta; los targets frecuentes van
+     más grandes todavía porque la mano está sucia y el animal se mueve. */
+  --toque: 48px;
+  --radio: 12px;
+  --espacio: 16px;
+
+  color-scheme: light;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--tinta);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  /* 17px de base: el cuerpo del texto se lee al sol y sin anteojos. */
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+/* ── Armazón ─────────────────────────────────────────────────────────────── */
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.encabezado {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--verde);
+  color: #fff;
+  padding: calc(env(safe-area-inset-top) + 10px) var(--espacio) 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--toque);
+}
+
+.encabezado h1 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.encabezado .volver {
+  background: transparent;
+  border: 0;
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  min-width: var(--toque);
+  min-height: var(--toque);
+  cursor: pointer;
+}
+
+.contenido {
+  flex: 1;
+  padding: var(--espacio);
+  padding-bottom: calc(var(--espacio) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio);
+}
+
+/* ── Tarjetas y secciones ────────────────────────────────────────────────── */
+
+.tarjeta {
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: var(--espacio);
+}
+
+.tarjeta > h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.subtitulo {
+  margin: -6px 0 12px;
+  color: var(--tinta-suave);
+  font-size: 0.9rem;
+}
+
+.vacio {
+  color: var(--tinta-suave);
+  margin: 0;
+}
+
+/* ── Listas de trabajo: la caravana es lo que se toca ────────────────────── */
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.fila:active {
+  background: var(--verde-tenue);
+}
+
+.caravana {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2em;
+}
+
+.fila .detalle {
+  flex: 1;
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+}
+
+.fila .flecha {
+  color: var(--tinta-suave);
+}
+
+/* ── Etiquetas de estado: color Y palabra, siempre ───────────────────────── */
+
+.etiqueta {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.etiqueta.verde {
+  background: var(--verde-tenue);
+  color: var(--verde);
+  border-color: #b7e4c7;
+}
+
+.etiqueta.ambar {
+  background: var(--ambar-tenue);
+  color: var(--ambar);
+  border-color: #f2d98c;
+}
+
+.etiqueta.gris {
+  background: #eceef0;
+  color: var(--tinta-suave);
+  border-color: var(--borde);
+}
+
+.etiqueta.rojo {
+  background: var(--rojo-tenue);
+  color: var(--rojo);
+  border-color: #f5c2c2;
+}
+
+/* ── Cifras ──────────────────────────────────────────────────────────────── */
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cifra .valor {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.cifra .rotulo {
+  font-size: 0.82rem;
+  color: var(--tinta-suave);
+}
+
+.cifra .valor.sin-datos {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--tinta-suave);
+}
+
+/* ── Botones ─────────────────────────────────────────────────────────────── */
+
+.boton {
+  min-height: var(--toque);
+  padding: 12px 18px;
+  border-radius: var(--radio);
+  border: 1px solid var(--verde);
+  background: var(--verde);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.boton.secundario {
+  background: var(--papel);
+  color: var(--verde);
+}
+
+.boton.peligro {
+  background: var(--rojo);
+  border-color: var(--rojo);
+  color: #fff;
+}
+
+.boton.ancho {
+  width: 100%;
+}
+
+/* ── Formularios ─────────────────────────────────────────────────────────── */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.campo > span {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+  min-height: var(--toque);
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--papel);
+  font: inherit;
+  /* 16px o más: abajo de eso iOS hace zoom al enfocar y descoloca la pantalla. */
+  font-size: 17px;
+  color: inherit;
+}
+
+.campo textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.campo .ayuda {
+  font-size: 0.82rem;
+  color: var(--tinta-suave);
+}
+
+.dos-columnas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── Avisos ──────────────────────────────────────────────────────────────── */
+
+.aviso {
+  border-radius: var(--radio);
+  padding: 12px 14px;
+  border: 1px solid;
+}
+
+.aviso.error {
+  background: var(--rojo-tenue);
+  border-color: #f5c2c2;
+  color: #6b0f12;
+}
+
+.aviso.atencion {
+  background: var(--ambar-tenue);
+  border-color: #f2d98c;
+  color: #6b4800;
+}
+
+.aviso.bien {
+  background: var(--verde-tenue);
+  border-color: #b7e4c7;
+  color: var(--verde);
+}
+
+.aviso h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.aviso p {
+  margin: 0;
+}
+
+.aviso .codigo {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+/* ── Barra de acciones frecuentes ────────────────────────────────────────── */
+
+.acciones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.acciones > * {
+  flex: 1 1 140px;
+}
+
+/* ── Estados de carga ────────────────────────────────────────────────────── */
+
+.cargando {
+  color: var(--tinta-suave);
+  padding: 8px 0;
+}
