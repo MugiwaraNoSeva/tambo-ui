@@ -228,7 +228,9 @@ export function detallePayload(tipo: TipoEvento, payload: unknown): string | nul
       const nacimiento = texto(payload, 'fecha_nacimiento');
       if (nacimiento !== null) partes.push(`nacida el ${fechaCorta(nacimiento)}`);
       const lactancia = cifra(campo(payload, 'estado_inicial'), 'numero_lactancia');
-      if (lactancia !== null) partes.push(`entra con ${lactancia} lactancias`);
+      if (lactancia !== null) {
+        partes.push(`entra con ${lactancia} ${lactancia === 1 ? 'lactancia' : 'lactancias'}`);
+      }
       break;
     }
     case 'inseminacion': {

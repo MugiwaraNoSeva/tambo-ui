@@ -31,6 +31,13 @@ import { mensajeDe, usarPedido } from '../usarPedido';
 /** `2026-07-29` → `2026-07-01`. Presentación pura: corta, no calcula. */
 const primeroDelMes = (dia: string): string => `${dia.slice(0, 8)}01`;
 
+/**
+ * Cuántas fechas faltantes se escriben antes de resumir. Ocho entran en dos
+ * renglones de celular; de ahí en más la lista deja de ser una lista de tareas y
+ * pasa a ser un párrafo (decisión 65).
+ */
+const DIAS_QUE_SE_LISTAN = 8;
+
 export function Tanque() {
   const { id: est } = usarEstablecimiento();
   const hoy = hoyDelServidor();
@@ -81,14 +88,25 @@ export function Tanque() {
                 valor={enLitros(datos.litros_por_vaca_en_ordene)}
               />
               <Cifra rotulo="Días cargados" valor={numero(datos.registros.length)} />
+              <Cifra rotulo="Días sin cargar" valor={numero(datos.dias_sin_registro?.length)} />
             </div>
 
             {/* El hueco silencioso que la decisión 33 vino a mostrar: un día sin
                 cargar no baja el promedio —que divide por días con registro—,
-                desaparece de la cuenta del mes. */}
+                desaparece de la cuenta del mes. La cuenta va arriba como cifra y
+                acá van las fechas, **acotadas**: la auditoría de cierre encontró
+                un período con veinte días seguidos sin cargar, y veinte fechas
+                en fila son una pared que nadie lee (decisión 65). */}
             {datos.dias_sin_registro !== null && datos.dias_sin_registro.length > 0 && (
-              <Aviso tono="atencion" titulo="Días sin cargar en este período">
-                {datos.dias_sin_registro.map(fechaCorta).join(' · ')}
+              <Aviso
+                tono="atencion"
+                titulo={`${numero(datos.dias_sin_registro.length)} ${
+                  datos.dias_sin_registro.length === 1 ? 'día' : 'días'
+                } sin cargar en este período`}
+              >
+                {datos.dias_sin_registro.slice(0, DIAS_QUE_SE_LISTAN).map(fechaCorta).join(' · ')}
+                {datos.dias_sin_registro.length > DIAS_QUE_SE_LISTAN &&
+                  ` y ${numero(datos.dias_sin_registro.length - DIAS_QUE_SE_LISTAN)} más.`}
               </Aviso>
             )}
 

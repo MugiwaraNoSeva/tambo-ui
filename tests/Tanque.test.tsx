@@ -52,8 +52,33 @@ describe('el período', () => {
     expect(cifra('Días cargados')).toBe('9');
 
     // El hueco silencioso de la decisión 33, dicho con su fecha.
-    expect(screen.getByText(/días sin cargar/i)).toBeInTheDocument();
+    expect(screen.getByText('1 día sin cargar en este período')).toBeInTheDocument();
     expect(screen.getByText('25/07/2026')).toBeInTheDocument();
+    expect(cifra('Días sin cargar')).toBe('1');
+  });
+
+  it('con muchos días faltantes resume en vez de escupir una pared de fechas', async () => {
+    // Lo encontró la auditoría de cierre: el período por default es el mes en
+    // curso, y un tambo que empezó a cargar a mitad de mes mostraba veinte
+    // fechas seguidas en un renglón (decisión 65).
+    const faltantes = [
+      '2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05',
+      '2026-07-06', '2026-07-07', '2026-07-08', '2026-07-09', '2026-07-10',
+      '2026-07-11', '2026-07-25',
+    ];
+    montarTanque({
+      [`GET ${PERIODO}`]: {
+        cuerpo: { ...tanqueDelPeriodo, dias_sin_registro: faltantes },
+      },
+    });
+    render(<App />);
+
+    await screen.findByText('Litros del período');
+    expect(cifra('Días sin cargar')).toBe('12');
+    expect(screen.getByText('12 días sin cargar en este período')).toBeInTheDocument();
+    // Ocho fechas y el resumen del resto.
+    expect(screen.getByText(/01\/07\/2026 · .* · 08\/07\/2026 y 4 más\./)).toBeInTheDocument();
+    expect(screen.queryByText(/25\/07\/2026/)).not.toBeInTheDocument();
   });
 });
 

@@ -69,10 +69,18 @@ export function Ficha({ id }: { id: string }) {
           <EstadoActual animal={datos} />
 
           {/* La acción más frecuente de la ficha, arriba y a un toque: se entra
-              a una ficha en el corral para cargar lo que se acaba de ver. */}
-          <a className="boton ancho" href={aCargar(id)}>
-            Cargar un evento
-          </a>
+              a una ficha en el corral para cargar lo que se acaba de ver.
+              **Salvo en un animal de baja**, donde no se ofrece: la baja es
+              terminal (decisión 7) y todo evento posterior se rechaza sin
+              posibilidad de forzarlo, así que el botón sería un formulario
+              entero cuyo único final posible es un "no" (decisión 65). La
+              salida existe y está a la vista: anular la baja desde el
+              historial, que es el último evento vigente. */}
+          {datos.proyeccion.estado.vida !== 'BAJA' && (
+            <a className="boton ancho" href={aCargar(id)}>
+              Cargar un evento
+            </a>
+          )}
 
           <KPIs animalId={id} version={version} />
           <Lactancias animalId={id} version={version} />
@@ -105,7 +113,7 @@ function EstadoActual({ animal }: { animal: RespuestaAnimal }) {
       {e.motivo_baja !== null && (
         <Aviso tono="atencion" titulo="Fuera del rodeo">
           Salió por {MOTIVO_BAJA[e.motivo_baja].toLowerCase()}. No cuenta en ninguna de las cifras
-          del rodeo.
+          del rodeo y no se le pueden cargar eventos. Si volvió, anulá la baja desde el historial.
         </Aviso>
       )}
 

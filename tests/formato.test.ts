@@ -7,6 +7,7 @@ import {
   CATEGORIA,
   REPRODUCTIVO,
   SIN_DATO,
+  detallePayload,
   dias,
   fechaCorta,
   fechaOSinDato,
@@ -69,6 +70,24 @@ describe('números', () => {
   it('singulariza el día', () => {
     expect(dias(1)).toBe('1 día');
     expect(dias(2)).toBe('2 días');
+  });
+
+  it('y también la lactancia del alta, que la auditoría encontró en plural', () => {
+    // "entra con 1 lactancias" en la ficha de la 106 de la demo (decisión 65).
+    expect(detallePayload('alta', { estado_inicial: { numero_lactancia: 1 } })).toBe(
+      'entra con 1 lactancia',
+    );
+    expect(detallePayload('alta', { estado_inicial: { numero_lactancia: 3 } })).toBe(
+      'entra con 3 lactancias',
+    );
+  });
+
+  it('lee el payload defensivamente: lo que no está no sale en la línea', () => {
+    expect(detallePayload('inseminacion', { toro: 'Urubó' })).toBe('toro Urubó');
+    expect(detallePayload('inseminacion', {})).toBeNull();
+    // Un payload de otra forma no rompe la ficha: se ignora.
+    expect(detallePayload('control_lechero', { litros: 'muchos' })).toBeNull();
+    expect(detallePayload('celo', {})).toBeNull();
   });
 });
 

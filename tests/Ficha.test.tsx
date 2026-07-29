@@ -278,5 +278,12 @@ describe('el animal de baja', () => {
     expect(await screen.findByText(/fuera del rodeo/i)).toBeInTheDocument();
     expect(screen.getByText(/salió por venta/i)).toBeInTheDocument();
     expect(screen.getByText('De baja')).toBeInTheDocument();
+
+    // Y no se le ofrece cargar eventos: la baja es terminal (decisión 7), así
+    // que el botón sería un formulario entero cuyo único final es un rechazo
+    // que ni siquiera se puede forzar. Lo encontró la auditoría de cierre
+    // (decisión 65). La salida sí está: anular la baja desde el historial.
+    expect(screen.queryByRole('link', { name: 'Cargar un evento' })).not.toBeInTheDocument();
+    expect(screen.getByText(/anulá la baja desde el historial/i)).toBeInTheDocument();
   });
 });
