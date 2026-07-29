@@ -1,0 +1,18 @@
+# Dependencias
+node_modules/
+
+# Salida del build
+dist/
+*.tsbuildinfo
+
+# Configuración local de Claude Code (permisos por máquina, no compartible)
+.claude/settings.local.json
+
+# Variables de entorno locales (la URL de la demo cambia de puerto)
+.env.local
+.env.*.local
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
