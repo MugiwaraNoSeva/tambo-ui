@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
+  Config,
   CuerpoError,
   RespuestaAlertas,
   RespuestaAnimal,
@@ -23,13 +24,40 @@ import type {
   RespuestaRodeo,
   RespuestaTanque,
 } from '../src/api/tipos';
-// El `Config` viene del núcleo como VALOR y no copiado: en la suite el import
-// no cuesta nada (Vitest resuelve el fuente de `mu/` igual que `api/`), y así
-// una fixture no puede quedar con parámetros que el tambo ya no usa. En la app
-// que va al browser, en cambio, de `tambo-reglas` solo se importan tipos
-// (decisión 51).
-import { CONFIG_DEFAULT } from 'tambo-reglas';
 import type { RespuestaFalsa } from './servidor';
+
+/**
+ * La `Config` por default del núcleo, **copiada**.
+ *
+ * Hasta la mudanza esto era `import { CONFIG_DEFAULT } from 'tambo-reglas'` —el
+ * valor de verdad, que en la suite no costaba nada—. Fuera del monorepo el
+ * paquete no está, así que queda el literal (decisión 66). Lo que sostiene que
+ * no se despegue es el tipo: está anotado como `Config`, y un parámetro que el
+ * núcleo agregue o renombre rompe el typecheck acá.
+ *
+ * Ninguna pantalla lee estos números —la UI no calcula nada del dominio—, así
+ * que su único trabajo es que el `Config` de las respuestas tenga forma de
+ * `Config`. Si algún día importan de verdad, hay que traerlos de la API.
+ */
+const CONFIG_DEFAULT: Config = {
+  dias_validez_celo: 3,
+  dias_gestacion: 283,
+  dias_secado_preparto: 60,
+  dias_retorno_celo: 21,
+  dias_gestacion_min: 265,
+  dias_gestacion_max: 295,
+  dias_min_para_tacto: 28,
+  dias_min_entre_celos: 17,
+  dias_pve: 45,
+  dias_edad_min_primer_servicio: 390,
+  dias_min_secado_preparto: 40,
+  dias_alerta_sin_diagnostico: 40,
+  del_lactancia_temprana: 100,
+  del_lactancia_media: 200,
+  dias_preparto: 21,
+  litros_max_control: 80,
+  dias_lactancia_estandar: 305,
+};
 
 export const EST = '11111111-1111-1111-1111-111111111111';
 export const V101 = '11111111-aaaa-aaaa-aaaa-111111111111';

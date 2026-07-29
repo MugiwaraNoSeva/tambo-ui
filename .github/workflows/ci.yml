@@ -1,0 +1,36 @@
+# El CI de la UI, que hasta la mudanza era el cuarto job del repo del backend.
+#
+# **Sin Postgres, y es el punto.** La suite mockea `fetch`, así que no necesita
+# ni base ni API levantada: la verificación pesada vive en los 354 tests de
+# `mu/`, `db/` y `api/` en el repo del backend, y repetirla contra un mock
+# probaría que el mock obedece, no que el sistema anda.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` y no `npm install`: instala exactamente el lockfile y falla si
+      # se desincronizó del package.json, que es lo que se quiere en CI.
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run typecheck
+
+      # El build va además de los tests porque falla por cosas distintas: un
+      # import que Vitest resuelve y Rollup no, un asset que no existe, una
+      # variable de entorno que solo se lee al empaquetar.
+      - run: npm run build

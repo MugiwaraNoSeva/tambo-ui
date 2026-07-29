@@ -1,11 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // El contrato de §9, escrito una sola vez.
 //
-// Regla del archivo: **lo que ya es del núcleo se importa, no se copia.**
-// `Proyeccion`, `ResumenKPIs`, `ControlLechero`, `Cria`… vienen de
-// `tambo-reglas` con `import type`, que TypeScript borra al compilar: el
-// vocabulario es uno solo y el browser no se lleva ni un byte del motor de
-// dominio (decisión 51).
+// Regla del archivo: **lo que ya es del núcleo viene de `./nucleo`, no se
+// reescribe acá.** `Proyeccion`, `ResumenKPIs`, `ControlLechero`, `Cria`… son el
+// vocabulario del dominio y viven en un solo lugar de este paquete.
+//
+// Hasta la mudanza a su propio repo eso era `import type … from 'tambo-reglas'`;
+// hoy `nucleo.ts` es una copia de esas declaraciones, con el porqué escrito en
+// su encabezado (decisión 66). Lo que no cambió es lo que importa: son **tipos**,
+// que TypeScript borra al compilar, así que el browser no se lleva ni un byte
+// del motor de dominio (decisión 51).
 //
 // Lo que sí se escribe acá es **el sobre**: los campos que la API le agrega a
 // esas entidades al servirlas (`fecha`, `animal_id`, la caravana de las listas
@@ -27,7 +31,7 @@ import type {
   ResumenKPIs,
   ResumenRodeo,
   TipoEvento,
-} from 'tambo-reglas';
+} from './nucleo';
 
 export type {
   CategoriaAlimentacion,
@@ -52,7 +56,7 @@ export type {
   ResultadoCria,
   SexoCria,
   TipoEvento,
-} from 'tambo-reglas';
+} from './nucleo';
 
 // ── El sobre de los errores (§9.1) ───────────────────────────────────────────
 

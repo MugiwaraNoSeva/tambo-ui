@@ -108,11 +108,12 @@ export const VIDA: Record<EstadoVida, string> = {
 };
 
 /**
- * Las categorías de alimentación. Espeja `NOMBRE_CATEGORIA` de `tambo-reglas`
- * a propósito y no lo importa: traerlo obligaría a un `import` de valor —no de
- * tipo— y con él viajaría al bundle del browser el motor de dominio entero por
- * seis strings (decisión 51). El tipo sí viene del núcleo, así que si mañana
- * aparece una categoría nueva este `Record` no compila.
+ * Las categorías de alimentación, en castellano. Espeja `NOMBRE_CATEGORIA` del
+ * núcleo: cuando la UI vivía en el monorepo, importarlo habría obligado a un
+ * `import` de valor —no de tipo— y con él viajaba al bundle el motor de dominio
+ * entero por seis strings (decisión 51); hoy el paquete directamente no está
+ * (decisión 66). Lo que lo ata al original es el tipo: si mañana aparece una
+ * categoría nueva en `nucleo.ts`, este `Record` no compila.
  */
 export const CATEGORIA: Record<CategoriaAlimentacion, string> = {
   RECRIA: 'Recría',

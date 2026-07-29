@@ -13,8 +13,10 @@ escribiendo su id y queda en `localStorage`.
 Dos comandos, en dos terminales:
 
 ```bash
-cd api && DEMO_PORT=3000 npm run demo   # API + Postgres embebido + un tambo poblado
-cd ui  && npm run dev                   # http://localhost:5173
+# en el repo del backend
+DEMO_PORT=3000 npm run demo --prefix api   # API + Postgres embebido + un tambo poblado
+# en este repo
+npm run dev                                # http://localhost:5173
 ```
 
 La demo imprime el **id del establecimiento** al terminar de poblar: se copia y se
@@ -100,9 +102,24 @@ en la 61.
    dice "medimos y dio cero"; un blanco dice "acá no va nada"; lo que pasa es que
    no hay con qué calcularlo.
 
+## El vocabulario del núcleo es una copia
+
+`src/api/nucleo.ts` tiene los tipos del dominio (`Proyeccion`, `ResumenKPIs`,
+`CategoriaAlimentacion`…) **copiados** de `mu/src` del repo del backend. Hasta
+que la UI vivía en el monorepo eso era un `import type` contra el paquete
+`tambo-reglas`; fuera de ahí la ruta no existe y npm no instala desde un
+subdirectorio de un repo git.
+
+Se pudo copiar porque son solo declaraciones: la UI importa tipos y **nunca**
+valores, así que al browser no viaja una línea del motor de dominio. El costo es
+que la copia se puede despegar del original, y lo que la ata es parcial —
+detecta lo que cambia de forma, no lo que se agrega. La red de verdad es usar la
+app contra la demo. Está todo en el encabezado de ese archivo y en la decisión 66.
+
 ## Dónde está el resto
 
-La spec es **`proyecto_app_tambo-1.md`** en la raíz del repo: §5.6 (los códigos de
-error y su columna "¿Forzable?"), §7 (las decisiones, de la 50 a la 65 son de la
-UI) y **§9 (el contrato de la API, la única fuente de verdad sobre requests y
-respuestas)**.
+El backend vive en **`https://github.com/MugiwaraNoSeva/tambo.git`**: el núcleo
+(`mu/`), la persistencia (`db/`), la API (`api/`) y la demo. Ahí está también la
+spec, **`proyecto_app_tambo-1.md`**: §5.6 (los códigos de error y su columna
+"¿Forzable?"), §7 (las decisiones — de la 50 a la 66 son de la UI) y **§9 (el
+contrato de la API, la única fuente de verdad sobre requests y respuestas)**.
