@@ -45,8 +45,9 @@ describe('las rutas de §9', () => {
       `/establecimientos/${EST}/animales`,
       `/establecimientos/${EST}/animales?todas=true`,
     ]);
-    expect(activas.animales).toHaveLength(3);
+    expect(activas.animales).toHaveLength(7);
     expect(activas.animales.every((a) => a.vida === 'ACTIVA')).toBe(true);
+    expect(todas.animales).toHaveLength(8);
     // La de baja llega con su `vida` y sin categoría: no se la esconde, se la
     // distingue (decisión 53).
     const vendida = todas.animales.find((a) => a.vida === 'BAJA');

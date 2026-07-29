@@ -1,0 +1,134 @@
+// La lista del rodeo. Lo que hay que probar acá es el **filtrado en el
+// cliente** (decisión 58): que la lista se pida una vez y que buscar y filtrar
+// no vuelvan a pedirla. Que la 103 esté preñada lo decidió el núcleo.
+
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { App } from '../src/App';
+import { montarApi, type ApiFalsa, type Manejador } from './servidor';
+import {
+  EST,
+  V102,
+  animales,
+  animalesConBajas,
+  establecimiento,
+} from './fixtures';
+
+function montarRodeo(cambios: Record<string, Manejador> = {}): ApiFalsa {
+  window.localStorage.setItem('tambo.establecimiento', EST);
+  window.location.hash = '#/rodeo';
+  return montarApi({
+    [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+    [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
+    [`GET /establecimientos/${EST}/animales?todas=true`]: { cuerpo: animalesConBajas },
+    ...cambios,
+  });
+}
+
+/** Las caravanas visibles, en el orden en que están en la pantalla. */
+const caravanas = (): string[] =>
+  [...document.querySelectorAll('.lista .caravana')].map((e) => e.textContent ?? '');
+
+const contador = () => screen.getByRole('heading', { name: /^\d+ de \d+$/ }).textContent;
+
+describe('la lista del rodeo', () => {
+  it('trae las activas y cada una lleva a su ficha', async () => {
+    montarRodeo();
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: '7 de 7' })).toBeInTheDocument();
+    expect(caravanas()).toEqual(['101', '102', '103', '104', '105', '106', '150']);
+    expect(screen.getByRole('link', { name: /^102/ })).toHaveAttribute(
+      'href',
+      `#/animales/${V102}`,
+    );
+  });
+
+  it('muestra los dos ejes con palabras, no solo con color', async () => {
+    montarRodeo();
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '7 de 7' });
+    const fila103 = screen.getByRole('link', { name: /^103/ });
+    expect(fila103).toHaveTextContent('Preñada');
+    expect(fila103).toHaveTextContent('En ordeñe');
+    expect(fila103).toHaveTextContent('Lactancia tardía');
+    expect(fila103).toHaveTextContent('parió el 05/10/2025');
+  });
+});
+
+describe('buscar y filtrar', () => {
+  it('busca por coincidencia parcial y sin volver a pedir la lista', async () => {
+    const falsa = montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+    const pedidosIniciales = falsa.pedidos.length;
+
+    await userEvent.type(screen.getByLabelText('Caravana'), '10');
+
+    // "10" alcanza a la 101…106 y deja afuera a la 150: así se busca cuando uno
+    // no se acuerda del número entero.
+    expect(caravanas()).toEqual(['101', '102', '103', '104', '105', '106']);
+    expect(contador()).toBe('6 de 7');
+    // Y no hubo ni un viaje más al servidor (decisión 58).
+    expect(falsa.pedidos.length).toBe(pedidosIniciales);
+  });
+
+  it('filtra por estado reproductivo y productivo a la vez', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+
+    await userEvent.selectOptions(screen.getByLabelText('Reproductivo'), 'VACIA');
+    await userEvent.selectOptions(screen.getByLabelText('Productivo'), 'EN_LACTANCIA');
+
+    expect(caravanas()).toEqual(['102', '106']);
+  });
+
+  it('filtra por categoría de alimentación', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Categoría de alimentación'),
+      'LACTANCIA_TEMPRANA',
+    );
+
+    expect(caravanas()).toEqual(['106']);
+  });
+
+  it('sin resultados lo dice, y distingue "no hay" de "no encontré"', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+
+    await userEvent.type(screen.getByLabelText('Caravana'), '999');
+
+    expect(screen.getByText(/ningún animal con esos filtros/i)).toBeInTheDocument();
+    expect(contador()).toBe('0 de 7');
+  });
+});
+
+describe('las de baja', () => {
+  it('quedan afuera hasta que se piden, y ahí la lista se vuelve a traer', async () => {
+    const falsa = montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+    expect(caravanas()).not.toContain('107');
+
+    await userEvent.click(screen.getByLabelText(/también las de baja/i));
+
+    // Esta sí es una consulta nueva: `?todas=true` es otra lista, no un filtro
+    // de la que ya está (decisión 53).
+    expect(await screen.findByRole('heading', { name: '8 de 8' })).toBeInTheDocument();
+    expect(caravanas()).toContain('107');
+    expect(falsa.pedidos.map((p) => p.ruta)).toContain(
+      `/establecimientos/${EST}/animales?todas=true`,
+    );
+
+    // Y la de baja se distingue con su palabra, no con un color.
+    expect(screen.getByRole('link', { name: /^107/ })).toHaveTextContent('De baja');
+  });
+});

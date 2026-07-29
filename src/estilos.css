@@ -191,6 +191,24 @@ body {
 
 .fila .detalle {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+  /* Sin esto, una fila con etiquetas largas empuja la flecha fuera de la
+     pantalla en un celular angosto. */
+  min-width: 0;
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.renglon {
+  display: block;
   color: var(--tinta-suave);
   font-size: 0.88rem;
 }
@@ -292,6 +310,166 @@ body {
 .reparto .cuenta {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── La ficha ────────────────────────────────────────────────────────────── */
+
+.cabecera-animal {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.caravana.grande {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+/* Pares rótulo/valor. `dl` y no una tabla: son datos de una cosa sola, y en el
+   celular la tabla obliga a scroll horizontal. */
+.datos {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 16px;
+}
+
+.datos .dato {
+  display: flex;
+  flex-direction: column;
+}
+
+.datos dt {
+  font-size: 0.78rem;
+  color: var(--tinta-suave);
+}
+
+.datos dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.datos dd.sin-datos {
+  font-weight: 500;
+  color: var(--tinta-suave);
+}
+
+/* Listas de bloques con varios renglones (ciclos, historial). */
+.lista-simple {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lista-simple > li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.lista-simple > li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.historial > li.anulado > strong {
+  text-decoration: line-through;
+  color: var(--tinta-suave);
+}
+
+.observaciones {
+  font-style: italic;
+}
+
+.aviso-suave {
+  color: var(--ambar);
+}
+
+/* Marcas del historial: siempre con su palabra adentro (convención 4). */
+.marca {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.marca.anulado {
+  color: var(--rojo);
+}
+
+.marca.forzado {
+  color: var(--ambar);
+}
+
+/* ── La curva de lactancia ───────────────────────────────────────────────── */
+
+.curva {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 4px 0 14px;
+  overflow: visible;
+}
+
+.curva .grilla {
+  stroke: var(--borde);
+  stroke-width: 1;
+}
+
+.curva .linea {
+  fill: none;
+  stroke: var(--verde-claro);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.curva .punto {
+  fill: var(--verde-claro);
+}
+
+/* El pico se distingue por tamaño y por su número al lado, no solo por color. */
+.curva .punto.pico {
+  fill: var(--papel);
+  stroke: var(--verde);
+  stroke-width: 3;
+}
+
+.curva .rotulo-eje {
+  fill: var(--tinta-suave);
+  font-size: 10px;
+}
+
+.curva .rotulo-pico {
+  fill: var(--verde);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── Casilla de verificación ─────────────────────────────────────────────── */
+
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--toque);
+  cursor: pointer;
+}
+
+.casilla input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--verde);
 }
 
 /* ── Botones ─────────────────────────────────────────────────────────────── */

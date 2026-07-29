@@ -32,10 +32,14 @@ import { CONFIG_DEFAULT } from 'tambo-reglas';
 import type { RespuestaFalsa } from './servidor';
 
 export const EST = '11111111-1111-1111-1111-111111111111';
+export const V101 = '11111111-aaaa-aaaa-aaaa-111111111111';
 export const V102 = '22222222-2222-2222-2222-222222222222';
 export const V103 = '33333333-3333-3333-3333-333333333333';
 export const V104 = '44444444-4444-4444-4444-444444444444';
+export const V105 = '55555555-5555-5555-5555-555555555555';
+export const V106 = '66666666-6666-6666-6666-666666666666';
 export const V107 = '77777777-7777-7777-7777-777777777777';
+export const V150 = '15000000-1500-1500-1500-150000000000';
 export const HOY = '2026-07-29';
 
 export const establecimiento: RespuestaEstablecimiento = {
@@ -44,9 +48,19 @@ export const establecimiento: RespuestaEstablecimiento = {
   config: CONFIG_DEFAULT,
 };
 
+/** El rodeo de la demo, ordenado por caravana como lo devuelve la API. */
 export const animales: RespuestaAnimales = {
   fecha: HOY,
   animales: [
+    {
+      animal_id: V101,
+      caravana: '101',
+      vida: 'ACTIVA',
+      reproductivo: 'VACIA',
+      productivo: 'SECA',
+      categoria: 'RECRIA',
+      fecha_ultimo_parto: null,
+    },
     {
       animal_id: V102,
       caravana: '102',
@@ -71,26 +85,58 @@ export const animales: RespuestaAnimales = {
       vida: 'ACTIVA',
       reproductivo: 'INSEMINADA',
       productivo: 'SECA',
+      categoria: 'SECA',
+      fecha_ultimo_parto: null,
+    },
+    {
+      animal_id: V105,
+      caravana: '105',
+      vida: 'ACTIVA',
+      reproductivo: 'INSEMINADA',
+      productivo: 'SECA',
+      categoria: 'RECRIA',
+      fecha_ultimo_parto: null,
+    },
+    {
+      animal_id: V106,
+      caravana: '106',
+      vida: 'ACTIVA',
+      reproductivo: 'VACIA',
+      productivo: 'EN_LACTANCIA',
+      categoria: 'LACTANCIA_TEMPRANA',
+      fecha_ultimo_parto: '2026-07-04',
+    },
+    {
+      animal_id: V150,
+      caravana: '150',
+      vida: 'ACTIVA',
+      reproductivo: 'VACIA',
+      productivo: 'SECA',
       categoria: 'RECRIA',
       fecha_ultimo_parto: null,
     },
   ],
 };
 
-/** La vendida del mes pasado: solo aparece con `?todas=true`. */
+/**
+ * La vendida el mes pasado: solo aparece con `?todas=true`, y sigue trayendo sus
+ * dos ejes —lo que se apaga es la `categoria`, porque al que ya no está en el
+ * rodeo no se le da dieta (decisión 53)—.
+ */
 export const animalesConBajas: RespuestaAnimales = {
   fecha: HOY,
   animales: [
-    ...animales.animales,
+    ...animales.animales.filter((a) => a.caravana !== '150'),
     {
       animal_id: V107,
       caravana: '107',
       vida: 'BAJA',
-      reproductivo: null,
-      productivo: null,
+      reproductivo: 'VACIA',
+      productivo: 'SECA',
       categoria: null,
       fecha_ultimo_parto: null,
     },
+    ...animales.animales.filter((a) => a.caravana === '150'),
   ],
 };
 
@@ -160,7 +206,7 @@ export const animal102: RespuestaAnimal = {
     ciclos: [
       {
         numero: 1,
-        fecha_inicio: '2025-03-17',
+        fecha_inicio: '2025-03-16',
         fecha_fin: '2026-01-13',
         origen: 'alta',
         resultado: 'parto',
@@ -232,20 +278,115 @@ export const lactancias102: RespuestaLactancias = {
       pico: { evento_id: 'c2', fecha: '2026-03-14', del: 60, litros: 28, grasa: 3.7, proteina: 3.3, rcs: 145 },
       promedio_controles: 23.666666666666668,
       rcs_maximo: 320,
-      acumulada: 4685.5,
-      estandarizada_305: 6900.25,
+      // Los números de la demo, no inventados: la lactancia está abierta, así
+      // que la estandarizada a 305 días coincide con la acumulada.
+      acumulada: 4665.5,
+      estandarizada_305: 4665.5,
     },
   ],
 };
 
-export const eventos105: RespuestaEventos = {
+/**
+ * El log de la 102: el ciclo completo desde el alta hasta los controles. Sirve
+ * para ver el historial con payloads de todos los tipos.
+ */
+export const eventos102: RespuestaEventos = {
   animal_id: V102,
   eventos: [
     {
-      id: 'e1',
+      id: 'e102-1',
+      tipo: 'alta',
+      fecha_evento: '2025-03-16',
+      fecha_registro: '2025-03-16T12:00:00.000Z',
+      payload: { fecha_nacimiento: '2022-03-12', estado_inicial: { numero_lactancia: 2 } },
+      usuario: null,
+      observaciones: null,
+      forzado: false,
+      ciclo_id: 'ciclo-1',
+      anulado_por: null,
+      vigente: true,
+    },
+    {
+      id: 'e102-2',
+      tipo: 'inseminacion',
+      fecha_evento: '2025-04-05',
+      fecha_registro: '2025-04-05T12:00:00.000Z',
+      payload: { toro: 'Urubó', pajuela: 'HOL-4521' },
+      usuario: null,
+      observaciones: null,
+      forzado: false,
+      ciclo_id: 'ciclo-1',
+      anulado_por: null,
+      vigente: true,
+    },
+    {
+      id: 'e102-3',
+      tipo: 'parto',
+      fecha_evento: '2026-01-13',
+      fecha_registro: '2026-01-13T12:00:00.000Z',
+      payload: { crias: [{ sexo: 'hembra', resultado: 'viva' }] },
+      usuario: null,
+      observaciones: null,
+      forzado: false,
+      ciclo_id: 'ciclo-1',
+      anulado_por: null,
+      vigente: true,
+    },
+    {
+      id: 'e102-4',
+      tipo: 'control_lechero',
+      fecha_evento: '2026-07-12',
+      fecha_registro: '2026-07-12T12:00:00.000Z',
+      payload: { litros: 19, grasa: 4, proteina: 3.5, rcs: 320 },
+      usuario: null,
+      observaciones: null,
+      forzado: false,
+      ciclo_id: 'ciclo-2',
+      anulado_por: null,
+      vigente: true,
+    },
+  ],
+};
+
+/**
+ * El log de la 105: el error de carga corregido como manda el event sourcing —el
+ * celo equivocado no se edita, se **anula**, y el correcto se carga aparte—.
+ * Es el caso que la ficha tiene que saber dibujar con sus tres marcas.
+ */
+export const eventos105: RespuestaEventos = {
+  animal_id: V105,
+  eventos: [
+    {
+      id: 'e105-1',
       tipo: 'alta',
       fecha_evento: '2025-10-02',
       fecha_registro: '2025-10-02T12:00:00.000Z',
+      payload: { fecha_nacimiento: '2023-04-16' },
+      usuario: null,
+      observaciones: null,
+      forzado: false,
+      ciclo_id: 'ciclo-1',
+      anulado_por: null,
+      vigente: true,
+    },
+    {
+      id: 'e105-2',
+      tipo: 'celo',
+      fecha_evento: '2026-04-30',
+      fecha_registro: '2026-04-30T12:00:00.000Z',
+      payload: {},
+      usuario: null,
+      observaciones: null,
+      forzado: false,
+      ciclo_id: 'ciclo-1',
+      anulado_por: 'e105-5',
+      vigente: false,
+    },
+    {
+      id: 'e105-3',
+      tipo: 'celo',
+      fecha_evento: '2026-07-21',
+      fecha_registro: '2026-07-21T12:00:00.000Z',
       payload: {},
       usuario: null,
       observaciones: null,
@@ -255,30 +396,93 @@ export const eventos105: RespuestaEventos = {
       vigente: true,
     },
     {
-      id: 'e2',
-      tipo: 'celo',
-      fecha_evento: '2026-04-30',
-      fecha_registro: '2026-04-30T12:00:00.000Z',
+      id: 'e105-4',
+      tipo: 'inseminacion',
+      fecha_evento: '2026-07-21',
+      fecha_registro: '2026-07-21T12:00:00.000Z',
       payload: {},
       usuario: null,
       observaciones: null,
       forzado: false,
       ciclo_id: 'ciclo-1',
-      anulado_por: 'e3',
-      vigente: false,
+      anulado_por: null,
+      vigente: true,
     },
     {
-      id: 'e3',
+      // La anulación también viene con `vigente: false` —no forma parte del
+      // estado— pero no está anulada: son dos cosas distintas y la ficha las
+      // tiene que distinguir.
+      id: 'e105-5',
       tipo: 'anulacion',
       fecha_evento: HOY,
       fecha_registro: `${HOY}T12:00:00.000Z`,
-      payload: { evento_anulado_id: 'e2' },
+      payload: { evento_anulado_id: 'e105-2' },
       usuario: null,
-      observaciones: 'Fecha equivocada al pasar de la libreta.',
+      observaciones: 'Fecha equivocada al pasar de la libreta: el celo fue este mes, no hace tres.',
       forzado: false,
       ciclo_id: null,
       anulado_por: null,
       vigente: false,
+    },
+  ],
+};
+
+/** El parto forzado de la 106: la cría nació muerta y el ciclo queda excluido. */
+export const eventos106: RespuestaEventos = {
+  animal_id: V106,
+  eventos: [
+    {
+      id: 'e106-1',
+      tipo: 'parto',
+      fecha_evento: '2026-07-04',
+      fecha_registro: '2026-07-04T12:00:00.000Z',
+      payload: { crias: [{ sexo: 'hembra', resultado: 'muerta' }] },
+      usuario: null,
+      observaciones: 'Parió en el campo: la preñez nunca se había registrado.',
+      forzado: true,
+      ciclo_id: 'ciclo-1',
+      anulado_por: null,
+      vigente: true,
+    },
+  ],
+};
+
+/** Los KPIs de la 106, con un ciclo excluido por el parto forzado. */
+export const kpis106: RespuestaKPIs = {
+  animal_id: V106,
+  fecha: HOY,
+  kpis: {
+    dias_abiertos: 25,
+    intervalo_parto_primer_servicio: null,
+    intervalo_entre_partos: null,
+    servicios_por_concepcion: null,
+    tasa_perdida_prenez: null,
+    tasa_mortalidad_perinatal: 1,
+    hembras_nacidas_vivas: 0,
+    edad_dias: 1700,
+    edad_al_primer_parto: null,
+    ciclos_excluidos: 1,
+  },
+};
+
+/** Una lactancia recién abierta: sin controles todavía, no hay curva que dibujar. */
+export const lactanciasSinControles: RespuestaLactancias = {
+  animal_id: V106,
+  fecha: HOY,
+  lactancias: [
+    {
+      numero: 2,
+      parto_evento_id: 'e106-1',
+      fecha_inicio: '2026-07-04',
+      fecha_fin: null,
+      datos_incompletos: true,
+      crias: [{ sexo: 'hembra', resultado: 'muerta' }],
+      curva: [],
+      pico: null,
+      promedio_controles: null,
+      rcs_maximo: null,
+      acumulada: null,
+      estandarizada_305: null,
     },
   ],
 };
@@ -338,6 +542,18 @@ export const rutasDelTablero: Record<string, RespuestaFalsa> = {
   [`GET /establecimientos/${EST}/alertas`]: { cuerpo: alertas },
   [`GET /establecimientos/${EST}/rodeo`]: { cuerpo: rodeo },
   [`GET /establecimientos/${EST}/tanque`]: { cuerpo: tanque },
+};
+
+/**
+ * Las cuatro lecturas de la ficha de la 102. Mismo criterio que
+ * `rutasDelTablero`: cada tarjeta pide la suya, así que un test que abra la
+ * ficha las necesita a las cuatro o ve tarjetas caídas en vez de fallar.
+ */
+export const rutasDeLaFicha: Record<string, RespuestaFalsa> = {
+  [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
+  [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: { cuerpo: kpis102 },
+  [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: { cuerpo: lactancias102 },
+  [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos102 },
 };
 
 /** Un rechazo forzable, tal como lo devuelve la API (§5.6 + decisión 52). */

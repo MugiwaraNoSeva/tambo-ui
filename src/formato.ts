@@ -16,10 +16,13 @@
 
 import type {
   CategoriaAlimentacion,
+  Cria,
   EstadoProductivo,
   EstadoReproductivo,
   EstadoVida,
   MotivoBaja,
+  OrigenCiclo,
+  ResultadoCiclo,
   ResultadoCria,
   SexoCria,
   TipoEvento,
@@ -69,6 +72,14 @@ export const porcentaje = (fraccion: number | null | undefined, decimales = 0): 
 /** Días, con la unidad pegada porque un número pelado no dice de qué. */
 export const dias = (valor: number | null | undefined): string =>
   valor === null || valor === undefined ? SIN_DATO : `${numero(valor)} ${valor === 1 ? 'día' : 'días'}`;
+
+/**
+ * Días convertidos a años, con un decimal. Una edad de 1.600 días no se lee: el
+ * tambero piensa en años. La cuenta exacta en días la sigue teniendo la API, así
+ * que esto es presentación y no pierde nada — se divide por 365,25 y se muestra.
+ */
+export const anios = (valor: number | null | undefined): string =>
+  valor === null || valor === undefined ? SIN_DATO : `${numero(valor / 365.25, 1)} años`;
 
 export const litros = (valor: number | null | undefined, decimales = 1): string =>
   valor === null || valor === undefined ? SIN_DATO : `${numero(valor, decimales)} L`;
@@ -157,6 +168,113 @@ export const RESULTADO_CRIA: Record<ResultadoCria, string> = {
   viva: 'Nacida viva',
   muerta: 'Nacida muerta',
 };
+
+export const RESULTADO_CICLO: Record<ResultadoCiclo, string> = {
+  parto: 'Terminó en parto',
+  aborto: 'Terminó en aborto',
+  perdida: 'Perdió la preñez',
+  baja: 'Cerrado por la baja',
+  abierto: 'En curso',
+};
+
+export const ORIGEN_CICLO: Record<OrigenCiclo, string> = {
+  alta: 'desde el alta',
+  parto: 'desde el parto',
+  aborto: 'desde el aborto',
+  perdida: 'desde la pérdida',
+};
+
+/** "1 cría: hembra, nacida viva". Vacío si el parto no las declaró. */
+export function crias(lista: readonly Cria[]): string {
+  if (lista.length === 0) return '';
+  const cuenta = lista.length === 1 ? '1 cría' : `${lista.length} crías`;
+  return `${cuenta}: ${lista.map((c) => `${SEXO_CRIA[c.sexo].toLowerCase()}, ${RESULTADO_CRIA[c.resultado].toLowerCase()}`).join(' · ')}`;
+}
+
+// ── El payload de un evento, en una línea ────────────────────────────────────
+//
+// El log guarda el payload como JSON libre y §9 lo sirve como `unknown`: es lo
+// correcto —el núcleo tipa cada payload por separado y la API no reinterpreta
+// nada— pero deja a la pantalla con un objeto sin forma. Estas funciones lo
+// leen **defensivamente**: si un campo no está o no es del tipo esperado, no
+// sale en la línea. Un historial que rompe la ficha porque un evento viejo
+// tiene un payload que ya no se usa sería el peor cambio posible.
+
+const campo = (payload: unknown, clave: string): unknown =>
+  typeof payload === 'object' && payload !== null
+    ? (payload as Record<string, unknown>)[clave]
+    : undefined;
+
+const texto = (payload: unknown, clave: string): string | null => {
+  const v = campo(payload, clave);
+  return typeof v === 'string' && v !== '' ? v : null;
+};
+
+const cifra = (payload: unknown, clave: string): number | null => {
+  const v = campo(payload, clave);
+  return typeof v === 'number' && !Number.isNaN(v) ? v : null;
+};
+
+/**
+ * Lo que el evento trae adentro, resumido para el historial. `null` cuando no
+ * hay nada que agregar: el tipo y la fecha ya lo dicen todo (un celo es un
+ * celo). Esto es presentación y no dominio — no decide nada, solo lee.
+ */
+export function detallePayload(tipo: TipoEvento, payload: unknown): string | null {
+  const partes: string[] = [];
+
+  switch (tipo) {
+    case 'alta': {
+      const nacimiento = texto(payload, 'fecha_nacimiento');
+      if (nacimiento !== null) partes.push(`nacida el ${fechaCorta(nacimiento)}`);
+      const lactancia = cifra(campo(payload, 'estado_inicial'), 'numero_lactancia');
+      if (lactancia !== null) partes.push(`entra con ${lactancia} lactancias`);
+      break;
+    }
+    case 'inseminacion': {
+      if (campo(payload, 'iatf') === true) partes.push('IATF');
+      const toro = texto(payload, 'toro');
+      if (toro !== null) partes.push(`toro ${toro}`);
+      const pajuela = texto(payload, 'pajuela');
+      if (pajuela !== null) partes.push(`pajuela ${pajuela}`);
+      break;
+    }
+    case 'parto': {
+      const lista = campo(payload, 'crias');
+      if (Array.isArray(lista)) {
+        const validas = lista.filter(
+          (c): c is Cria =>
+            typeof c === 'object' && c !== null && 'sexo' in c && 'resultado' in c,
+        );
+        const linea = crias(validas);
+        if (linea !== '') partes.push(linea);
+      }
+      break;
+    }
+    case 'control_lechero': {
+      const l = cifra(payload, 'litros');
+      if (l !== null) partes.push(litros(l));
+      const grasa = cifra(payload, 'grasa');
+      if (grasa !== null) partes.push(`grasa ${numero(grasa, 1)} %`);
+      const proteina = cifra(payload, 'proteina');
+      if (proteina !== null) partes.push(`proteína ${numero(proteina, 1)} %`);
+      const rcs = cifra(payload, 'rcs');
+      if (rcs !== null) partes.push(`RCS ${numero(rcs)}`);
+      break;
+    }
+    case 'baja': {
+      const motivo = texto(payload, 'motivo');
+      if (motivo !== null) partes.push(MOTIVO_BAJA[motivo as MotivoBaja] ?? motivo);
+      const detalle = texto(payload, 'detalle');
+      if (detalle !== null) partes.push(detalle);
+      break;
+    }
+    default:
+      break;
+  }
+
+  return partes.length === 0 ? null : partes.join(' · ');
+}
 
 /**
  * La caravana como se muestra. Puede venir `null` —la API la busca en un mapa y

@@ -23,6 +23,8 @@ import { Armazon } from './componentes/armazon';
 import { Aviso, Cargando, Tarjeta } from './componentes/basicos';
 import { ProveedorEstablecimiento, usarEstablecimiento } from './establecimiento';
 import { Conexion } from './pantallas/Conexion';
+import { Ficha } from './pantallas/Ficha';
+import { Rodeo } from './pantallas/Rodeo';
 import { Tablero } from './pantallas/Tablero';
 import { aTablero, usarRuta, type Ruta } from './ruteo';
 import { usarPedido } from './usarPedido';
@@ -76,10 +78,8 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
   );
 }
 
-/** El título de la barra de arriba, uno por ruta. */
-const TITULOS: Record<Exclude<Ruta['nombre'], 'tablero'>, string> = {
-  rodeo: 'El rodeo',
-  animal: 'Ficha del animal',
+/** El título de la barra de arriba de las pantallas que todavía no existen. */
+const TITULOS: Record<Exclude<Ruta['nombre'], 'tablero' | 'rodeo' | 'animal'>, string> = {
   cargar: 'Cargar un evento',
   alta: 'Dar de alta',
   tanque: 'El tanque',
@@ -102,11 +102,23 @@ function Pantallas({ alDesconectar }: { alDesconectar: () => void }) {
     );
   }
 
+  if (ruta.nombre === 'rodeo') {
+    return (
+      <Armazon titulo="El rodeo" volverA={aTablero()}>
+        <Rodeo />
+      </Armazon>
+    );
+  }
+
+  // La ficha arma su propio armazón: el título es la caravana, y la caravana es
+  // un dato que todavía no llegó cuando esta función decide qué dibujar.
+  if (ruta.nombre === 'animal') return <Ficha id={ruta.id} />;
+
   return (
     <Armazon titulo={TITULOS[ruta.nombre]} volverA={aTablero()}>
       <Tarjeta titulo="Todavía no">
         <p className="vacio">
-          Esta pantalla llega en la parte que sigue. Del tablero para acá ya anda todo.
+          Esta pantalla llega en la parte que sigue. Del rodeo para acá ya anda todo.
         </p>
       </Tarjeta>
     </Armazon>
