@@ -512,15 +512,30 @@ body {
   width: 100%;
 }
 
+/* Botón de segunda línea dentro de una lista: sigue siendo tocable (44 px) pero
+   no compite con la acción principal de la pantalla. */
+.boton.chico {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
 /* ── Formularios ─────────────────────────────────────────────────────────── */
 
-.campo {
+.campo,
+.campo > label {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.campo {
   margin-bottom: 14px;
 }
 
+.campo > label > span,
 .campo > span {
   font-size: 0.9rem;
   font-weight: 600;
@@ -547,6 +562,7 @@ body {
 
 .campo .ayuda {
   font-size: 0.82rem;
+  font-weight: 400;
   color: var(--tinta-suave);
 }
 
@@ -597,6 +613,55 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.04em;
   opacity: 0.75;
+}
+
+/* ── El rechazo, y lo que se puede hacer con él ──────────────────────────── */
+
+.rechazo {
+  margin: 14px 0;
+}
+
+/* "Confirmar igual" se separa del mensaje con un borde: no es la salida por
+   default, es la excepción de §3.5 y tiene que costar un poco elegirla. */
+.rechazo .confirmar {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid var(--borde);
+}
+
+.rechazo .conflictos {
+  margin-top: 12px;
+}
+
+.rechazo .conflictos h3 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--rojo);
+}
+
+/* Un formulario dentro de un formulario (la carga forzada, la anulación) no
+   lleva el margen de campo suelto: ya está adentro de una caja. */
+.rechazo .campo,
+.anulacion .campo {
+  margin-bottom: 10px;
+}
+
+.anulacion {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.cria {
+  padding-bottom: 6px;
+}
+
+/* Cada tarjeta de un formulario largo se separa como cualquier otra. */
+form > .tarjeta,
+form > .boton {
+  margin-bottom: var(--espacio);
 }
 
 /* ── Barra de acciones frecuentes ────────────────────────────────────────── */

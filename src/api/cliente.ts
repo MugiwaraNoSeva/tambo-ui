@@ -30,6 +30,7 @@ import type {
   RespuestaTanque,
   RespuestaTanquePost,
 } from './tipos';
+import { anotarFechaDeLaRespuesta } from '../reloj';
 
 /**
  * Un rechazo de la API, ya con su cuerpo de §9.1 parseado.
@@ -104,7 +105,13 @@ async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise
     throw new ErrorApi(respuesta.status, cuerpoError as CuerpoError);
   }
 
-  return (await respuesta.json()) as T;
+  const cuerpoRespuesta = (await respuesta.json()) as T;
+  // De paso, el reloj: casi toda respuesta de §9 trae el `hoy` del servidor, y
+  // los formularios lo necesitan para su fecha por default (decisión 62). Se
+  // anota acá —el único lugar por donde pasan todas— para que ninguna pantalla
+  // tenga que pedir un endpoint solo para enterarse del día.
+  anotarFechaDeLaRespuesta(cuerpoRespuesta);
+  return cuerpoRespuesta;
 }
 
 const get = <T>(ruta: string) => pedir<T>('GET', ruta);

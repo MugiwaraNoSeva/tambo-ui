@@ -20,13 +20,16 @@ import {
   olvidarEstablecimiento,
 } from './almacen';
 import { Armazon } from './componentes/armazon';
-import { Aviso, Cargando, Tarjeta } from './componentes/basicos';
+import { Aviso, Cargando } from './componentes/basicos';
 import { ProveedorEstablecimiento, usarEstablecimiento } from './establecimiento';
+import { Alta } from './pantallas/Alta';
+import { CargarEvento } from './pantallas/CargarEvento';
 import { Conexion } from './pantallas/Conexion';
 import { Ficha } from './pantallas/Ficha';
 import { Rodeo } from './pantallas/Rodeo';
 import { Tablero } from './pantallas/Tablero';
-import { aTablero, usarRuta, type Ruta } from './ruteo';
+import { Tanque } from './pantallas/Tanque';
+import { aTablero, usarRuta } from './ruteo';
 import { usarPedido } from './usarPedido';
 
 export function App() {
@@ -78,49 +81,40 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
   );
 }
 
-/** El título de la barra de arriba de las pantallas que todavía no existen. */
-const TITULOS: Record<Exclude<Ruta['nombre'], 'tablero' | 'rodeo' | 'animal'>, string> = {
-  cargar: 'Cargar un evento',
-  alta: 'Dar de alta',
-  tanque: 'El tanque',
-};
-
 function Pantallas({ alDesconectar }: { alDesconectar: () => void }) {
   const { nombre } = usarEstablecimiento();
   const ruta = usarRuta();
 
-  // El tablero es el inicio y por eso lleva el nombre del tambo en el
-  // encabezado y ninguna flecha de volver: no hay a dónde.
-  if (ruta.nombre === 'tablero') {
-    return (
-      <Armazon titulo={nombre}>
-        <Tablero />
-        <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
-          Cambiar de tambo
-        </button>
-      </Armazon>
-    );
+  switch (ruta.nombre) {
+    // El tablero es el inicio y por eso lleva el nombre del tambo en el
+    // encabezado y ninguna flecha de volver: no hay a dónde.
+    case 'tablero':
+      return (
+        <Armazon titulo={nombre}>
+          <Tablero />
+          <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
+            Cambiar de tambo
+          </button>
+        </Armazon>
+      );
+
+    case 'rodeo':
+      return (
+        <Armazon titulo="El rodeo" volverA={aTablero()}>
+          <Rodeo />
+        </Armazon>
+      );
+
+    // Estas dos arman su propio armazón: el título lleva la caravana, que es un
+    // dato que todavía no llegó cuando esta función decide qué dibujar.
+    case 'animal':
+      return <Ficha id={ruta.id} />;
+    case 'cargar':
+      return <CargarEvento id={ruta.id} />;
+
+    case 'alta':
+      return <Alta />;
+    case 'tanque':
+      return <Tanque />;
   }
-
-  if (ruta.nombre === 'rodeo') {
-    return (
-      <Armazon titulo="El rodeo" volverA={aTablero()}>
-        <Rodeo />
-      </Armazon>
-    );
-  }
-
-  // La ficha arma su propio armazón: el título es la caravana, y la caravana es
-  // un dato que todavía no llegó cuando esta función decide qué dibujar.
-  if (ruta.nombre === 'animal') return <Ficha id={ruta.id} />;
-
-  return (
-    <Armazon titulo={TITULOS[ruta.nombre]} volverA={aTablero()}>
-      <Tarjeta titulo="Todavía no">
-        <p className="vacio">
-          Esta pantalla llega en la parte que sigue. Del rodeo para acá ya anda todo.
-        </p>
-      </Tarjeta>
-    </Armazon>
-  );
 }

@@ -13,12 +13,13 @@
 // decisión 37 sobre los `null`).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useCallback } from 'react';
-import { api } from '../api/cliente';
-import type { Ciclo, EventoHistorial, RespuestaAnimal } from '../api/tipos';
+import { useCallback, useState } from 'react';
+import { ErrorApi, api } from '../api/cliente';
+import type { Ciclo, CuerpoError, EventoHistorial, RespuestaAnimal } from '../api/tipos';
 import { EtiquetasDeEstado } from '../componentes/animales';
 import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
+import { Campo, Rechazo } from '../componentes/formulario';
 import { CurvaLactancia } from '../componentes/CurvaLactancia';
 import { usarEstablecimiento } from '../establecimiento';
 import {
@@ -38,12 +39,18 @@ import {
   numero,
   porcentaje,
 } from '../formato';
-import { aRodeo } from '../ruteo';
-import { usarPedido } from '../usarPedido';
+import { aCargar, aRodeo } from '../ruteo';
+import { mensajeDe, usarPedido } from '../usarPedido';
 
 export function Ficha({ id }: { id: string }) {
   const { id: est } = usarEstablecimiento();
-  const traer = useCallback(() => api.animal(est, id), [est, id]);
+  // Una anulación cambia el estado, los KPIs, las lactancias y el log a la vez,
+  // así que las cinco tarjetas se vuelven a pedir juntas. Subir el número es lo
+  // que las dispara: cada `traer` lo lleva en sus dependencias.
+  const [version, setVersion] = useState(0);
+  const refrescar = useCallback(() => setVersion((n) => n + 1), []);
+
+  const traer = useCallback(() => api.animal(est, id), [est, id, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
   // La flecha vuelve al rodeo —la lista a la que este animal pertenece— y no al
@@ -60,10 +67,17 @@ export function Ficha({ id }: { id: string }) {
       {!cargando && datos !== null && error === null && (
         <>
           <EstadoActual animal={datos} />
-          <KPIs animalId={id} />
-          <Lactancias animalId={id} />
+
+          {/* La acción más frecuente de la ficha, arriba y a un toque: se entra
+              a una ficha en el corral para cargar lo que se acaba de ver. */}
+          <a className="boton ancho" href={aCargar(id)}>
+            Cargar un evento
+          </a>
+
+          <KPIs animalId={id} version={version} />
+          <Lactancias animalId={id} version={version} />
           <Ciclos ciclos={datos.proyeccion.ciclos} />
-          <Historial animalId={id} />
+          <Historial animalId={id} version={version} alAnular={refrescar} />
         </>
       )}
     </Armazon>
@@ -135,9 +149,9 @@ function Dato({ rotulo, valor }: { rotulo: string; valor: string }) {
  * decisión vino a evitar. Por eso están los diez, incluso los que no aplican
  * todavía: un hueco enseña que el dato falta.
  */
-function KPIs({ animalId }: { animalId: string }) {
+function KPIs({ animalId, version }: { animalId: string; version: number }) {
   const { id: est } = usarEstablecimiento();
-  const traer = useCallback(() => api.kpis(est, animalId), [est, animalId]);
+  const traer = useCallback(() => api.kpis(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
   if (cargando) {
@@ -180,9 +194,9 @@ function KPIs({ animalId }: { animalId: string }) {
 
 // ── Las lactancias ───────────────────────────────────────────────────────────
 
-function Lactancias({ animalId }: { animalId: string }) {
+function Lactancias({ animalId, version }: { animalId: string; version: number }) {
   const { id: est } = usarEstablecimiento();
-  const traer = useCallback(() => api.lactancias(est, animalId), [est, animalId]);
+  const traer = useCallback(() => api.lactancias(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
   if (cargando) {
@@ -304,9 +318,17 @@ function Ciclos({ ciclos }: { ciclos: Ciclo[] }) {
  * evento que anuló —no forma parte del estado— pero no está anulada, así que
  * pintarlas igual sería mentir sobre cuál deshizo a cuál.
  */
-function Historial({ animalId }: { animalId: string }) {
+function Historial({
+  animalId,
+  version,
+  alAnular,
+}: {
+  animalId: string;
+  version: number;
+  alAnular: () => void;
+}) {
   const { id: est } = usarEstablecimiento();
-  const traer = useCallback(() => api.eventos(est, animalId), [est, animalId]);
+  const traer = useCallback(() => api.eventos(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
   if (cargando) {
@@ -320,6 +342,13 @@ function Historial({ animalId }: { animalId: string }) {
     return <TarjetaCaida titulo="El historial" error={error} reintentar={recargar} />;
   }
 
+  // El único que se puede anular es **el último vigente**, y la UI ofrece el
+  // botón solo ahí (§3.5: se anula en orden inverso). No es una regla que la UI
+  // decida: si se manda otro, la API contesta `ANULACION_INVALIDA` con el
+  // mensaje que explica el orden. Ofrecerlo en todos sería invitar a un rechazo
+  // que ya se sabe que va a venir.
+  const ultimoVigente = [...datos.eventos].reverse().find((e) => e.vigente);
+
   return (
     <Tarjeta titulo={`El historial (${numero(datos.eventos.length)})`}>
       {datos.eventos.length === 0 ? (
@@ -327,7 +356,13 @@ function Historial({ animalId }: { animalId: string }) {
       ) : (
         <ul className="lista-simple historial">
           {[...datos.eventos].reverse().map((evento) => (
-            <EventoDelLog key={evento.id} evento={evento} />
+            <EventoDelLog
+              key={evento.id}
+              evento={evento}
+              animalId={animalId}
+              anulable={evento.id === ultimoVigente?.id}
+              alAnular={alAnular}
+            />
           ))}
         </ul>
       )}
@@ -335,7 +370,17 @@ function Historial({ animalId }: { animalId: string }) {
   );
 }
 
-function EventoDelLog({ evento }: { evento: EventoHistorial }) {
+function EventoDelLog({
+  evento,
+  animalId,
+  anulable,
+  alAnular,
+}: {
+  evento: EventoHistorial;
+  animalId: string;
+  anulable: boolean;
+  alAnular: () => void;
+}) {
   const anulado = evento.anulado_por !== null;
   const esAnulacion = evento.tipo === 'anulacion';
   const detalle = detallePayload(evento.tipo, evento.payload);
@@ -354,6 +399,101 @@ function EventoDelLog({ evento }: { evento: EventoHistorial }) {
       {evento.observaciones !== null && evento.observaciones !== '' && (
         <span className="renglon observaciones">“{evento.observaciones}”</span>
       )}
+      {anulable && <Anulacion evento={evento} animalId={animalId} alAnular={alAnular} />}
     </li>
+  );
+}
+
+/**
+ * Deshacer el último evento.
+ *
+ * No se edita ni se borra: se carga una **anulación**, que es un evento más del
+ * log. El original queda —con su marca— porque el log es append-only y saber que
+ * alguien se equivocó y cuándo lo corrigió es parte de la historia del animal.
+ *
+ * Las observaciones son obligatorias y el botón espera a que haya texto: la API
+ * las va a exigir igual (`OBSERVACIONES_REQUERIDAS`), así que pedirlas antes
+ * ahorra un viaje y un rechazo que ya se sabe que viene.
+ */
+function Anulacion({
+  evento,
+  animalId,
+  alAnular,
+}: {
+  evento: EventoHistorial;
+  animalId: string;
+  alAnular: () => void;
+}) {
+  const { id: est } = usarEstablecimiento();
+  const [abierto, setAbierto] = useState(false);
+  const [observaciones, setObservaciones] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [rechazo, setRechazo] = useState<CuerpoError | null>(null);
+
+  async function anular() {
+    setEnviando(true);
+    setRechazo(null);
+    try {
+      await api.cargarEvento(est, animalId, {
+        tipo: 'anulacion',
+        payload: { evento_anulado_id: evento.id },
+        observaciones: observaciones.trim(),
+      });
+      setAbierto(false);
+      setObservaciones('');
+      alAnular();
+    } catch (causa) {
+      setRechazo(
+        causa instanceof ErrorApi
+          ? causa.cuerpo
+          : { codigo: 'SIN_RESPUESTA', mensaje: mensajeDe(causa) },
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (!abierto) {
+    return (
+      <button className="boton secundario chico" type="button" onClick={() => setAbierto(true)}>
+        Anular este evento
+      </button>
+    );
+  }
+
+  return (
+    <div className="anulacion">
+      <Campo etiqueta="Por qué se anula">
+        <textarea
+          value={observaciones}
+          onChange={(e) => setObservaciones(e.target.value)}
+          placeholder="Fecha equivocada al pasar de la libreta."
+          required
+        />
+      </Campo>
+      {/* Una anulación rechazada no es forzable —no está en §5.6— así que va sin
+          "Confirmar igual": el mensaje de la API ya explica el orden inverso. */}
+      {rechazo !== null && <Rechazo error={rechazo} />}
+      <div className="acciones">
+        <button
+          className="boton peligro"
+          type="button"
+          disabled={observaciones.trim() === '' || enviando}
+          onClick={() => void anular()}
+        >
+          {enviando ? 'Anulando…' : 'Anular'}
+        </button>
+        <button
+          className="boton secundario"
+          type="button"
+          onClick={() => {
+            setAbierto(false);
+            setRechazo(null);
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
   );
 }

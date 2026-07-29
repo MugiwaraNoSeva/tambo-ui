@@ -21,7 +21,7 @@ import { FilaAnimal } from '../componentes/animales';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { usarEstablecimiento } from '../establecimiento';
 import { CATEGORIA, ORDEN_CATEGORIAS, dias, fechaCorta, litros, numero, porcentaje } from '../formato';
-import { aRodeo, aTanque } from '../ruteo';
+import { aAlta, aRodeo, aTanque } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
 export function Tablero() {
@@ -33,6 +33,9 @@ export function Tablero() {
       <div className="acciones">
         <a className="boton secundario" href={aRodeo()}>
           Ver el rodeo entero
+        </a>
+        <a className="boton secundario" href={aAlta()}>
+          Dar de alta
         </a>
       </div>
     </>
