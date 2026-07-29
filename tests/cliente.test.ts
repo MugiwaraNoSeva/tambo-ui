@@ -14,6 +14,7 @@ import {
   rechazoForzable,
   rechazoNoForzable,
   tanque,
+  tanqueDelPeriodo,
 } from './fixtures';
 
 describe('las rutas de §9', () => {
@@ -55,7 +56,9 @@ describe('las rutas de §9', () => {
 
   it('arma el período del tanque como query, y sin período no manda query', async () => {
     const falsa = montarApi({
-      [`GET /establecimientos/${EST}/tanque?desde=2026-07-20&hasta=2026-07-29`]: { cuerpo: tanque },
+      [`GET /establecimientos/${EST}/tanque?desde=2026-07-20&hasta=2026-07-29`]: {
+        cuerpo: tanqueDelPeriodo,
+      },
       [`GET /establecimientos/${EST}/tanque`]: { cuerpo: tanque },
     });
     await api.tanque(EST, { desde: '2026-07-20', hasta: '2026-07-29' });

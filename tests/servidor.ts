@@ -21,7 +21,7 @@ export interface RespuestaFalsa {
   ilegible?: boolean;
 }
 
-type Manejador = RespuestaFalsa | ((cuerpo: unknown) => RespuestaFalsa);
+export type Manejador = RespuestaFalsa | ((cuerpo: unknown) => RespuestaFalsa);
 
 export interface ApiFalsa {
   /** Cada pedido que recibió, en orden: para afirmar qué mandó la pantalla. */

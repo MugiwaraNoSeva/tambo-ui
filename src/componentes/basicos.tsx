@@ -1,5 +1,5 @@
-// Las cuatro piezas que se repiten en todas las pantallas. Nada acá sabe de
-// vacas: son la caja, el aviso, el "esperá" y la cifra con su rótulo.
+// Las piezas que se repiten en todas las pantallas. Nada acá sabe de vacas: son
+// la caja, el aviso, el "esperá", la cifra con su rótulo y la caja que se cayó.
 
 import type { ReactNode } from 'react';
 import { SIN_DATO } from '../formato';
@@ -46,6 +46,33 @@ export function Aviso({
       <p>{children}</p>
       {codigo !== undefined && <span className="codigo">{codigo}</span>}
     </div>
+  );
+}
+
+/**
+ * Una tarjeta cuyo pedido no volvió.
+ *
+ * Conserva el título —así se sabe **qué** falta y no solo que falta algo— y
+ * ofrece reintentar en el lugar: en una pantalla donde cada tarjeta pide por su
+ * cuenta (decisión 56), recargar la página entera para recuperar una sería
+ * volver a pedir las que ya están.
+ */
+export function TarjetaCaida({
+  titulo,
+  error,
+  reintentar,
+}: {
+  titulo: string;
+  error: string | null;
+  reintentar: () => void;
+}) {
+  return (
+    <Tarjeta titulo={titulo}>
+      <Aviso titulo="No se pudo traer">{error ?? 'El servidor no contestó.'}</Aviso>
+      <button className="boton ancho secundario" type="button" onClick={reintentar}>
+        Reintentar
+      </button>
+    </Tarjeta>
   );
 }
 

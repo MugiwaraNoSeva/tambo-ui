@@ -59,6 +59,13 @@ describe('números', () => {
     expect(porcentaje(0)).toBe('0 %');
   });
 
+  it('el porcentaje sale de la fracción del núcleo, no de un 0–100 (decisión 57)', () => {
+    // `porcentajePrenez` es `prenadas / activas`: 1 sobre 7 es 14 %, no 0 %.
+    expect(porcentaje(1 / 7)).toBe('14 %');
+    expect(porcentaje(1)).toBe('100 %');
+    expect(porcentaje(0.125)).toBe('13 %');
+  });
+
   it('singulariza el día', () => {
     expect(dias(1)).toBe('1 día');
     expect(dias(2)).toBe('2 días');

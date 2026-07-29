@@ -6,6 +6,10 @@
 // entonces dibuja lo demás. La verificación no es ceremonia — un id guardado
 // puede haber quedado de una demo anterior, y la base embebida nace vacía cada
 // vez.
+//
+// La verificación se hace **una sola vez, acá arriba**: de ella salen el nombre
+// que va en el encabezado y la `Config` que las pantallas necesitan, así que
+// ninguna de abajo tiene que volver a preguntar quién es el tambo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useState } from 'react';
@@ -15,9 +19,12 @@ import {
   guardarEstablecimiento,
   olvidarEstablecimiento,
 } from './almacen';
+import { Armazon } from './componentes/armazon';
 import { Aviso, Cargando, Tarjeta } from './componentes/basicos';
-import { ProveedorEstablecimiento } from './establecimiento';
+import { ProveedorEstablecimiento, usarEstablecimiento } from './establecimiento';
 import { Conexion } from './pantallas/Conexion';
+import { Tablero } from './pantallas/Tablero';
+import { aTablero, usarRuta, type Ruta } from './ruteo';
 import { usarPedido } from './usarPedido';
 
 export function App() {
@@ -43,30 +50,20 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
 
   if (cargando) {
     return (
-      <div className="app">
-        <header className="encabezado">
-          <h1>Tambo</h1>
-        </header>
-        <main className="contenido">
-          <Cargando que="Conectando con el tambo…" />
-        </main>
-      </div>
+      <Armazon titulo="Tambo">
+        <Cargando que="Conectando con el tambo…" />
+      </Armazon>
     );
   }
 
   if (error !== null || datos === null) {
     return (
-      <div className="app">
-        <header className="encabezado">
-          <h1>Tambo</h1>
-        </header>
-        <main className="contenido">
-          <Aviso titulo="No se pudo conectar">{error ?? 'El servidor no contestó.'}</Aviso>
-          <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
-            Elegir otro tambo
-          </button>
-        </main>
-      </div>
+      <Armazon titulo="Tambo">
+        <Aviso titulo="No se pudo conectar">{error ?? 'El servidor no contestó.'}</Aviso>
+        <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
+          Elegir otro tambo
+        </button>
+      </Armazon>
     );
   }
 
@@ -74,22 +71,44 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
 
   return (
     <ProveedorEstablecimiento value={activo}>
-      <div className="app">
-        <header className="encabezado">
-          <h1>{activo.nombre}</h1>
-        </header>
-        <main className="contenido">
-          <Tarjeta titulo={`Conectado a ${activo.nombre}`}>
-            <p className="vacio">
-              Las pantallas del tambero —el tablero de la mañana, el rodeo y la carga— llegan en
-              las partes que siguen.
-            </p>
-          </Tarjeta>
-          <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
-            Cambiar de tambo
-          </button>
-        </main>
-      </div>
+      <Pantallas alDesconectar={alDesconectar} />
     </ProveedorEstablecimiento>
+  );
+}
+
+/** El título de la barra de arriba, uno por ruta. */
+const TITULOS: Record<Exclude<Ruta['nombre'], 'tablero'>, string> = {
+  rodeo: 'El rodeo',
+  animal: 'Ficha del animal',
+  cargar: 'Cargar un evento',
+  alta: 'Dar de alta',
+  tanque: 'El tanque',
+};
+
+function Pantallas({ alDesconectar }: { alDesconectar: () => void }) {
+  const { nombre } = usarEstablecimiento();
+  const ruta = usarRuta();
+
+  // El tablero es el inicio y por eso lleva el nombre del tambo en el
+  // encabezado y ninguna flecha de volver: no hay a dónde.
+  if (ruta.nombre === 'tablero') {
+    return (
+      <Armazon titulo={nombre}>
+        <Tablero />
+        <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
+          Cambiar de tambo
+        </button>
+      </Armazon>
+    );
+  }
+
+  return (
+    <Armazon titulo={TITULOS[ruta.nombre]} volverA={aTablero()}>
+      <Tarjeta titulo="Todavía no">
+        <p className="vacio">
+          Esta pantalla llega en la parte que sigue. Del tablero para acá ya anda todo.
+        </p>
+      </Tarjeta>
+    </Armazon>
   );
 }

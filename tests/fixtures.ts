@@ -29,6 +29,7 @@ import type {
 // que va al browser, en cambio, de `tambo-reglas` solo se importan tipos
 // (decisión 51).
 import { CONFIG_DEFAULT } from 'tambo-reglas';
+import type { RespuestaFalsa } from './servidor';
 
 export const EST = '11111111-1111-1111-1111-111111111111';
 export const V102 = '22222222-2222-2222-2222-222222222222';
@@ -108,18 +109,24 @@ export const alertasVacias: RespuestaAlertas = {
 export const rodeo: RespuestaRodeo = {
   fecha: HOY,
   resumen: {
-    composicion: { activas: 7, en_ordene: 3, secas: 4, vacias: 2, inseminadas: 2, prenadas: 3 },
-    porcentaje_prenez: 42.857142857142854,
-    dias_abiertos_promedio: 118.5,
+    composicion: { activas: 7, en_ordene: 3, secas: 4, vacias: 4, inseminadas: 2, prenadas: 1 },
+    // Las tasas del núcleo son **fracciones 0–1**, no números 0–100. Se escriben
+    // como la cuenta y no como el resultado —1 preñada sobre 7 activas— porque
+    // un número mágico en una fixture es una afirmación sin fundamento a la que
+    // después se le da la razón: así salió el "0 %" de la decisión 57.
+    porcentaje_prenez: 1 / 7,
+    dias_abiertos_promedio: 127,
     intervalo_entre_partos_promedio: null,
-    tasa_descarte: 12.5,
-    tasa_mortalidad: null,
+    tasa_descarte: 0.125,
+    // Un 0 de verdad: nadie se murió. Se muestra "0 %" y no "sin datos", que es
+    // la otra mitad de la decisión 37.
+    tasa_mortalidad: 0,
     categorias: {
-      RECRIA: 2,
+      RECRIA: 3,
       LACTANCIA_TEMPRANA: 1,
       LACTANCIA_MEDIA: 1,
       LACTANCIA_TARDIA: 1,
-      PREPARTO: 1,
+      PREPARTO: 0,
       SECA: 1,
     },
     para_revisar: [{ animal_id: V104, caravana: '104' }],
@@ -276,19 +283,61 @@ export const eventos105: RespuestaEventos = {
   ],
 };
 
+/**
+ * `GET /tanque` **sin período**, que es como lo pide el tablero (decisión 56):
+ * los diez días de la demo con el 25 olvidado, y sin `dias_sin_registro` —sin
+ * bordes no hay días faltantes definidos (decisión 49)—.
+ */
 export const tanque: RespuestaTanque = {
   fecha: HOY,
-  desde: '2026-07-20',
-  hasta: HOY,
+  desde: null,
+  hasta: null,
   registros: [
+    { fecha: '2026-07-20', litros: 68, lote: null },
+    { fecha: '2026-07-21', litros: 72, lote: null },
+    { fecha: '2026-07-22', litros: 70, lote: null },
+    { fecha: '2026-07-23', litros: 69, lote: null },
+    { fecha: '2026-07-24', litros: 71, lote: null },
+    { fecha: '2026-07-26', litros: 74, lote: null },
     { fecha: '2026-07-27', litros: 73, lote: null },
     { fecha: '2026-07-28', litros: 70, lote: null },
     { fecha: HOY, litros: 72, lote: null },
   ],
-  litros_totales: 215,
-  promedio_diario: 71.66666666666667,
-  dias_sin_registro: ['2026-07-25'],
+  litros_totales: 639,
+  promedio_diario: 71,
+  dias_sin_registro: null,
   litros_por_vaca_en_ordene: 24,
+};
+
+/** El mismo período, pero pedido con bordes: ahí sí aparece el día olvidado. */
+export const tanqueDelPeriodo: RespuestaTanque = {
+  ...tanque,
+  desde: '2026-07-20',
+  hasta: HOY,
+  dias_sin_registro: ['2026-07-25'],
+};
+
+/** El mismo tanque antes del ordeñe de la tarde: todavía sin el registro de hoy. */
+export const tanqueSinHoy: RespuestaTanque = {
+  ...tanque,
+  registros: tanque.registros.filter((r) => r.fecha !== HOY),
+  litros_totales: 567,
+  promedio_diario: 70.875,
+  // Sin registro de hoy no hay litros por vaca: es un dato que falta, no un día
+  // sin leche (decisión 37).
+  litros_por_vaca_en_ordene: null,
+};
+
+/**
+ * Las tres lecturas que el tablero dispara apenas queda conectado. Van juntas
+ * porque cualquier test que llegue al tablero las necesita a las tres: cada
+ * tarjeta pide la suya (decisión 56), y una ruta que el mock no prevea se ve
+ * como una tarjeta caída en vez de como un test que falla.
+ */
+export const rutasDelTablero: Record<string, RespuestaFalsa> = {
+  [`GET /establecimientos/${EST}/alertas`]: { cuerpo: alertas },
+  [`GET /establecimientos/${EST}/rodeo`]: { cuerpo: rodeo },
+  [`GET /establecimientos/${EST}/tanque`]: { cuerpo: tanque },
 };
 
 /** Un rechazo forzable, tal como lo devuelve la API (§5.6 + decisión 52). */

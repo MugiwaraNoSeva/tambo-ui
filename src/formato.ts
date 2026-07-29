@@ -55,9 +55,16 @@ export function numero(valor: number | null | undefined, decimales = 0): string 
   return valor.toFixed(decimales).replace('.', ',');
 }
 
-/** Un porcentaje que viene 0–100 del núcleo. */
-export const porcentaje = (valor: number | null | undefined, decimales = 0): string =>
-  valor === null || valor === undefined ? SIN_DATO : `${numero(valor, decimales)} %`;
+/**
+ * Un porcentaje a partir de la **fracción 0–1** que devuelve el núcleo.
+ *
+ * La unidad está en el nombre del parámetro y en este comentario porque ya
+ * costó una vez: `porcentajePrenez` es `prenadas / activas` —0,43, no 43— y lo
+ * mismo `tasa_descarte` y `tasa_mortalidad`. La primera pantalla que las mostró
+ * las escribía sin multiplicar (decisión 57).
+ */
+export const porcentaje = (fraccion: number | null | undefined, decimales = 0): string =>
+  fraccion === null || fraccion === undefined ? SIN_DATO : `${numero(fraccion * 100, decimales)} %`;
 
 /** Días, con la unidad pegada porque un número pelado no dice de qué. */
 export const dias = (valor: number | null | undefined): string =>
@@ -105,6 +112,21 @@ export const CATEGORIA: Record<CategoriaAlimentacion, string> = {
   SECA: 'Vaca seca',
 };
 
+/**
+ * En qué orden se muestran las categorías: el del ciclo productivo —de la
+ * recría al secado— y no el alfabético ni el del `Record`, que es el orden en
+ * que alguien las escribió. Así el reparto de dietas se lee como el recorrido
+ * de un animal por el tambo.
+ */
+export const ORDEN_CATEGORIAS: readonly CategoriaAlimentacion[] = [
+  'RECRIA',
+  'LACTANCIA_TEMPRANA',
+  'LACTANCIA_MEDIA',
+  'LACTANCIA_TARDIA',
+  'PREPARTO',
+  'SECA',
+];
+
 export const TIPO_EVENTO: Record<TipoEvento, string> = {
   alta: 'Alta',
   celo: 'Celo',
@@ -135,6 +157,15 @@ export const RESULTADO_CRIA: Record<ResultadoCria, string> = {
   viva: 'Nacida viva',
   muerta: 'Nacida muerta',
 };
+
+/**
+ * La caravana como se muestra. Puede venir `null` —la API la busca en un mapa y
+ * un animal sin caravana activa no está ahí—, y en ese caso se dice: una fila de
+ * la lista de trabajo sin nada en el lugar del número parecería un error de la
+ * pantalla, cuando lo que falta es el dato.
+ */
+export const caravanaVisible = (caravana: string | null | undefined): string =>
+  caravana === null || caravana === undefined || caravana === '' ? 'sin caravana' : caravana;
 
 /** Etiqueta de una categoría que puede venir null (animal no ACTIVA). */
 export function categoria(valor: string | null | undefined): string {
