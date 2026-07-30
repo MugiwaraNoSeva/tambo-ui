@@ -4,9 +4,22 @@ La pantalla del tambero: pensada para el **celular en el corral**, que es donde
 se carga un celo. Es un cliente del contrato de §9 y **no tiene una sola regla de
 dominio** — manda el evento y muestra lo que la API contesta.
 
-Se adelanta a propósito a la Fase 6 (autenticación): la cerradura se pone cuando
-hay alguien que use la puerta. Mientras tanto el establecimiento se elige una vez
-escribiendo su id y queda en `localStorage`.
+## Cómo se entra
+
+Con **email y contraseña**. El token que devuelve el login dura **8 horas** —un
+turno de tambo— y no hay refresh: cumplidas las 8, se vuelve a escribir la
+contraseña. Los usuarios los crea un administrador; acá no hay registro ni
+"olvidé mi contraseña", porque del otro lado no hay correo que mandar y quien la
+pierde se la resetea el admin.
+
+Lo único de administración que vive en esta UI es **cambiar la contraseña
+propia**, en "Mi cuenta". Crear usuarios y repartir permisos se hace con `curl`
+contra la API: es trabajo de admin, se hace una vez cada tanto, y ponerlo en la
+pantalla del corral sería alcance que nadie pidió.
+
+Qué tambo se ve lo dice `GET /establecimientos`, que devuelve **los míos**: los
+que tengo con permiso, y todos si soy administrador. Con uno solo se entra
+derecho; con varios hay una lista, y el último elegido queda guardado.
 
 ## Correrla contra la demo
 
@@ -19,17 +32,27 @@ DEMO_PORT=3000 npm run demo --prefix api   # API + Postgres embebido + un tambo 
 npm run dev                                # http://localhost:5173
 ```
 
-La demo imprime el **id del establecimiento** al terminar de poblar: se copia y se
-pega en la primera pantalla. Trae ocho animales en distintos estados, un parto
-forzado, una anulación, alertas con contenido y el tanque de diez días con uno
-olvidado — así que todas las pantallas tienen algo que mostrar.
+La demo puebla el tambo y termina imprimiendo **las credenciales de los tres
+usuarios** junto a la URL y el id del establecimiento:
 
-**No apuntes `VITE_API_URL` a la demo.** La API no manda cabeceras CORS —no tiene
-por qué: hasta la Fase 6 no sabe quién le habla— y el browser bloquea el pedido
-antes de que salga. Para eso está el **proxy del servidor de desarrollo**, que
-reenvía `/establecimientos` y `/salud` al `DEMO_URL` (por default
-`http://127.0.0.1:3000`, ver `vite.config.ts` y la decisión 55). `VITE_API_URL` es
-para producción, donde la API vive en otro host y sí resuelve el origen.
+| rol | email | contraseña |
+|---|---|---|
+| admin | `admin@tambo.local` | `demo-admin` |
+| escritura | `paulo@demo.local` | `demo-escritura` |
+| lectura | `vet@demo.local` | `demo-lectura` |
+
+Son credenciales **de demostración** y no protegen nada: la base y el secreto de
+firma mueren con el proceso. El tambo trae ocho animales en distintos estados, un
+parto forzado, una anulación, alertas con contenido y el tanque de diez días con
+uno olvidado — así que todas las pantallas tienen algo que mostrar. **Probá con
+los tres**: el de `lectura` es el que nadie prueba y el que más fácil se rompe.
+
+**No apuntes `VITE_API_URL` a la demo.** La API no manda cabeceras CORS y el
+browser bloquea el pedido antes de que salga. Para eso está el **proxy del
+servidor de desarrollo**, que reenvía `/auth`, `/establecimientos`, `/usuarios` y
+`/salud` al `DEMO_URL` (por default `http://127.0.0.1:3000`, ver `vite.config.ts`
+y la decisión 55). `VITE_API_URL` es para producción, donde la API vive en otro
+host y sí resuelve el origen.
 
 Para entrar desde el celular, el servidor escucha en la red local: la URL
 `Network:` que imprime Vite anda desde el teléfono conectado al mismo wifi.
@@ -42,7 +65,7 @@ npm run typecheck
 npm run build
 ```
 
-**No hace falta ni base ni API levantada.** La verificación pesada vive en los 354
+**No hace falta ni base ni API levantada.** La verificación pesada vive en los 476
 tests de `mu/`, `db/` y `api/`; repetirla contra un mock probaría que el mock
 obedece, no que el sistema anda. Acá se prueba lo que la pantalla **muestra** de
 lo que la respuesta trae y lo que **manda** de lo que el formulario junta.
@@ -58,16 +81,21 @@ contrato: el test sigue en verde y miente.
 
 ```
 src/
-  api/          El contrato de §9 escrito una vez: tipos y cliente HTTP
-  componentes/  Lo que se repite: tarjetas, avisos, cifras, formularios, la curva
-  pantallas/    Una por ruta
-  formato.ts    Presentación: fechas DD/MM/AAAA, números con coma, el vocabulario
-  reloj.ts      Qué día es hoy, según el servidor
-  ruteo.ts      Treinta líneas sobre el hash, sin dependencias
-  estilos.css   El sistema de diseño entero
+  api/               El contrato de §9 escrito una vez: tipos y cliente HTTP
+  componentes/       Lo que se repite: tarjetas, avisos, cifras, formularios, la curva
+  pantallas/         Una por ruta
+  sesion.ts          El token: dónde vive y el aviso de que se cayó
+  usuario.tsx        Quién está usando la app, y cómo se sale
+  establecimiento.tsx El tambo activo y si puedo cargar en él
+  almacen.ts         Lo poco que se recuerda entre visitas: el tambo elegido
+  formato.ts         Presentación: fechas DD/MM/AAAA, números con coma, el vocabulario
+  reloj.ts           Qué día es hoy, según el servidor
+  ruteo.ts           Treinta líneas sobre el hash, sin dependencias
+  estilos.css        El sistema de diseño entero
 ```
 
-Seis pantallas: conexión, tablero, rodeo, ficha, carga de evento, alta y tanque.
+Nueve pantallas: login, conexión (el selector de tambo), tablero, rodeo, ficha,
+carga de evento, alta, tanque y mi cuenta.
 
 Las cuatro librerías que **no** están —componentes, Tailwind, router y charts— y
 por qué, en la decisión 51. La revisión de esa decisión cuando el CSS creció está
@@ -84,6 +112,11 @@ en la 61.
    Hay **una** excepción declarada, y está en la decisión 50 para que se note si
    aparece una segunda: que un rechazo forzable se puede confirmar (§3.5). No
    *cuáles* son forzables — eso lo dice el servidor (decisión 54).
+
+   El token y los permisos **no son dominio del tambo**: en un tambo hay vacas,
+   celos y partos, no usuarios con rol de lectura. Son de la aplicación, así que
+   viven en el vocabulario de esta UI (`src/api/tipos.ts`) y no en la copia del
+   núcleo, que no se toca.
 
 2. **Celular primero.** Targets de 48 px, tipografía de 17 px, las acciones
    frecuentes a un toque, funciona con una mano. El escritorio es el caso
@@ -224,5 +257,6 @@ más que en ese único lugar.
 El backend vive en **`https://github.com/MugiwaraNoSeva/tambo.git`**: el núcleo
 (`mu/`), la persistencia (`db/`), la API (`api/`) y la demo. Ahí está también la
 spec, **`proyecto_app_tambo-1.md`**: §5.6 (los códigos de error y su columna
-"¿Forzable?"), §7 (las decisiones — de la 50 a la 66 son de la UI) y **§9 (el
+"¿Forzable?"), §7 (las decisiones — de la 50 a la 67 son de la UI, y la 81 nació
+de este repo: `GET /establecimientos`, sin la cual no hay selector que armar) y **§9 (el
 contrato de la API, la única fuente de verdad sobre requests y respuestas)**.

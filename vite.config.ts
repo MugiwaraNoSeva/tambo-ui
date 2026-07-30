@@ -10,11 +10,12 @@ import react from '@vitejs/plugin-react';
  * y Vitest comparten resolución (decisión 46).
  *
  * El **proxy** es lo que hace que la UI pueda hablar con la demo desde un
- * browser de verdad. La API no manda cabeceras CORS —no tiene por qué: hasta la
- * Fase 6 no sabe quién le habla— y un `fetch` de `localhost:5173` a
- * `127.0.0.1:3000` es cross-origin, así que el browser lo bloquea antes de que
- * salga. Con el proxy los pedidos salen al mismo origen y Vite los reenvía: la
- * UI no necesita saberlo y la API no necesita cambiar (decisión 55).
+ * browser de verdad. La API no manda cabeceras CORS y un `fetch` de
+ * `localhost:5173` a `127.0.0.1:3000` es cross-origin, así que el browser lo
+ * bloquea antes de que salga. Con el proxy los pedidos salen al mismo origen y
+ * Vite los reenvía: la UI no necesita saberlo y la API no necesita cambiar
+ * (decisión 55). Cada prefijo de la API que la UI use tiene que estar en esta
+ * lista — y la lista se olvida justo cuando aparece uno nuevo.
  */
 // `process` declarado a mano en vez de traer `@types/node`: es lo único de Node
 // que este paquete toca, y meter los tipos globales dejaría que el código que va
@@ -29,7 +30,15 @@ export default defineConfig({
     // El celular del corral entra por la red local, no por localhost.
     host: true,
     proxy: {
+      // `/auth` es el que hace falta desde la cerradura, y olvidarlo cuesta caro:
+      // el login falla por CORS y el síntoma —"Failed to fetch"— no dice una
+      // palabra de la causa. Es la primera media hora que pierde el que venga.
+      '/auth': { target: apiDeDesarrollo, changeOrigin: true },
       '/establecimientos': { target: apiDeDesarrollo, changeOrigin: true },
+      // La UI no pega acá —administrar usuarios se hace con `curl`—, pero está
+      // reenviado para que probar la API desde el mismo origen no obligue a
+      // tocar este archivo.
+      '/usuarios': { target: apiDeDesarrollo, changeOrigin: true },
       '/salud': { target: apiDeDesarrollo, changeOrigin: true },
     },
   },

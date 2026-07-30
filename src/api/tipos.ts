@@ -186,10 +186,14 @@ export interface RespuestaAnimal {
   proyeccion: Proyeccion;
 }
 
+/**
+ * Sin `usuario`: el evento se firma con el token y solo con el token. La API
+ * saca de ahí quién lo cargó, y un `usuario` en el cuerpo es **400** — no se
+ * ignora en silencio. Nadie firma en nombre de otro.
+ */
 export interface CuerpoAlta {
   caravana: string;
   fecha_evento?: string;
-  usuario?: string;
   observaciones?: string | null;
   forzado?: boolean;
   payload?: PayloadAltaApi;
@@ -211,13 +215,13 @@ export interface RespuestaAlta {
 
 // ── Eventos ──────────────────────────────────────────────────────────────────
 
+/** Sin `usuario`, por lo mismo que `CuerpoAlta`: la firma sale del token. */
 export interface CuerpoEvento {
   /** Opcional: si viene, es la idempotencia del reintento (decisión 41). */
   id?: string;
   tipo: TipoEvento;
   fecha_evento?: string;
   payload?: unknown;
-  usuario?: string;
   observaciones?: string | null;
   forzado?: boolean;
 }
