@@ -195,6 +195,30 @@ Dónde termina depende de **dónde llega**, y la diferencia importa:
   eso mandarlo al selector no lo arregla. Un 403 nunca vuelve al login, que es lo
   que la tabla exige; a dónde sí va lo decide qué se estaba haciendo.
 
+### Qué ve el rol de lectura, y por qué eso no es seguridad
+
+La cuenta es una sola —`es_admin || rol === 'escritura'` sobre **este** tambo— y
+vive en un solo lugar: `puedeCargarEn()` en `src/establecimiento.tsx`, cuyo
+resultado viaja en el contexto del establecimiento activo al lado del `nombre` y
+la `Config`. **Ninguna pantalla la recalcula.** Repetida en cinco lugares, el
+sexto se olvida de la mitad del admin —que puede todo y viene con `permisos: []`—
+y le muestra una interfaz de solo lectura a quien puede todo.
+
+El de `lectura` ve el tambo entero: las listas de trabajo, el rodeo, la ficha, el
+historial con sus marcas y el tanque. Lo que no ve son las **puertas de carga**:
+"Dar de alta", "Cargar un evento", "Cargar el tanque de hoy" y "Anular". Que no
+estén, no que estén y fallen. Tampoco se le reclama que cargue el tanque del día:
+sería un reto por algo que no está en sus manos.
+
+Y si igual llega —`#/alta` escrito en la barra de direcciones, un enlace viejo—,
+lo que encuentra es un renglón que explica que su permiso acá es de lectura, no
+un formulario entero cuyo único final posible es un 403 al enviar.
+
+**Nada de esto protege nada.** La cerradura está en la API: el servidor contesta
+403 y esa es la red de verdad. Esto es cortesía con el que mira, y por eso no se
+esconde nada creyendo que eso lo defiende ni se duplica la regla en ninguna parte
+más que en ese único lugar.
+
 ## Dónde está el resto
 
 El backend vive en **`https://github.com/MugiwaraNoSeva/tambo.git`**: el núcleo

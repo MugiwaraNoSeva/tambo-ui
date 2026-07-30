@@ -44,7 +44,7 @@ import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 export function Ficha({ id }: { id: string }) {
-  const { id: est } = usarEstablecimiento();
+  const { id: est, puedeCargar } = usarEstablecimiento();
   // Una anulación cambia el estado, los KPIs, las lactancias y el log a la vez,
   // así que las cinco tarjetas se vuelven a pedir juntas. Subir el número es lo
   // que las dispara: cada `traer` lo lleva en sus dependencias.
@@ -77,7 +77,7 @@ export function Ficha({ id }: { id: string }) {
               entero cuyo único final posible es un "no" (decisión 65). La
               salida existe y está a la vista: anular la baja desde el
               historial, que es el último evento vigente. */}
-          {datos.proyeccion.estado.vida !== 'BAJA' && (
+          {puedeCargar && datos.proyeccion.estado.vida !== 'BAJA' && (
             <a className="boton ancho" href={aCargar(id)}>
               Cargar un evento
             </a>
@@ -336,7 +336,7 @@ function Historial({
   version: number;
   alAnular: () => void;
 }) {
-  const { id: est } = usarEstablecimiento();
+  const { id: est, puedeCargar } = usarEstablecimiento();
   const traer = useCallback(() => api.eventos(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
@@ -355,8 +355,11 @@ function Historial({
   // botón solo ahí (§3.5: se anula en orden inverso). No es una regla que la UI
   // decida: si se manda otro, la API contesta `ANULACION_INVALIDA` con el
   // mensaje que explica el orden. Ofrecerlo en todos sería invitar a un rechazo
-  // que ya se sabe que va a venir.
-  const ultimoVigente = [...datos.eventos].reverse().find((e) => e.vigente);
+  // que ya se sabe que va a venir. Y anular es cargar un evento más, así que el
+  // de lectura no lo ve: el historial se mira igual, entero y con sus marcas.
+  const ultimoVigente = puedeCargar
+    ? [...datos.eventos].reverse().find((e) => e.vigente)
+    : undefined;
 
   return (
     <Tarjeta titulo={`El historial (${numero(datos.eventos.length)})`}>

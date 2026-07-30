@@ -20,7 +20,7 @@ import { useCallback, useState, type FormEvent } from 'react';
 import { ErrorApi, api } from '../api/cliente';
 import type { CuerpoError, CuerpoTanque } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
-import { Aviso, Cargando, Cifra, Tarjeta } from '../componentes/basicos';
+import { Aviso, Cargando, Cifra, SoloLectura, Tarjeta } from '../componentes/basicos';
 import { Campo, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { fechaCorta, litros as enLitros, numero } from '../formato';
@@ -39,7 +39,7 @@ const primeroDelMes = (dia: string): string => `${dia.slice(0, 8)}01`;
 const DIAS_QUE_SE_LISTAN = 8;
 
 export function Tanque() {
-  const { id: est } = usarEstablecimiento();
+  const { id: est, puedeCargar } = usarEstablecimiento();
   const hoy = hoyDelServidor();
 
   const [desde, setDesde] = useState(() => primeroDelMes(hoy));
@@ -54,7 +54,13 @@ export function Tanque() {
 
   return (
     <Armazon titulo="El tanque" volverA={aTablero()}>
-      <CargaDelDia hoy={hoy} alCargar={() => setVersion((n) => n + 1)} />
+      {/* El período se mira igual con cualquier permiso: es una lectura. Lo que
+          cambia es la tarjeta de arriba, que es la que escribe. */}
+      {puedeCargar ? (
+        <CargaDelDia hoy={hoy} alCargar={() => setVersion((n) => n + 1)} />
+      ) : (
+        <SoloLectura>No podés cargar el tanque en este tambo.</SoloLectura>
+      )}
 
       <Tarjeta titulo="El período">
         <div className="dos-columnas">

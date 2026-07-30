@@ -21,7 +21,7 @@ import type {
   PayloadAltaApi,
 } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
-import { Cargando, Tarjeta } from '../componentes/basicos';
+import { Cargando, SoloLectura, Tarjeta } from '../componentes/basicos';
 import { Campo, Casilla, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { PRODUCTIVO, REPRODUCTIVO, caravanaVisible, fechaCorta } from '../formato';
@@ -31,7 +31,27 @@ import { mensajeDe, usarPedido } from '../usarPedido';
 
 const SIN_ELEGIR = '';
 
+/**
+ * La puerta. Al de `lectura` el botón "Dar de alta" ni le aparece en el tablero;
+ * esto es para el que igual llegó —`#/alta` escrito a mano, un enlace viejo—,
+ * que merece un renglón que se entienda y no un formulario entero cuyo único
+ * final posible es un 403 al enviar.
+ */
 export function Alta() {
+  const { puedeCargar } = usarEstablecimiento();
+
+  if (!puedeCargar) {
+    return (
+      <Armazon titulo="Dar de alta" volverA={aTablero()}>
+        <SoloLectura>No podés dar de alta animales en este tambo.</SoloLectura>
+      </Armazon>
+    );
+  }
+
+  return <FormularioDeAlta />;
+}
+
+function FormularioDeAlta() {
   const { id: est } = usarEstablecimiento();
 
   const [caravana, setCaravana] = useState('');

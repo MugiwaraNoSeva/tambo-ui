@@ -25,6 +25,11 @@ import { aAlta, aRodeo, aTanque } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
 export function Tablero() {
+  // El de `lectura` ve el mismo tablero —las listas de trabajo, el rodeo y el
+  // tanque son para mirar— menos las puertas de carga, que no están: mejor que
+  // no estén a que estén y fallen (§ el rol de lectura, en el README).
+  const { puedeCargar } = usarEstablecimiento();
+
   return (
     <>
       <ListasDeTrabajo />
@@ -34,9 +39,11 @@ export function Tablero() {
         <a className="boton secundario" href={aRodeo()}>
           Ver el rodeo entero
         </a>
-        <a className="boton secundario" href={aAlta()}>
-          Dar de alta
-        </a>
+        {puedeCargar && (
+          <a className="boton secundario" href={aAlta()}>
+            Dar de alta
+          </a>
+        )}
       </div>
     </>
   );
@@ -191,7 +198,7 @@ function ElRodeoHoy() {
  * moleste —un par de años de carga diaria— o el día que la API pagine.
  */
 function ElTanqueDeHoy() {
-  const { id } = usarEstablecimiento();
+  const { id, puedeCargar } = usarEstablecimiento();
   const traer = useCallback(() => api.tanque(id), [id]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
@@ -218,7 +225,10 @@ function ElTanqueDeHoy() {
         <Cifra rotulo="Por vaca en ordeñe" valor={litros(datos.litros_por_vaca_en_ordene)} />
       </div>
 
-      {deHoy === undefined ? (
+      {/* Al de lectura no se le reclama que cargue el tanque: no puede, y el
+          aviso sería un reto por algo que no está en sus manos. Ve el número y
+          el enlace para mirar el período, como el resto de la pantalla. */}
+      {deHoy === undefined && puedeCargar ? (
         <>
           <Aviso tono="atencion" titulo="Todavía no cargaste el tanque">
             Un día sin cargar no baja el promedio: desaparece de la cuenta del mes.

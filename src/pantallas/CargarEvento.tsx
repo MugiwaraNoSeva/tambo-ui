@@ -19,7 +19,7 @@ import { ErrorApi, api } from '../api/cliente';
 import type { Cria, CuerpoError, CuerpoEvento, MotivoBaja, TipoEvento } from '../api/tipos';
 import { MOTIVOS_BAJA } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
-import { Cargando, Tarjeta, TarjetaCaida } from '../componentes/basicos';
+import { Cargando, SoloLectura, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { Campo, Casilla, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import {
@@ -53,7 +53,26 @@ const CARGABLES: readonly TipoEvento[] = [
 
 const CRIA_NUEVA: Cria = { sexo: 'hembra', resultado: 'viva' };
 
+/**
+ * La puerta. Al de `lectura` la ficha no le ofrece "Cargar un evento"; esto es
+ * para el que igual llegó por la barra de direcciones, y le dice por qué no
+ * puede en vez de dejarlo llenar un formulario que la API va a rechazar.
+ */
 export function CargarEvento({ id }: { id: string }) {
+  const { puedeCargar } = usarEstablecimiento();
+
+  if (!puedeCargar) {
+    return (
+      <Armazon titulo="Cargar un evento" volverA={aAnimal(id)}>
+        <SoloLectura>No podés cargar eventos en este tambo.</SoloLectura>
+      </Armazon>
+    );
+  }
+
+  return <Carga id={id} />;
+}
+
+function Carga({ id }: { id: string }) {
   const { id: est } = usarEstablecimiento();
   const traer = useCallback(() => api.animal(est, id), [est, id]);
   const { datos, cargando, error, recargar } = usarPedido(traer);

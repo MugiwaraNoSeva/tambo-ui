@@ -34,7 +34,7 @@ import {
 } from './almacen';
 import { Armazon } from './componentes/armazon';
 import { Aviso, Cargando } from './componentes/basicos';
-import { ProveedorEstablecimiento, usarEstablecimiento } from './establecimiento';
+import { ProveedorEstablecimiento, puedeCargarEn, usarEstablecimiento } from './establecimiento';
 import { Alta } from './pantallas/Alta';
 import { CargarEvento } from './pantallas/CargarEvento';
 import { Conexion } from './pantallas/Conexion';
@@ -46,7 +46,7 @@ import { Tablero } from './pantallas/Tablero';
 import { Tanque } from './pantallas/Tanque';
 import { aCuenta, aTablero, usarRuta } from './ruteo';
 import { alCaerLaSesion, guardarToken, olvidarToken, tokenGuardado, type CaidaDeSesion } from './sesion';
-import { ProveedorUsuario, usarSalir } from './usuario';
+import { ProveedorUsuario, usarSalir, usarUsuario } from './usuario';
 import { esSinPermiso, usarPedido } from './usarPedido';
 
 export function App() {
@@ -245,6 +245,7 @@ function Conectado({
   alSalirDelTambo: (porque: string | null, queReboto?: string) => void;
   puedeCambiarDeTambo: boolean;
 }) {
+  const usuario = usarUsuario();
   const traer = useCallback(() => api.establecimiento(id), [id]);
   const { datos, cargando, error, causa } = usarPedido(traer);
 
@@ -273,7 +274,13 @@ function Conectado({
     );
   }
 
-  const activo = { id, nombre: datos.nombre, config: datos.config };
+  // El único lugar donde se calcula si este usuario puede cargar en este tambo.
+  const activo = {
+    id,
+    nombre: datos.nombre,
+    config: datos.config,
+    puedeCargar: puedeCargarEn(usuario, id),
+  };
 
   return (
     <ProveedorEstablecimiento value={activo}>

@@ -76,6 +76,24 @@ export function TarjetaCaida({
   );
 }
 
+/**
+ * Lo que ve el de `lectura` donde el de `escritura` ve un formulario.
+ *
+ * Aparece solo si igual llegó —la ruta escrita a mano en la barra de
+ * direcciones—, porque el camino normal es que el botón directamente no esté.
+ * Es la red de cortesía delante de la red de verdad, que es el 403 del servidor:
+ * mejor un renglón que explica que un formulario entero cuyo único final posible
+ * es un rechazo.
+ */
+export function SoloLectura({ children }: { children: ReactNode }) {
+  return (
+    <Aviso tono="atencion" titulo="Tu permiso acá es de lectura">
+      {children} Si necesitás cargar, pedile a un administrador que te dé permiso de escritura en
+      este tambo.
+    </Aviso>
+  );
+}
+
 export function Cargando({ que = 'Cargando…' }: { que?: string }) {
   return (
     <p className="cargando" role="status">
