@@ -295,7 +295,7 @@ demás.
 
 Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué quedó>`.
 
-- [ ] Parte 1 — El token: dónde vive, el header en el cliente y el 401 que vuelve al login
+- [x] Parte 1 — 54c21a4 — `sesion.ts` con el token en `localStorage` y el aviso de sesión caída; el header y el 401 en `pedir()`, único lugar que sabe de HTTP; `login`, `yo`, `cambiarPassword` y `establecimientos` en el cliente. Un 401 con una contraseña en el cuerpo (el login y `/auth/password`) **no** vuelve al login: su 401 habla de esa contraseña
 - [ ] Parte 2 — La pantalla de login, el arranque con `/auth/yo` y el andamio de los tests
 - [ ] Parte 3 — El selector de tambo armado con `GET /establecimientos`
 - [ ] Parte 4 — Qué ve y qué no ve el rol de lectura
