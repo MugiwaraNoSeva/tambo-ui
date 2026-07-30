@@ -1,9 +1,13 @@
 # El CI de la UI, que hasta la mudanza era el cuarto job del repo del backend.
 #
 # **Sin Postgres, y es el punto.** La suite mockea `fetch`, así que no necesita
-# ni base ni API levantada: la verificación pesada vive en los 354 tests de
+# ni base ni API levantada: la verificación pesada vive en los 476 tests de
 # `mu/`, `db/` y `api/` en el repo del backend, y repetirla contra un mock
 # probaría que el mock obedece, no que el sistema anda.
+#
+# El humo contra la demo de verdad (`npm run test:demo`) queda **afuera** por lo
+# mismo, y `npm test` lo excluye por nombre: necesita el backend levantado, y un
+# CI que dependa de eso deja de ser una señal. Se corre a mano antes de cerrar.
 name: CI
 
 on:

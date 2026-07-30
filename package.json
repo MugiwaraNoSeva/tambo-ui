@@ -8,8 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --exclude \"tests/**/*.demo.test.tsx\"",
+    "test:watch": "vitest --exclude \"tests/**/*.demo.test.tsx\"",
+    "test:demo": "vitest run tests/humo.demo.test.tsx",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

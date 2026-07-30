@@ -46,6 +46,12 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/preparacion.ts'],
+    // El humo contra la demo de verdad (`*.demo.test.tsx`) entra en el `include`
+    // como cualquier otro, pero `npm test` lo saca con `--exclude`: necesita el
+    // backend levantado, y un CI que dependa de eso deja de ser una señal. Se
+    // corre aparte con `npm run test:demo`. La exclusión vive en el script y no
+    // acá para que ese comando pueda pedirlo por nombre — un archivo excluido en
+    // la config no se corre ni nombrándolo.
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 });

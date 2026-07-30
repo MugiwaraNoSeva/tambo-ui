@@ -65,6 +65,20 @@ npm run typecheck
 npm run build
 ```
 
+Y aparte, **con la demo levantada**, el humo contra la API de verdad:
+
+```bash
+npm run test:demo
+```
+
+Monta la app entera **sin mockear `fetch`**, contra `127.0.0.1:3000`, y entra con
+los tres usuarios. Es lo que la suite mockeada no puede probar: que las
+respuestas de verdad tengan la forma que los tipos declaran y que la pantalla que
+sale de ellas sea la que corresponde a cada rol. **No está en el CI** —depende de
+un backend levantado, y un CI que dependa de eso deja de ser una señal— y por eso
+`npm test` lo excluye por nombre. Se puede correr las veces que haga falta contra
+la misma demo: el test que escribe da de alta su propio animal.
+
 **No hace falta ni base ni API levantada.** La verificación pesada vive en los 476
 tests de `mu/`, `db/` y `api/`; repetirla contra un mock probaría que el mock
 obedece, no que el sistema anda. Acá se prueba lo que la pantalla **muestra** de
