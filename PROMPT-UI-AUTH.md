@@ -297,7 +297,7 @@ Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué
 
 - [x] Parte 1 — 54c21a4 — `sesion.ts` con el token en `localStorage` y el aviso de sesión caída; el header y el 401 en `pedir()`, único lugar que sabe de HTTP; `login`, `yo`, `cambiarPassword` y `establecimientos` en el cliente. Un 401 con una contraseña en el cuerpo (el login y `/auth/password`) **no** vuelve al login: su 401 habla de esa contraseña
 - [x] Parte 2 — b5ad598 — `Login.tsx` escrita para el corral y `App` con sus tres estados en orden; el token de ayer vuelve al login callado y el que se cae adentro se explica, diciendo si había una carga en el aire; `Cuenta.tsx` con el cambio de contraseña propia y `Salir` junto a "Cambiar de tambo"; `sesionDePrueba()` como único andamio de los catorce archivos de test
-- [ ] Parte 3 — El selector de tambo armado con `GET /establecimientos`
+- [x] Parte 3 — 37a9bd8 — El uuid tipeado a mano se fue: `Conexion.tsx` es una lista de nombres para tocar. Los cuatro casos (uno solo entra derecho y sin botón de cambiar, varios eligen, ninguno sabe a quién pedirle acceso, el guardado que ya no está vuelve al selector con el porqué) y el 403 de la puerta, que vuelve al selector y nunca al login, con la guarda contra el rebote infinito del tambo único
 - [ ] Parte 4 — Qué ve y qué no ve el rol de lectura
 - [ ] Parte 5 — `usuario` fuera del cuerpo, el proxy de `/auth` y el README
 - [ ] Parte 6 — Probado con los tres roles, CI en verde y este archivo borrado
