@@ -1,43 +1,42 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Elegir el tambo: la única pantalla que se ve una sola vez.
+// Elegir el tambo. Hasta la cerradura, esta pantalla pedía que se escribiera un
+// uuid a mano, y su propio comentario explicaba por qué: sin login no había de
+// dónde sacar la lista de los tambos de nadie, e inventar un `GET
+// /establecimientos` que devolviera todos los del sistema hubiera sido abrir por
+// la UI justo lo que la Fase 6 vino a cerrar.
 //
-// Se pide el id del establecimiento y **se verifica contra la API antes de
-// guardarlo**. Guardar primero y descubrir después que no existe dejaría la app
-// arrancando siempre en un error, con el id malo pegado en `localStorage` y sin
-// forma obvia de sacarlo.
+// Ahora hay de dónde: `GET /establecimientos` devuelve **los míos** —donde tengo
+// permiso, y todos si soy admin—, así que esto es una lista para tocar con el
+// dedo. Un uuid tipeado en el corral, con una mano y la pantalla al sol, era la
+// peor pantalla de la app.
 //
-// Que se escriba un uuid a mano es feo y es a propósito: mientras no haya login
-// (Fase 6) no hay de dónde sacar la lista de tambos de nadie, e inventar un
-// `GET /establecimientos` que devuelva todos los del sistema sería abrir por la
-// UI justo lo que la Fase 6 viene a cerrar. `npm run demo` imprime el id.
+// Los tres casos que importan y ninguno es el "feliz" solo:
+//
+//   - **uno solo** no llega acá: `App` entra derecho. Es el 90% de la gente y
+//     una lista de un elemento es una pantalla de peaje;
+//   - **varios** es esta lista, y el elegido queda guardado —ahí `localStorage`
+//     está bien, porque el tambo elegido no es un secreto—;
+//   - **ninguno** no es una lista vacía ni un error: es alguien a quien todavía
+//     no le dieron acceso, y lo que necesita es saber a quién pedírselo.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, type FormEvent } from 'react';
-import { api } from '../api/cliente';
-import { mensajeDe } from '../usarPedido';
-import { Aviso, Tarjeta } from '../componentes/basicos';
 import { urlBase } from '../api/cliente';
+import type { EstablecimientoDeLaLista } from '../api/tipos';
+import { Aviso, Tarjeta } from '../componentes/basicos';
+import { usarSalir, usarUsuario } from '../usuario';
 
-export function Conexion({ alConectar }: { alConectar: (id: string) => void }) {
-  const [id, setId] = useState('');
-  const [verificando, setVerificando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function enviar(evento: FormEvent) {
-    evento.preventDefault();
-    const limpio = id.trim();
-    if (limpio === '') return;
-    setVerificando(true);
-    setError(null);
-    try {
-      await api.establecimiento(limpio);
-      alConectar(limpio);
-    } catch (causa) {
-      setError(mensajeDe(causa));
-    } finally {
-      setVerificando(false);
-    }
-  }
+export function Conexion({
+  tambos,
+  alConectar,
+  aviso,
+}: {
+  tambos: EstablecimientoDeLaLista[];
+  alConectar: (id: string) => void;
+  /** Por qué se está viendo esta pantalla, si no es por elección propia. */
+  aviso?: string | null;
+}) {
+  const usuario = usarUsuario();
+  const salir = usarSalir();
 
   return (
     <div className="app">
@@ -45,32 +44,42 @@ export function Conexion({ alConectar }: { alConectar: (id: string) => void }) {
         <h1>Tambo</h1>
       </header>
       <main className="contenido">
-        <Tarjeta titulo="¿En qué tambo estás?" subtitulo="Se elige una vez y queda guardado.">
-          <form onSubmit={enviar}>
-            <label className="campo">
-              <span>Id del establecimiento</span>
-              <input
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                placeholder="00000000-0000-0000-0000-000000000000"
-                required
-              />
-              <span className="ayuda">
-                Lo imprime <code>npm run demo</code> al terminar de poblar el tambo.
-              </span>
-            </label>
-            <button className="boton ancho" type="submit" disabled={verificando}>
-              {verificando ? 'Verificando…' : 'Conectar'}
-            </button>
-          </form>
-        </Tarjeta>
-
-        {error !== null && (
-          <Aviso titulo="No se pudo conectar">{error}</Aviso>
+        {aviso !== undefined && aviso !== null && (
+          <Aviso tono="atencion" titulo="Elegí de nuevo">
+            {aviso}
+          </Aviso>
         )}
+
+        {tambos.length === 0 ? (
+          <Tarjeta titulo={`Hola, ${usuario.nombre}`}>
+            <p className="vacio">
+              Todavía no te dieron acceso a ningún tambo. Pedíselo a un administrador: él es quien
+              reparte los permisos.
+            </p>
+          </Tarjeta>
+        ) : (
+          <Tarjeta titulo="¿En qué tambo estás?" subtitulo="Queda guardado para la próxima.">
+            <ul className="lista">
+              {tambos.map((tambo) => (
+                <li key={tambo.id}>
+                  {/* Un botón y no un enlace: no navega a ninguna dirección,
+                      elige. La fila entera —60 px— es el área de toque, la
+                      misma que las del rodeo: el dedo no tiene que apuntar. */}
+                  <button className="fila" type="button" onClick={() => alConectar(tambo.id)}>
+                    <span className="nombre-tambo">{tambo.nombre}</span>
+                    <span className="flecha" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Tarjeta>
+        )}
+
+        <button className="boton ancho secundario" type="button" onClick={salir}>
+          Salir
+        </button>
 
         <p className="vacio">
           Servidor: <code>{urlBase() === '' ? 'el mismo de esta página' : urlBase()}</code>

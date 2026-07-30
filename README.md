@@ -178,9 +178,22 @@ llamador y sale más barata acá que en el contrato.
 Es el error clásico y se paga en las dos direcciones. Un 403 significa que la
 sesión está bien y que **falta permiso sobre ese tambo**: mandar al login sería
 condenar al tambero a escribir la contraseña una y otra vez sin que eso arregle
-nada. Un 403 vuelve al selector de tambo. Y como un tambo sobre el que no tengo
-permiso contesta 403 exista o no, un id guardado que ya no me corresponde se ve
-igual que uno inventado — y las dos cosas se resuelven igual.
+nada.
+
+Dónde termina depende de **dónde llega**, y la diferencia importa:
+
+- **En la puerta del tambo** (`GET /establecimientos/{est}`, que es lo primero
+  que se pide al entrar) vuelve al **selector**, con el porqué escrito. Es el
+  caso del permiso revocado y el del id que quedó de otra demo: como un tambo sin
+  permiso contesta 403 exista o no, los dos se ven igual y los dos se arreglan
+  eligiendo otro. Con **un solo** tambo eso podría convertirse en un ida y vuelta
+  infinito —entrar derecho, rebotar, entrar derecho—, así que el que rebotó queda
+  anotado y volver a entrar pasa a ser un toque.
+- **Adentro**, en cualquier otro pedido, se **muestra el mensaje** de la API tal
+  cual, en la tarjeta que lo pidió. Un 403 adentro no siempre es "este tambo no
+  es tuyo": también es "tu permiso acá es de lectura y esto es una carga", y a
+  eso mandarlo al selector no lo arregla. Un 403 nunca vuelve al login, que es lo
+  que la tabla exige; a dónde sí va lo decide qué se estaba haciendo.
 
 ## Dónde está el resto
 

@@ -47,7 +47,7 @@ import { Tanque } from './pantallas/Tanque';
 import { aCuenta, aTablero, usarRuta } from './ruteo';
 import { alCaerLaSesion, guardarToken, olvidarToken, tokenGuardado, type CaidaDeSesion } from './sesion';
 import { ProveedorUsuario, usarSalir } from './usuario';
-import { usarPedido } from './usarPedido';
+import { esSinPermiso, usarPedido } from './usarPedido';
 
 export function App() {
   const [hayToken, setHayToken] = useState(() => tokenGuardado() !== null);
@@ -134,28 +134,127 @@ function Identificando({ alSaberQuienSoy }: { alSaberQuienSoy: (usuario: Usuario
   );
 }
 
+/**
+ * Qué tambo. La lista sale de `GET /establecimientos`, que devuelve **los míos**
+ * —y todos si soy admin—, así que de acá salen los cuatro casos:
+ *
+ *   - **ninguno**: no le dieron acceso todavía. Lo dice el selector;
+ *   - **uno solo**: se entra derecho. Es el 90% de la gente y una lista de un
+ *     elemento es una pantalla de peaje;
+ *   - **varios**: la lista, con el último elegido guardado;
+ *   - **el guardado ya no está en la lista** —se lo revocaron, o es de otra
+ *     demo—: al selector, sin dejarlo pegado. **El `localStorage` propone; la
+ *     lista de la API decide.** Es la línea que evita que un id viejo deje la
+ *     app arrancando en un error del que no se puede salir.
+ */
 function ConTambo() {
-  const [id, setId] = useState<string | null>(establecimientoGuardado);
+  const [elegido, setElegido] = useState<string | null>(establecimientoGuardado);
+  const [aviso, setAviso] = useState<string | null>(null);
+  // El tambo que la lista trae pero la puerta rechaza con 403. Se anota para no
+  // volver a entrar solo: con un único tambo, "entrar derecho" y "volver al
+  // selector" se turnarían para siempre. Anotado, entrar vuelve a ser un toque.
+  const [reboto, setReboto] = useState<string | null>(null);
+  const traer = useCallback(() => api.establecimientos(), []);
+  const { datos, cargando, error, recargar } = usarPedido(traer);
 
-  const conectar = useCallback((elegido: string) => {
-    guardarEstablecimiento(elegido);
-    setId(elegido);
+  const conectar = useCallback((id: string) => {
+    guardarEstablecimiento(id);
+    setAviso(null);
+    setReboto(null);
+    setElegido(id);
   }, []);
 
-  const desconectar = useCallback(() => {
+  const volverAlSelector = useCallback((porque: string | null, queReboto?: string) => {
     olvidarEstablecimiento();
-    setId(null);
+    setAviso(porque);
+    setElegido(null);
+    if (queReboto !== undefined) setReboto(queReboto);
   }, []);
-
-  if (id === null) return <Conexion alConectar={conectar} />;
-  return <Conectado id={id} alDesconectar={desconectar} />;
-}
-
-function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => void }) {
-  const traer = useCallback(() => api.establecimiento(id), [id]);
-  const { datos, cargando, error } = usarPedido(traer);
 
   if (cargando) {
+    return (
+      <Armazon titulo="Tambo">
+        <Cargando que="Buscando tus tambos…" />
+      </Armazon>
+    );
+  }
+
+  if (error !== null || datos === null) {
+    return (
+      <Armazon titulo="Tambo">
+        <Aviso titulo="No se pudo conectar">{error ?? 'El servidor no contestó.'}</Aviso>
+        <button className="boton ancho secundario" type="button" onClick={recargar}>
+          Reintentar
+        </button>
+      </Armazon>
+    );
+  }
+
+  const tambos = datos.establecimientos;
+  // Un solo tambo entra sin preguntar, y esto va **antes** de mirar el guardado:
+  // si el guardado quedó de otra demo, con un solo tambo la respuesta correcta
+  // sigue siendo entrar a ese y no mostrar una lista de uno.
+  const unico = tambos.length === 1 ? (tambos[0]?.id ?? null) : null;
+  const id = unico !== null && unico !== reboto ? unico : elegido;
+  const enLaLista = id !== null && tambos.some((t) => t.id === id);
+
+  if (!enLaLista) {
+    return (
+      <Conexion
+        tambos={tambos}
+        alConectar={conectar}
+        // Que el guardado no esté en la lista **no** es un error del que haya que
+        // pedir disculpas: le revocaron el permiso, o el id quedó de otra demo.
+        // Se dice qué pasó y se muestra la lista, que es lo que lo resuelve.
+        aviso={
+          id === null
+            ? aviso
+            : 'El tambo que tenías elegido ya no está entre los tuyos. Elegí otro.'
+        }
+      />
+    );
+  }
+
+  // Con un solo tambo no hay a dónde cambiar, así que el botón no está: es el
+  // mismo criterio que no mostrar una lista de un elemento.
+  return (
+    <Conectado
+      id={id}
+      alSalirDelTambo={volverAlSelector}
+      puedeCambiarDeTambo={tambos.length > 1}
+    />
+  );
+}
+
+/**
+ * El tambo elegido, verificado contra la API: de acá salen el nombre del
+ * encabezado y la `Config` que las pantallas necesitan, y por eso la
+ * verificación se hace una sola vez y acá arriba.
+ *
+ * Un **403** en esta puerta vuelve al selector y no al login: la sesión está
+ * bien y lo que falta es permiso sobre este tambo. Como un tambo sobre el que no
+ * tengo permiso contesta 403 exista o no, el id revocado y el inventado se ven
+ * igual — y los dos se arreglan eligiendo otro.
+ */
+function Conectado({
+  id,
+  alSalirDelTambo,
+  puedeCambiarDeTambo,
+}: {
+  id: string;
+  alSalirDelTambo: (porque: string | null, queReboto?: string) => void;
+  puedeCambiarDeTambo: boolean;
+}) {
+  const traer = useCallback(() => api.establecimiento(id), [id]);
+  const { datos, cargando, error, causa } = usarPedido(traer);
+
+  const sinPermiso = esSinPermiso(causa);
+  useEffect(() => {
+    if (!sinPermiso) return;
+    alSalirDelTambo('No tenés permiso sobre ese tambo. Elegí uno de los tuyos.', id);
+  }, [sinPermiso, alSalirDelTambo, id]);
+
+  if (cargando || sinPermiso) {
     return (
       <Armazon titulo="Tambo">
         <Cargando que="Conectando con el tambo…" />
@@ -167,7 +266,7 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
     return (
       <Armazon titulo="Tambo">
         <Aviso titulo="No se pudo conectar">{error ?? 'El servidor no contestó.'}</Aviso>
-        <button className="boton ancho secundario" type="button" onClick={alDesconectar}>
+        <button className="boton ancho secundario" type="button" onClick={() => alSalirDelTambo(null)}>
           Elegir otro tambo
         </button>
       </Armazon>
@@ -178,12 +277,12 @@ function Conectado({ id, alDesconectar }: { id: string; alDesconectar: () => voi
 
   return (
     <ProveedorEstablecimiento value={activo}>
-      <Pantallas alDesconectar={alDesconectar} />
+      <Pantallas alDesconectar={puedeCambiarDeTambo ? () => alSalirDelTambo(null) : null} />
     </ProveedorEstablecimiento>
   );
 }
 
-function Pantallas({ alDesconectar }: { alDesconectar: () => void }) {
+function Pantallas({ alDesconectar }: { alDesconectar: (() => void) | null }) {
   const { nombre } = usarEstablecimiento();
   const salir = usarSalir();
   const ruta = usarRuta();
@@ -198,9 +297,11 @@ function Pantallas({ alDesconectar }: { alDesconectar: () => void }) {
           {/* Las tres salidas del tablero, juntas y al final: cambiar de tambo
               (la sesión sigue), mi cuenta, y salir (la sesión se va). */}
           <div className="acciones">
-            <button className="boton secundario" type="button" onClick={alDesconectar}>
-              Cambiar de tambo
-            </button>
+            {alDesconectar !== null && (
+              <button className="boton secundario" type="button" onClick={alDesconectar}>
+                Cambiar de tambo
+              </button>
+            )}
             <a className="boton secundario" href={aCuenta()}>
               Mi cuenta
             </a>

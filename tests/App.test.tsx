@@ -47,7 +47,7 @@ describe('la puerta', () => {
   it('entrar guarda el token y no vuelve a preguntar quién soy', async () => {
     const falsa = montarApi({
       'POST /auth/login': { cuerpo: { token: TOKEN, usuario: usuarioEscritura } },
-      'GET /establecimientos': { cuerpo: { establecimientos: [] } },
+      'GET /establecimientos': { cuerpo: { establecimientos: [{ id: EST, nombre: 'La Esperanza' }] } },
       'GET /auth/yo': { cuerpo: { usuario: usuarioEscritura } },
       [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
       ...rutasDelTablero,
@@ -210,7 +210,7 @@ describe('el tambo elegido', () => {
     render(<App />);
 
     expect(await screen.findByRole('heading', { name: 'La Esperanza' })).toBeInTheDocument();
-    expect(screen.queryByLabelText(/id del establecimiento/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /en qué tambo estás/i })).not.toBeInTheDocument();
   });
 
   it('lo saluda por su nombre, que es lo que el tambero reconoce (decisión 53)', async () => {
@@ -247,22 +247,6 @@ describe('salir', () => {
     expect(window.localStorage.getItem('tambo.establecimiento')).toBe(EST);
   });
 
-  it('cambiar de tambo olvida el guardado pero no cierra la sesión', async () => {
-    montarApi({
-      ...sesionDePrueba(),
-      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
-      ...rutasDelTablero,
-    });
-    window.localStorage.setItem('tambo.establecimiento', EST);
-    render(<App />);
-
-    await screen.findByRole('heading', { name: 'La Esperanza' });
-    await userEvent.click(screen.getByRole('button', { name: /cambiar de tambo/i }));
-
-    await waitFor(() =>
-      expect(screen.getByLabelText(/id del establecimiento/i)).toBeInTheDocument(),
-    );
-    expect(window.localStorage.getItem('tambo.establecimiento')).toBeNull();
-    expect(window.localStorage.getItem('tambo.token')).toBe(TOKEN);
-  });
+  // "Cambiar de tambo" —que no cierra la sesión, y que con un solo tambo ni
+  // aparece— se prueba en `Conexion.test.tsx`, junto al selector que lo recibe.
 });

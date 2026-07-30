@@ -217,6 +217,16 @@ body {
   color: var(--tinta-suave);
 }
 
+/* El nombre del tambo en el selector. Ocupa la fila —no hay nada más que
+   mostrar— y es grande, pero no tanto como una caravana: es texto y no un
+   número que se lee de reojo. */
+.nombre-tambo {
+  flex: 1;
+  font-size: 1.15rem;
+  font-weight: 600;
+  min-width: 0;
+}
+
 /* ── Etiquetas de estado: color Y palabra, siempre ───────────────────────── */
 
 .etiqueta {

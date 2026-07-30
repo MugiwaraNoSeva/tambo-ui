@@ -18,6 +18,14 @@ export interface Pedido<T> {
   datos: T | null;
   cargando: boolean;
   error: string | null;
+  /**
+   * El rechazo entero, para el que necesite algo más que el texto. Casi nadie:
+   * una pantalla que muestra un error solo quiere `error`. Lo mira quien tiene
+   * que **decidir** con el status —el 403 del selector, que vuelve a elegir
+   * tambo en vez de mostrar un aviso—, y por eso viaja al lado y no en lugar
+   * del mensaje.
+   */
+  causa: unknown;
   recargar: () => void;
 }
 
@@ -37,6 +45,7 @@ export function usarPedido<T>(traer: () => Promise<T>): Pedido<T> {
   const [datos, setDatos] = useState<T | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [causa, setCausa] = useState<unknown>(null);
   const [intento, setIntento] = useState(0);
 
   const recargar = useCallback(() => setIntento((n) => n + 1), []);
@@ -45,15 +54,17 @@ export function usarPedido<T>(traer: () => Promise<T>): Pedido<T> {
     let vigente = true;
     setCargando(true);
     setError(null);
+    setCausa(null);
     traer().then(
       (resultado) => {
         if (!vigente) return;
         setDatos(resultado);
         setCargando(false);
       },
-      (causa: unknown) => {
+      (rechazo: unknown) => {
         if (!vigente) return;
-        setError(mensajeDe(causa));
+        setError(mensajeDe(rechazo));
+        setCausa(rechazo);
         setCargando(false);
       },
     );
@@ -64,5 +75,9 @@ export function usarPedido<T>(traer: () => Promise<T>): Pedido<T> {
     };
   }, [traer, intento]);
 
-  return { datos, cargando, error, recargar };
+  return { datos, cargando, error, causa, recargar };
 }
+
+/** ¿Este rechazo es un 403? Lo pregunta quien vuelve al selector en vez de avisar. */
+export const esSinPermiso = (causa: unknown): boolean =>
+  causa instanceof ErrorApi && causa.status === 403;
