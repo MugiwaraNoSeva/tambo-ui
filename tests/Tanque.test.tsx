@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
-import { EST, HOY, establecimiento, tanqueDelPeriodo } from './fixtures';
+import { EST, HOY, establecimiento, tanqueDelPeriodo, sesionDePrueba } from './fixtures';
 
 const PERIODO = `/establecimientos/${EST}/tanque?desde=2026-07-01&hasta=${HOY}`;
 const RUTA_POST = `POST /establecimientos/${EST}/tanque`;
@@ -18,6 +18,7 @@ function montarTanque(cambios: Record<string, Manejador> = {}): ApiFalsa {
   window.location.hash = '#/tanque';
   anotarFechaDeLaRespuesta({ fecha: HOY });
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET ${PERIODO}`]: { cuerpo: tanqueDelPeriodo },
     [RUTA_POST]: { status: 201, cuerpo: { id: 'r1', fecha: HOY, litros: 72, lote: null } },

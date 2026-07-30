@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
-import { EST, HOY, V102, animal102, animales, establecimiento, eventos102 } from './fixtures';
+import { EST, HOY, V102, animal102, animales, establecimiento, eventos102, sesionDePrueba } from './fixtures';
 
 const RUTA_POST = `POST /establecimientos/${EST}/animales`;
 const NUEVO = '99999999-9999-9999-9999-999999999999';
@@ -18,6 +18,7 @@ function montarAlta(cambios: Record<string, Manejador> = {}): ApiFalsa {
   window.location.hash = '#/alta';
   anotarFechaDeLaRespuesta({ fecha: HOY });
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
     [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos102 },

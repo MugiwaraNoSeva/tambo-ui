@@ -16,6 +16,7 @@ import {
   eventos105,
   kpis102,
   lactancias102,
+  sesionDePrueba,
 } from './fixtures';
 
 const RUTA_POST = `POST /establecimientos/${EST}/animales/${V102}/eventos`;
@@ -24,6 +25,7 @@ function montarFicha(cambios: Record<string, Manejador> = {}): ApiFalsa {
   window.localStorage.setItem('tambo.establecimiento', EST);
   window.location.hash = `#/animales/${V102}`;
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
     [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: { cuerpo: kpis102 },

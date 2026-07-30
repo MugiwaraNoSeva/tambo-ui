@@ -11,9 +11,11 @@
 // envejezca en silencio.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { guardarToken } from '../src/sesion';
 import type {
   Config,
   CuerpoError,
+  EstablecimientoDeLaLista,
   RespuestaEstablecimientos,
   Usuario,
   RespuestaAlertas,
@@ -118,6 +120,33 @@ export const usuarioAdmin: Usuario = {
 export const misEstablecimientos: RespuestaEstablecimientos = {
   establecimientos: [{ id: EST, nombre: 'La Esperanza' }],
 };
+
+/**
+ * Una sesión abierta, que es la premisa de casi todos los tests.
+ *
+ * Devuelve las dos rutas que la `App` pide al arrancar —`/auth/yo` para saber
+ * quién soy, `GET /establecimientos` para el selector— y de paso **deja el token
+ * guardado**, que es la otra mitad de "hay sesión". Va todo junto en una función
+ * a propósito: son tres líneas de andamio que no le importan a ningún test, y
+ * repartidas en cada archivo se despegan la primera vez que la app pida algo más
+ * al arrancar.
+ *
+ * Se usa esparcida adentro del `montarApi` de cada archivo:
+ *
+ * ```ts
+ * montarApi({ ...sesionDePrueba(), [`GET /establecimientos/${EST}`]: … });
+ * ```
+ */
+export function sesionDePrueba(
+  usuario: Usuario = usuarioEscritura,
+  tambos: EstablecimientoDeLaLista[] = misEstablecimientos.establecimientos,
+): Record<string, RespuestaFalsa> {
+  guardarToken(TOKEN);
+  return {
+    'GET /auth/yo': { cuerpo: { usuario } },
+    'GET /establecimientos': { cuerpo: { establecimientos: tambos } },
+  };
+}
 
 /** El rechazo del login: un mensaje único, que no dice cuál de los dos falló. */
 export const loginRechazado: CuerpoError = {

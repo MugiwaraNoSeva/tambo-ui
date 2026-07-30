@@ -153,7 +153,7 @@ async function pedir<T>(
     // es permiso sobre ese tambo. Mandarlo al login por un 403 sería condenar al
     // tambero a escribir la contraseña para siempre sin que eso arregle nada.
     if (respuesta.status === 401 && opciones.validaUnaPassword !== true) {
-      caerLaSesion(cuerpoError.mensaje);
+      caerLaSesion({ mensaje: cuerpoError.mensaje, seEstabaCargando: metodo === 'POST' });
     }
 
     throw new ErrorApi(respuesta.status, cuerpoError);

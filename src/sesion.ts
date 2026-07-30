@@ -62,7 +62,19 @@ export function olvidarToken(): void {
 // para que el typecheck sostenga la forma del mensaje, y para que la suite no
 // dependa de `window`.
 
-type Escucha = (mensaje: string) => void;
+export interface CaidaDeSesion {
+  /** El mensaje de la API, tal cual: es el que explica que fueron 8 horas. */
+  mensaje: string;
+  /**
+   * El pedido que se comió el 401 estaba **guardando** algo. Lo sabe el cliente
+   * porque conoce el método, y hace falta decirlo: perder la sesión mirando el
+   * tablero no cuesta nada, y perderla al apretar "Guardar" es un evento que el
+   * tambero cree cargado y no está. Eso se avisa, no se deja adivinar.
+   */
+  seEstabaCargando: boolean;
+}
+
+type Escucha = (caida: CaidaDeSesion) => void;
 
 let escuchas: Escucha[] = [];
 
@@ -79,14 +91,12 @@ export function alCaerLaSesion(escucha: Escucha): () => void {
 
 /**
  * La sesión no vale más: se borra el token y se avisa. Lo llama el cliente HTTP
- * al recibir un 401, y el `mensaje` es el de la API tal cual —"Tu sesión venció:
- * dura 8 horas"—, que es lo que hay que mostrarle al tambero para que entienda
- * por qué está de vuelta en el login.
+ * al recibir un 401.
  *
  * El token se borra **antes** de avisar: si un escucha dispara un pedido nuevo,
  * que no lo mande con la credencial que la API ya rechazó.
  */
-export function caerLaSesion(mensaje: string): void {
+export function caerLaSesion(caida: CaidaDeSesion): void {
   olvidarToken();
-  for (const escucha of escuchas) escucha(mensaje);
+  for (const escucha of escuchas) escucha(caida);
 }

@@ -1,7 +1,9 @@
-// Elegir tambo, conectarse y quedar conectado: el entregable visible de la
-// Parte 1, que desde la Parte 3 termina en el tablero. Se prueba lo que la
-// pantalla muestra y lo que manda — el dominio ya está probado del otro lado
-// del `fetch`.
+// El arranque: entrar, saber quién soy, elegir tambo y quedar conectado.
+//
+// Es el orden de los tres estados de `App`, y el orden importa: sin token no se
+// pide nada, con token lo primero que se pregunta es `/auth/yo`, y recién con
+// usuario se dibuja el tambo. Se prueba lo que la pantalla muestra y lo que
+// manda — el dominio ya está probado del otro lado del `fetch`.
 //
 // "Quedar conectado" se afirma sobre el **nombre en el encabezado**: es lo que
 // queda en pantalla cuando la tarjeta de bienvenida le deja el lugar al
@@ -12,54 +14,199 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
+import { anotarFechaDeLaRespuesta } from '../src/reloj';
 import { montarApi } from './servidor';
-import { EST, establecimiento, rutasDelTablero } from './fixtures';
+import {
+  EST,
+  HOY,
+  TOKEN,
+  establecimiento,
+  loginRechazado,
+  rutasDelTablero,
+  sesionDePrueba,
+  sesionVencida,
+  tanqueDelPeriodo,
+  usuarioEscritura,
+} from './fixtures';
 
-describe('conexión con el tambo', () => {
-  it('sin tambo elegido, pide el id', () => {
-    montarApi({});
+const escribirLogin = async (password = 'demo-escritura') => {
+  await userEvent.type(screen.getByLabelText('Email'), usuarioEscritura.email);
+  await userEvent.type(screen.getByLabelText('Contraseña'), password);
+  await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+};
+
+describe('la puerta', () => {
+  it('sin token, lo primero que se ve es el login y no se pide nada', () => {
+    const falsa = montarApi({});
     render(<App />);
-    expect(screen.getByRole('heading', { name: /en qué tambo estás/i })).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: 'Entrar' })).toBeInTheDocument();
+    expect(falsa.pedidos).toHaveLength(0);
   });
 
-  it('verifica el id contra la API antes de guardarlo, y queda conectado', async () => {
+  it('entrar guarda el token y no vuelve a preguntar quién soy', async () => {
     const falsa = montarApi({
+      'POST /auth/login': { cuerpo: { token: TOKEN, usuario: usuarioEscritura } },
+      'GET /establecimientos': { cuerpo: { establecimientos: [] } },
+      'GET /auth/yo': { cuerpo: { usuario: usuarioEscritura } },
       [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
       ...rutasDelTablero,
     });
+    window.localStorage.setItem('tambo.establecimiento', EST);
     render(<App />);
 
-    await userEvent.type(screen.getByLabelText(/id del establecimiento/i), EST);
-    await userEvent.click(screen.getByRole('button', { name: 'Conectar' }));
+    await escribirLogin();
 
     expect(await screen.findByRole('heading', { name: 'La Esperanza' })).toBeInTheDocument();
-    expect(falsa.pedidos[0]?.ruta).toBe(`/establecimientos/${EST}`);
-    expect(window.localStorage.getItem('tambo.establecimiento')).toBe(EST);
+    expect(falsa.cuerpoDe('POST /auth/login')).toEqual({
+      email: usuarioEscritura.email,
+      password: 'demo-escritura',
+    });
+    expect(window.localStorage.getItem('tambo.token')).toBe(TOKEN);
+    // El login ya trajo el usuario con sus permisos: pedir `/auth/yo` sería un
+    // viaje para preguntar lo que se acaba de recibir.
+    expect(falsa.pedidos.some((p) => p.ruta === '/auth/yo')).toBe(false);
   });
 
-  it('un id que no existe no se guarda, y el mensaje de la API se muestra tal cual', async () => {
-    const mensaje = `No existe el establecimiento con id ${EST}.`;
-    montarApi({
-      [`GET /establecimientos/${EST}`]: {
-        status: 404,
-        cuerpo: { codigo: 'NO_ENCONTRADO', mensaje },
-      },
-    });
+  it('el mensaje del login errado se muestra tal cual, sin decir cuál de los dos falló', async () => {
+    montarApi({ 'POST /auth/login': { status: 401, cuerpo: loginRechazado } });
     render(<App />);
 
-    await userEvent.type(screen.getByLabelText(/id del establecimiento/i), EST);
-    await userEvent.click(screen.getByRole('button', { name: 'Conectar' }));
+    await escribirLogin('la-que-no-es');
 
-    expect(await screen.findByText(mensaje)).toBeInTheDocument();
-    expect(window.localStorage.getItem('tambo.establecimiento')).toBeNull();
+    expect(await screen.findByText('Email o contraseña incorrectos.')).toBeInTheDocument();
+    expect(window.localStorage.getItem('tambo.token')).toBeNull();
+    // Sigue en el login, con el botón listo para otro intento.
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeEnabled();
   });
 
-  it('con un tambo ya elegido arranca conectada, sin volver a preguntar', async () => {
-    window.localStorage.setItem('tambo.establecimiento', EST);
-    montarApi({
+  it('la contraseña nunca se ve en pantalla', async () => {
+    montarApi({ 'POST /auth/login': { status: 401, cuerpo: loginRechazado } });
+    render(<App />);
+
+    await escribirLogin('secreta-de-verdad');
+
+    await screen.findByText('Email o contraseña incorrectos.');
+    expect(document.body.textContent).not.toContain('secreta-de-verdad');
+    expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'password');
+  });
+});
+
+describe('con token guardado, la app pregunta quién soy', () => {
+  it('`/auth/yo` es el primer pedido y de ahí sale el usuario', async () => {
+    const falsa = montarApi({
+      ...sesionDePrueba(),
       [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
       ...rutasDelTablero,
     });
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'La Esperanza' })).toBeInTheDocument();
+    expect(falsa.pedidos[0]?.ruta).toBe('/auth/yo');
+    expect(screen.queryByRole('heading', { name: 'Entrar' })).not.toBeInTheDocument();
+  });
+
+  it('un token de ayer vuelve al login **sin** mostrar ningún error', async () => {
+    sesionDePrueba();
+    montarApi({ 'GET /auth/yo': { status: 401, cuerpo: sesionVencida } });
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument();
+    // Venció durmiendo: no hizo nada y no hay nada que explicarle.
+    expect(screen.queryByText(sesionVencida.mensaje)).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('tambo.token')).toBeNull();
+  });
+
+  it('sin señal al arrancar no manda al login: ofrece reintentar', async () => {
+    sesionDePrueba();
+    montarApi({
+      'GET /auth/yo': { status: 502, ilegible: true },
+      'GET /establecimientos': { cuerpo: { establecimientos: [] } },
+    });
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+    // La sesión no se tocó: un servidor caído no es un token vencido.
+    expect(window.localStorage.getItem('tambo.token')).toBe(TOKEN);
+  });
+});
+
+describe('la sesión que se cae adentro', () => {
+  // El caso que manda: se cumplen las 8 horas con la app abierta. El aviso no
+  // puede quedar en la pantalla de turno, porque la pantalla de turno se va.
+  const montarCargaDelTanque = () => {
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    window.location.hash = '#/tanque';
+    anotarFechaDeLaRespuesta({ fecha: HOY });
+    return montarApi({
+      ...sesionDePrueba(),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      [`GET /establecimientos/${EST}/tanque?desde=2026-07-01&hasta=${HOY}`]: {
+        cuerpo: tanqueDelPeriodo,
+      },
+      [`POST /establecimientos/${EST}/tanque`]: { status: 401, cuerpo: sesionVencida },
+    });
+  };
+
+  it('a mitad de una carga vuelve al login y avisa que eso no se guardó', async () => {
+    montarCargaDelTanque();
+    render(<App />);
+    await screen.findByText('Litros del período');
+
+    await userEvent.type(screen.getByLabelText('Litros'), '72');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar' }));
+
+    // El login, con el mensaje de la API tal cual y la advertencia que importa.
+    expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument();
+    expect(screen.getByText(/Tu sesión venció: dura 8 horas/)).toBeInTheDocument();
+    expect(screen.getByText(/no llegó a guardarse/)).toBeInTheDocument();
+    expect(window.localStorage.getItem('tambo.token')).toBeNull();
+  });
+
+  it('en una lectura avisa, pero no habla de nada perdido', async () => {
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    montarApi({
+      ...sesionDePrueba(),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      ...rutasDelTablero,
+      [`GET /establecimientos/${EST}/alertas`]: { status: 401, cuerpo: sesionVencida },
+    });
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument();
+    expect(screen.getByText(/Tu sesión venció: dura 8 horas/)).toBeInTheDocument();
+    expect(screen.queryByText(/no llegó a guardarse/)).not.toBeInTheDocument();
+  });
+
+  it('volver a entrar limpia el aviso', async () => {
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    montarApi({
+      ...sesionDePrueba(),
+      'POST /auth/login': { cuerpo: { token: TOKEN, usuario: usuarioEscritura } },
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      ...rutasDelTablero,
+      [`GET /establecimientos/${EST}/alertas`]: { status: 401, cuerpo: sesionVencida },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Entrar' });
+
+    await escribirLogin();
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Tu sesión venció/)).not.toBeInTheDocument(),
+    );
+  });
+});
+
+describe('el tambo elegido', () => {
+  it('con un tambo ya elegido arranca conectada, sin volver a preguntar', async () => {
+    montarApi({
+      ...sesionDePrueba(),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      ...rutasDelTablero,
+    });
+    window.localStorage.setItem('tambo.establecimiento', EST);
     render(<App />);
 
     expect(await screen.findByRole('heading', { name: 'La Esperanza' })).toBeInTheDocument();
@@ -67,24 +214,46 @@ describe('conexión con el tambo', () => {
   });
 
   it('lo saluda por su nombre, que es lo que el tambero reconoce (decisión 53)', async () => {
-    window.localStorage.setItem('tambo.establecimiento', EST);
     montarApi({
+      ...sesionDePrueba(),
       [`GET /establecimientos/${EST}`]: { cuerpo: { ...establecimiento, nombre: 'El Ombú' } },
       ...rutasDelTablero,
     });
+    window.localStorage.setItem('tambo.establecimiento', EST);
     render(<App />);
 
     // El nombre, y no el uuid, en la barra de arriba de todas las pantallas.
     expect(await screen.findByRole('heading', { name: 'El Ombú' })).toBeInTheDocument();
     expect(screen.queryByText(EST)).not.toBeInTheDocument();
   });
+});
 
-  it('cambiar de tambo olvida el guardado y vuelve a preguntar', async () => {
-    window.localStorage.setItem('tambo.establecimiento', EST);
+describe('salir', () => {
+  it('borra el token y vuelve al login, pero no olvida el tambo', async () => {
     montarApi({
+      ...sesionDePrueba(),
       [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
       ...rutasDelTablero,
     });
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    render(<App />);
+
+    await screen.findByRole('heading', { name: 'La Esperanza' });
+    await userEvent.click(screen.getByRole('button', { name: 'Salir' }));
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Entrar' })).toBeInTheDocument());
+    expect(window.localStorage.getItem('tambo.token')).toBeNull();
+    // El tambo elegido no es un secreto: el que sale y vuelve entra donde estaba.
+    expect(window.localStorage.getItem('tambo.establecimiento')).toBe(EST);
+  });
+
+  it('cambiar de tambo olvida el guardado pero no cierra la sesión', async () => {
+    montarApi({
+      ...sesionDePrueba(),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      ...rutasDelTablero,
+    });
+    window.localStorage.setItem('tambo.establecimiento', EST);
     render(<App />);
 
     await screen.findByRole('heading', { name: 'La Esperanza' });
@@ -94,5 +263,6 @@ describe('conexión con el tambo', () => {
       expect(screen.getByLabelText(/id del establecimiento/i)).toBeInTheDocument(),
     );
     expect(window.localStorage.getItem('tambo.establecimiento')).toBeNull();
+    expect(window.localStorage.getItem('tambo.token')).toBe(TOKEN);
   });
 });

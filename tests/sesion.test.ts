@@ -6,7 +6,13 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorApi, api } from '../src/api/cliente';
-import { alCaerLaSesion, guardarToken, olvidarToken, tokenGuardado } from '../src/sesion';
+import {
+  alCaerLaSesion,
+  guardarToken,
+  olvidarToken,
+  tokenGuardado,
+  type CaidaDeSesion,
+} from '../src/sesion';
 import { montarApi } from './servidor';
 import {
   EST,
@@ -23,7 +29,7 @@ import {
 // Las escuchas viven en una variable de módulo y el módulo se comparte entre
 // tests: una que quede registrada le contesta a la de al lado.
 const bajas: (() => void)[] = [];
-const escuchar = (escucha: (mensaje: string) => void) => {
+const escuchar = (escucha: (caida: CaidaDeSesion) => void) => {
   bajas.push(alCaerLaSesion(escucha));
 };
 
@@ -107,21 +113,22 @@ describe('el header en cada pedido', () => {
 describe('el 401, que vuelve al login', () => {
   it('borra el token y avisa con el mensaje de la API', async () => {
     guardarToken(TOKEN);
-    const avisos: string[] = [];
-    escuchar((mensaje) => avisos.push(mensaje));
+    const avisos: CaidaDeSesion[] = [];
+    escuchar((caida) => avisos.push(caida));
     montarApi({ [`GET /establecimientos/${EST}/alertas`]: { status: 401, cuerpo: sesionVencida } });
 
     await expect(api.alertas(EST)).rejects.toBeInstanceOf(ErrorApi);
 
     expect(tokenGuardado()).toBeNull();
-    // El mensaje se muestra tal cual: es el que explica que fueron 8 horas.
-    expect(avisos).toEqual([sesionVencida.mensaje]);
+    // El mensaje se muestra tal cual: es el que explica que fueron 8 horas. Y
+    // era una lectura, así que no hay nada perdido de qué avisar.
+    expect(avisos).toEqual([{ mensaje: sesionVencida.mensaje, seEstabaCargando: false }]);
   });
 
   it('avisa también cuando llega a mitad de una carga', async () => {
     guardarToken(TOKEN);
-    const avisos: string[] = [];
-    escuchar((mensaje) => avisos.push(mensaje));
+    const avisos: CaidaDeSesion[] = [];
+    escuchar((caida) => avisos.push(caida));
     montarApi({
       [`POST /establecimientos/${EST}/animales/${V102}/eventos`]: {
         status: 401,
@@ -131,7 +138,9 @@ describe('el 401, que vuelve al login', () => {
 
     await expect(api.cargarEvento(EST, V102, { tipo: 'celo' })).rejects.toBeInstanceOf(ErrorApi);
 
-    expect(avisos).toHaveLength(1);
+    // Y avisa que **se estaba cargando**: el celo que el tambero cree guardado
+    // no está, y eso hay que decirlo, no dejarlo adivinar.
+    expect(avisos).toEqual([{ mensaje: sesionVencida.mensaje, seEstabaCargando: true }]);
     expect(tokenGuardado()).toBeNull();
   });
 
@@ -151,8 +160,8 @@ describe('el 401, que vuelve al login', () => {
 
 describe('los 401 que NO son la sesión', () => {
   it('el login errado no borra nada ni avisa: no había sesión que perder', async () => {
-    const avisos: string[] = [];
-    escuchar((mensaje) => avisos.push(mensaje));
+    const avisos: CaidaDeSesion[] = [];
+    escuchar((caida) => avisos.push(caida));
     montarApi({ 'POST /auth/login': { status: 401, cuerpo: loginRechazado } });
 
     const error = (await api
@@ -166,8 +175,8 @@ describe('los 401 que NO son la sesión', () => {
 
   it('errarle a la contraseña actual no echa al tambero de la sesión', async () => {
     guardarToken(TOKEN);
-    const avisos: string[] = [];
-    escuchar((mensaje) => avisos.push(mensaje));
+    const avisos: CaidaDeSesion[] = [];
+    escuchar((caida) => avisos.push(caida));
     const mensaje = 'La contraseña actual no coincide. Probá de nuevo.';
     const falsa = montarApi({
       'POST /auth/password': { status: 401, cuerpo: { codigo: 'NO_AUTENTICADO', mensaje } },
@@ -188,8 +197,8 @@ describe('los 401 que NO son la sesión', () => {
 
   it('un 403 tampoco: la sesión está bien y lo que falta es permiso', async () => {
     guardarToken(TOKEN);
-    const avisos: string[] = [];
-    escuchar((mensaje) => avisos.push(mensaje));
+    const avisos: CaidaDeSesion[] = [];
+    escuchar((caida) => avisos.push(caida));
     montarApi({ [`GET /establecimientos/${EST}`]: { status: 403, cuerpo: sinPermiso } });
 
     const error = (await api.establecimiento(EST).catch((e: unknown) => e)) as ErrorApi;

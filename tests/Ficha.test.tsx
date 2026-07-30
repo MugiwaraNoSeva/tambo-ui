@@ -19,12 +19,14 @@ import {
   kpis106,
   lactanciasSinControles,
   rutasDeLaFicha,
+  sesionDePrueba,
 } from './fixtures';
 
 function montarFicha(cambios: Record<string, Manejador> = {}): ApiFalsa {
   window.localStorage.setItem('tambo.establecimiento', EST);
   window.location.hash = `#/animales/${V102}`;
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     ...rutasDeLaFicha,
     ...cambios,
@@ -265,6 +267,7 @@ describe('el animal de baja', () => {
       },
     };
     montarApi({
+    ...sesionDePrueba(),
       [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
       [`GET /establecimientos/${EST}/animales/${V106}`]: { cuerpo: deBaja },
       [`GET /establecimientos/${EST}/animales/${V106}/kpis`]: { cuerpo: kpis106 },

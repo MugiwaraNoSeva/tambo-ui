@@ -19,6 +19,7 @@ import {
   establecimiento,
   rechazoForzable,
   rechazoNoForzable,
+  sesionDePrueba,
 } from './fixtures';
 
 const RUTA_POST = `POST /establecimientos/${EST}/animales/${V102}/eventos`;
@@ -32,6 +33,7 @@ function montarCarga(cambios: Record<string, Manejador> = {}): ApiFalsa {
   // que se corre (decisión 62).
   anotarFechaDeLaRespuesta({ fecha: HOY });
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
     [RUTA_POST]: { status: 201, cuerpo: { evento_id: 'nuevo', proyeccion: animal102.proyeccion } },

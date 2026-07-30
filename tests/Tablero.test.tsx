@@ -19,6 +19,7 @@ import {
   establecimiento,
   rodeo,
   rutasDelTablero,
+  sesionDePrueba,
   tanqueSinHoy,
 } from './fixtures';
 
@@ -26,6 +27,7 @@ import {
 function montarTablero(cambios: Record<string, Manejador> = {}) {
   window.localStorage.setItem('tambo.establecimiento', EST);
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     ...rutasDelTablero,
     ...cambios,

@@ -13,12 +13,14 @@ import {
   animales,
   animalesConBajas,
   establecimiento,
+  sesionDePrueba,
 } from './fixtures';
 
 function montarRodeo(cambios: Record<string, Manejador> = {}): ApiFalsa {
   window.localStorage.setItem('tambo.establecimiento', EST);
   window.location.hash = '#/rodeo';
   return montarApi({
+    ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
     [`GET /establecimientos/${EST}/animales?todas=true`]: { cuerpo: animalesConBajas },

@@ -21,7 +21,8 @@ export type Ruta =
   | { nombre: 'animal'; id: string }
   | { nombre: 'cargar'; id: string }
   | { nombre: 'alta' }
-  | { nombre: 'tanque' };
+  | { nombre: 'tanque' }
+  | { nombre: 'cuenta' };
 
 function suscribir(avisar: () => void): () => void {
   window.addEventListener('hashchange', avisar);
@@ -38,6 +39,7 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'rodeo') return { nombre: 'rodeo' };
   if (primera === 'alta') return { nombre: 'alta' };
   if (primera === 'tanque') return { nombre: 'tanque' };
+  if (primera === 'cuenta') return { nombre: 'cuenta' };
   if (primera === 'animales' && segunda !== undefined) {
     return tercera === 'cargar' ? { nombre: 'cargar', id: segunda } : { nombre: 'animal', id: segunda };
   }
@@ -59,6 +61,7 @@ export const aAnimal = (id: string) => `#/animales/${id}`;
 export const aCargar = (id: string) => `#/animales/${id}/cargar`;
 export const aAlta = () => '#/alta';
 export const aTanque = () => '#/tanque';
+export const aCuenta = () => '#/cuenta';
 
 /** Navegación imperativa, para después de guardar algo. */
 export function ir(destino: string): void {
