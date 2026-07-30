@@ -58,6 +58,70 @@ export type {
   TipoEvento,
 } from './nucleo';
 
+// ── Quién soy y qué puedo (`/auth`) ──────────────────────────────────────────
+//
+// Esto se escribe acá y **no** en `nucleo.ts`, que es la copia del vocabulario
+// del dominio. Un token y un permiso no son del tambo: en un tambo no hay
+// "usuarios con rol de lectura", hay vacas, celos y partos. La cerradura es de
+// la aplicación, así que su vocabulario nace en §9 igual que el resto del sobre.
+
+/** Los dos niveles por tambo, y no hay más. No existe un rol de dueño. */
+export type Rol = 'escritura' | 'lectura';
+
+export interface Permiso {
+  establecimiento_id: string;
+  rol: Rol;
+}
+
+/**
+ * El usuario, con la forma exacta que devuelven `/auth/login` y `/auth/yo`.
+ *
+ * **`es_admin: true` viene con `permisos: []`**, y no es un descuido: el admin
+ * puede todo en todos los tambos, así que no necesita que le den permiso sobre
+ * ninguno. Leer `permisos` sin mirar `es_admin` deja al admin sin tambos y con
+ * una UI de solo lectura — es el error que la Parte 4 pone en un único lugar.
+ *
+ * Los permisos se leen de la base en cada pedido y **no viajan adentro del
+ * token**: lo que devuelve `/auth/yo` es el estado de ahora, no el de cuando se
+ * logueó, y por eso una revocación se siente en el pedido siguiente.
+ */
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  es_admin: boolean;
+  permisos: Permiso[];
+}
+
+export interface CuerpoLogin {
+  email: string;
+  password: string;
+}
+
+export interface RespuestaLogin {
+  token: string;
+  usuario: Usuario;
+}
+
+export interface RespuestaYo {
+  usuario: Usuario;
+}
+
+export interface CuerpoPassword {
+  actual: string;
+  nueva: string;
+}
+
+/** Un tambo del selector: lo justo para dibujar la lista (`GET /establecimientos`). */
+export interface EstablecimientoDeLaLista {
+  id: string;
+  nombre: string;
+}
+
+export interface RespuestaEstablecimientos {
+  establecimientos: EstablecimientoDeLaLista[];
+}
+
 // ── El sobre de los errores (§9.1) ───────────────────────────────────────────
 
 /**

@@ -10,27 +10,38 @@
 // viaja entero —código, mensaje y `forzable`— hasta la pantalla, que lo muestra
 // tal cual. Reescribir un mensaje de §5.6 acá sería duplicar el dominio en el
 // peor lugar posible: el que nadie mira cuando la regla cambia.
+//
+// Por ser el único lugar que sabe de HTTP, es también el único que pone el
+// `Authorization` y el único que atiende el 401. Ninguna pantalla arma un header
+// ni pregunta si la sesión sigue viva: el token lo lee de `sesion.ts` al salir y
+// el 401 lo devuelve ahí al entrar.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
   CuerpoAlta,
   CuerpoError,
   CuerpoEvento,
+  CuerpoLogin,
+  CuerpoPassword,
   CuerpoTanque,
   RespuestaAlertas,
   RespuestaAlta,
   RespuestaAnimal,
   RespuestaAnimales,
   RespuestaEstablecimiento,
+  RespuestaEstablecimientos,
   RespuestaEvento,
   RespuestaEventos,
   RespuestaKPIs,
   RespuestaLactancias,
+  RespuestaLogin,
   RespuestaRodeo,
   RespuestaTanque,
   RespuestaTanquePost,
+  RespuestaYo,
 } from './tipos';
 import { anotarFechaDeLaRespuesta } from '../reloj';
+import { caerLaSesion, tokenGuardado } from '../sesion';
 
 /**
  * Un rechazo de la API, ya con su cuerpo de §9.1 parseado.
@@ -79,14 +90,44 @@ export function urlBase(): string {
   return '';
 }
 
-async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise<T> {
+/**
+ * Los dos casos en que un pedido no se comporta como todos los demás. Son dos y
+ * están acá arriba para que se lean juntos: los dos hablan de `/auth`.
+ */
+interface Opciones {
+  /** Solo el login: es el pedido que va a *buscar* el token, así que no lo lleva. */
+  sinToken?: boolean;
+  /**
+   * El pedido lleva una contraseña adentro, y entonces su 401 habla de **esa**
+   * contraseña y no de la sesión: el login que se erró, o la contraseña actual
+   * mal escrita en `POST /auth/password`, que la API rechaza con 401 y el mismo
+   * `NO_AUTENTICADO` que un token vencido. Sin esta marca, un dedo torpe en el
+   * formulario de cambio de contraseña echaría al tambero de una sesión que
+   * está perfectamente viva.
+   */
+  validaUnaPassword?: boolean;
+}
+
+async function pedir<T>(
+  metodo: string,
+  ruta: string,
+  cuerpo?: unknown,
+  opciones: Opciones = {},
+): Promise<T> {
+  // El header de auth va **siempre que haya token**, con cuerpo o sin cuerpo:
+  // el `content-type` sí depende del cuerpo, y confundir las dos condiciones
+  // dejaría todos los GET sin credencial.
+  const cabeceras: Record<string, string> = {};
+  if (cuerpo !== undefined) cabeceras['content-type'] = 'application/json';
+  const token = opciones.sinToken === true ? null : tokenGuardado();
+  if (token !== null) cabeceras['authorization'] = `Bearer ${token}`;
+
   let respuesta: Response;
   try {
     respuesta = await fetch(`${urlBase()}${ruta}`, {
       method: metodo,
-      ...(cuerpo === undefined
-        ? {}
-        : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) }),
+      headers: cabeceras,
+      ...(cuerpo === undefined ? {} : { body: JSON.stringify(cuerpo) }),
     });
   } catch (causa) {
     throw new ErrorDeRed(causa);
@@ -96,14 +137,31 @@ async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise
     // Un 500 o un proxy caído pueden contestar HTML: si el cuerpo no es el de
     // §9.1, se arma uno con la misma forma para que quien lo muestre no tenga
     // que distinguir dos casos.
-    const cuerpoError = await respuesta.json().catch(
+    const cuerpoError = (await respuesta.json().catch(
       (): CuerpoError => ({
         codigo: 'RESPUESTA_ILEGIBLE',
         mensaje: `El servidor contestó ${respuesta.status} y algo que no se entiende.`,
       }),
-    );
-    throw new ErrorApi(respuesta.status, cuerpoError as CuerpoError);
+    )) as CuerpoError;
+
+    // El 401 se atiende **acá y en ningún otro lado**: no hay token, venció, la
+    // firma no cierra o al usuario lo desactivaron. Se borra el token y se
+    // avisa, que es lo que devuelve al login desde cualquier pantalla —incluida
+    // la que estaba a mitad de una carga cuando se cumplieron las 8 horas—.
+    //
+    // El 403 **no** pasa por acá a propósito: la sesión está bien y lo que falta
+    // es permiso sobre ese tambo. Mandarlo al login por un 403 sería condenar al
+    // tambero a escribir la contraseña para siempre sin que eso arregle nada.
+    if (respuesta.status === 401 && opciones.validaUnaPassword !== true) {
+      caerLaSesion(cuerpoError.mensaje);
+    }
+
+    throw new ErrorApi(respuesta.status, cuerpoError);
   }
+
+  // Un 204 no trae cuerpo y `json()` sobre vacío tira: es el caso de
+  // `POST /auth/password`, la única operación de §9 que contesta sin nada.
+  if (respuesta.status === 204) return undefined as T;
 
   const cuerpoRespuesta = (await respuesta.json()) as T;
   // De paso, el reloj: casi toda respuesta de §9 trae el `hoy` del servidor, y
@@ -123,6 +181,27 @@ const A = (est: string, animal: string) => `${E(est)}/animales/${encodeURICompon
 // ── Las operaciones, en el orden de la tabla de §9 ───────────────────────────
 
 export const api = {
+  /**
+   * Entrar. Es el único pedido que no manda el header —va a buscar el token que
+   * todos los demás llevan— y el único cuyo 401 no cierra la sesión: el "Email o
+   * contraseña incorrectos" es la respuesta esperable de esta pantalla.
+   */
+  login: (cuerpo: CuerpoLogin) =>
+    pedir<RespuestaLogin>('POST', '/auth/login', cuerpo, {
+      sinToken: true,
+      validaUnaPassword: true,
+    }),
+
+  /** Quién soy y qué puedo, ahora. Lo primero que la app pregunta al arrancar. */
+  yo: () => get<RespuestaYo>('/auth/yo'),
+
+  /** Cambiar la contraseña propia. Contesta 204 y no cierra la sesión. */
+  cambiarPassword: (cuerpo: CuerpoPassword) =>
+    pedir<void>('POST', '/auth/password', cuerpo, { validaUnaPassword: true }),
+
+  /** Mis tambos: donde tengo permiso, o todos si soy admin. De acá sale el selector. */
+  establecimientos: () => get<RespuestaEstablecimientos>('/establecimientos'),
+
   establecimiento: (est: string) => get<RespuestaEstablecimiento>(E(est)),
 
   /** El listado del rodeo. Sin `todas`, solo las ACTIVAS. */

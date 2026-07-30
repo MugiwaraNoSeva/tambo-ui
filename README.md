@@ -116,6 +116,72 @@ que la copia se puede despegar del original, y lo que la ata es parcial —
 detecta lo que cambia de forma, no lo que se agrega. La red de verdad es usar la
 app contra la demo. Está todo en el encabezado de ese archivo y en la decisión 66.
 
+## Las decisiones de la cerradura
+
+Acá viven las decisiones de diseño **de la UI**, en prosa y con lo que se
+descartó. El registro numerado (§7) es de la spec del otro repo: lo que se
+decide de este lado se escribe acá.
+
+### El token vive en `localStorage`
+
+Tres candidatos y ninguno gratis. `sessionStorage` se borra al cerrar la
+pestaña, y en un celular la pestaña se cierra sola todo el tiempo. Solo en
+memoria es lo más seguro y pide la contraseña en cada recarga. `localStorage`
+sobrevive al bloqueo de pantalla y al browser cerrado, que es exactamente lo que
+pasa treinta veces por mañana: el tambero apoya el teléfono, mueve una vaca, lo
+levanta y sigue cargando.
+
+El costo real es que **cualquier XSS lo lee**, y hay que decir de qué tamaño es
+acá: esta app no tiene ni una dependencia de terceros en runtime (decisión 51),
+no muestra contenido escrito por usuarios de otros tambos, y el token tiene un
+techo de 8 horas sin refresh. Con esa superficie, el riesgo de un XSS es el
+riesgo de un bug propio — y un XSS propio con el token en memoria igual podría
+hacer los pedidos desde la página. Lo que se gana es que la pantalla de login se
+vea una vez por turno y no una vez por bloqueo de pantalla.
+
+Vive en `src/sesion.ts` y no en `almacen.ts` aunque los dos escriban en
+`localStorage`: el establecimiento elegido es una preferencia —no es secreto, no
+vence, se olvida cuando el tambero quiere— y el token es una credencial que
+vence sola y que **borra la API desde afuera** al contestar 401. Juntarlos haría
+que "olvidar" signifique dos cosas en el mismo archivo.
+
+### El 401 se atiende en un solo lugar, y avisa al revés
+
+El caso que manda es el peor: se cumplen las 8 horas **con la sesión abierta y a
+mitad de una carga**. Ahí el 401 llega a una pantalla que está por desaparecer,
+así que mostrarlo en el `Aviso` de esa pantalla no sirve para nada.
+
+Por eso el aviso va al revés de lo habitual: `pedir()` en `src/api/cliente.ts`
+—el único lugar que sabe de HTTP— borra el token y **avisa** a través de
+`alCaerLaSesion()`, y `App`, que es el único que puede cambiar de pantalla, se
+registra para escucharlo. Es un callback y no un evento del DOM para que el
+typecheck sostenga la forma del mensaje y para que la suite no dependa de
+`window`. El mensaje que se muestra es el de la API tal cual ("Tu sesión venció:
+dura 8 horas"), y si lo que se estaba haciendo era una carga, se dice además que
+ese evento **no se guardó**.
+
+### Un 401 con una contraseña adentro no es la sesión
+
+`POST /auth/password` rechaza la contraseña actual mal escrita con **401 y el
+mismo `NO_AUTENTICADO`** que un token vencido. Aplicar ahí la regla de arriba
+echaría al tambero de una sesión perfectamente viva por un dedo torpe.
+
+La regla, entonces, tiene una excepción de una línea: **un pedido que lleva una
+contraseña en el cuerpo no dispara la vuelta al login**, porque su 401 habla de
+esa contraseña. Son dos —el login y el cambio de contraseña propia— y están
+marcados en `cliente.ts` con `validaUnaPassword`. Se descartó pedirle al backend
+un código distinto: no falta nada del otro lado, la distinción la tiene el
+llamador y sale más barata acá que en el contrato.
+
+### El 403 no vuelve al login
+
+Es el error clásico y se paga en las dos direcciones. Un 403 significa que la
+sesión está bien y que **falta permiso sobre ese tambo**: mandar al login sería
+condenar al tambero a escribir la contraseña una y otra vez sin que eso arregle
+nada. Un 403 vuelve al selector de tambo. Y como un tambo sobre el que no tengo
+permiso contesta 403 exista o no, un id guardado que ya no me corresponde se ve
+igual que uno inventado — y las dos cosas se resuelven igual.
+
 ## Dónde está el resto
 
 El backend vive en **`https://github.com/MugiwaraNoSeva/tambo.git`**: el núcleo

@@ -14,6 +14,8 @@
 import type {
   Config,
   CuerpoError,
+  RespuestaEstablecimientos,
+  Usuario,
   RespuestaAlertas,
   RespuestaAnimal,
   RespuestaAnimales,
@@ -74,6 +76,68 @@ export const establecimiento: RespuestaEstablecimiento = {
   id: EST,
   nombre: 'La Esperanza',
   config: CONFIG_DEFAULT,
+};
+
+// ── La sesión ────────────────────────────────────────────────────────────────
+//
+// Los tres usuarios de la demo, con la forma exacta que devuelven `/auth/login`
+// y `/auth/yo`. El del medio es el caso normal; los otros dos son los que se
+// rompen: el de `lectura`, que nadie prueba, y el admin, que **no tiene
+// permisos** y aun así puede todo.
+
+/** Un token cualquiera. No se parsea en ningún lado: la UI no lo abre. */
+export const TOKEN = 'un.token.de.mentira';
+
+export const EST2 = '22222222-cccc-cccc-cccc-222222222222';
+
+export const usuarioEscritura: Usuario = {
+  id: 'aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa',
+  nombre: 'Paulo',
+  email: 'paulo@demo.local',
+  es_admin: false,
+  permisos: [{ establecimiento_id: EST, rol: 'escritura' }],
+};
+
+export const usuarioLectura: Usuario = {
+  id: 'bbbbbbbb-2222-2222-2222-bbbbbbbbbbbb',
+  nombre: 'Vet',
+  email: 'vet@demo.local',
+  es_admin: false,
+  permisos: [{ establecimiento_id: EST, rol: 'lectura' }],
+};
+
+/** El admin: `permisos` vacío y puede todo, que es la mitad que se olvida. */
+export const usuarioAdmin: Usuario = {
+  id: 'cccccccc-3333-3333-3333-cccccccccccc',
+  nombre: 'Administración',
+  email: 'admin@tambo.local',
+  es_admin: true,
+  permisos: [],
+};
+
+export const misEstablecimientos: RespuestaEstablecimientos = {
+  establecimientos: [{ id: EST, nombre: 'La Esperanza' }],
+};
+
+/** El rechazo del login: un mensaje único, que no dice cuál de los dos falló. */
+export const loginRechazado: CuerpoError = {
+  codigo: 'NO_AUTENTICADO',
+  mensaje: 'Email o contraseña incorrectos.',
+  forzable: false,
+};
+
+/** El de las 8 horas, que llega con la sesión abierta y a mitad de cualquier cosa. */
+export const sesionVencida: CuerpoError = {
+  codigo: 'NO_AUTENTICADO',
+  mensaje: 'Tu sesión venció: dura 8 horas. Volvé a entrar.',
+  forzable: false,
+};
+
+/** Y el que no hay que confundir con el anterior: la sesión está bien. */
+export const sinPermiso: CuerpoError = {
+  codigo: 'SIN_PERMISO',
+  mensaje: 'No tenés permiso sobre este establecimiento.',
+  forzable: false,
 };
 
 /** El rodeo de la demo, ordenado por caravana como lo devuelve la API. */

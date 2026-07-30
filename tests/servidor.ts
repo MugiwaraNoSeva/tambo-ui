@@ -23,11 +23,21 @@ export interface RespuestaFalsa {
 
 export type Manejador = RespuestaFalsa | ((cuerpo: unknown) => RespuestaFalsa);
 
+export interface PedidoRecibido {
+  metodo: string;
+  ruta: string;
+  cuerpo: unknown;
+  /** Las cabeceras, en minúscula: es donde se mira si el token viajó. */
+  cabeceras: Record<string, string>;
+}
+
 export interface ApiFalsa {
   /** Cada pedido que recibió, en orden: para afirmar qué mandó la pantalla. */
-  pedidos: { metodo: string; ruta: string; cuerpo: unknown }[];
+  pedidos: PedidoRecibido[];
   /** El último cuerpo mandado a esa ruta, ya parseado. */
   cuerpoDe: (clave: string) => unknown;
+  /** El `Authorization` con que se pidió esa ruta, o `undefined` si no viajó. */
+  autorizacionDe: (clave: string) => string | undefined;
 }
 
 /**
@@ -36,13 +46,16 @@ export interface ApiFalsa {
  * si la pantalla pide algo que nadie previó, hay que enterarse.
  */
 export function montarApi(rutas: Record<string, Manejador>): ApiFalsa {
+  const ultimoA = (clave: string): PedidoRecibido | undefined => {
+    const [metodo, ruta] = clave.split(' ');
+    const encontrados = registro.pedidos.filter((p) => p.metodo === metodo && p.ruta === ruta);
+    return encontrados[encontrados.length - 1];
+  };
+
   const registro: ApiFalsa = {
     pedidos: [],
-    cuerpoDe(clave) {
-      const [metodo, ruta] = clave.split(' ');
-      const encontrados = registro.pedidos.filter((p) => p.metodo === metodo && p.ruta === ruta);
-      return encontrados[encontrados.length - 1]?.cuerpo;
-    },
+    cuerpoDe: (clave) => ultimoA(clave)?.cuerpo,
+    autorizacionDe: (clave) => ultimoA(clave)?.cabeceras['authorization'],
   };
 
   vi.stubGlobal('fetch', async (entrada: unknown, init?: RequestInit) => {
@@ -50,7 +63,16 @@ export function montarApi(rutas: Record<string, Manejador>): ApiFalsa {
     const ruta = `${url.pathname}${url.search}`;
     const metodo = init?.method ?? 'GET';
     const cuerpo = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
-    registro.pedidos.push({ metodo, ruta, cuerpo });
+    // El cliente manda un objeto plano, que es lo que el `fetch` de verdad
+    // acepta. Se normaliza a minúscula porque HTTP no distingue mayúsculas y un
+    // test no debería fallar por `Authorization` contra `authorization`.
+    const cabeceras: Record<string, string> = {};
+    for (const [nombre, valor] of Object.entries(
+      (init?.headers ?? {}) as Record<string, string>,
+    )) {
+      cabeceras[nombre.toLowerCase()] = valor;
+    }
+    registro.pedidos.push({ metodo, ruta, cuerpo, cabeceras });
 
     const manejador = rutas[`${metodo} ${ruta}`];
     if (manejador === undefined) {
