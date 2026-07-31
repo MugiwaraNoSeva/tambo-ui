@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# El despliegue de la UI, versionado.
+#
+# La API **no está acá**: vive en su propio repositorio con su propio
+# `render.yaml` (decisión 66). Dos repos, dos servicios, dos deploys — y ningún
+# commit toca los dos.
+#
+# Static Site y no Web Service, y eso compra dos cosas: es gratis y **no
+# duerme**. La pantalla de login carga al toque aunque la API esté dormida.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: tambo-ui
+    runtime: static
+
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+
+    envVars:
+      # **Se incrusta en el bundle al compilar, no se lee en runtime.** O sea:
+      # cambiar esta URL **obliga a rebuildear el front**, no alcanza con
+      # reiniciar nada. Es contraintuitivo y se descubre tarde.
+      #
+      # Es la URL del servicio de la API, exacta y **sin barra final**.
+      #
+      # No existe hasta que ese servicio está creado: el orden para salir del
+      # huevo y la gallina está en el `DESPLIEGUE.md` del repo de la API — crear
+      # los dos servicios primero, completar las dos variables después.
+      #
+      # Si falta, el build **se cae a propósito** (ver `vite.config.ts`): sin
+      # ella la app compilaría igual y le pediría los datos al sitio estático.
+      - key: VITE_API_URL
+        sync: false
+
+# **Sin `routes` y sin `_redirects`, y es a propósito.**
+#
+# El ruteo de la UI es por hash (`#/animales/…`, decisión 51), así que el
+# servidor nunca ve nada más que `/`: cualquier ruta profunda funciona sin que
+# él sepa una palabra. La reescritura `/* → /index.html` que todo el mundo
+# agrega "por las dudas" acá no arregla nada y esconde los 404 de verdad.

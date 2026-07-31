@@ -266,6 +266,68 @@ un formulario entero cuyo único final posible es un 403 al enviar.
 esconde nada creyendo que eso lo defiende ni se duplica la regla en ninguna parte
 más que en ese único lugar.
 
+## Cómo se despliega
+
+Como **Static Site de Render**, con `render.yaml` versionado acá al lado. Es
+gratis y —lo que importa— **no duerme**: la pantalla de login carga al toque
+aunque la API esté dormida, que a los 15 minutos sin tráfico lo va a estar.
+
+```
+buildCommand: npm ci && npm run build
+staticPublishPath: ./dist
+```
+
+### `VITE_API_URL` se incrusta al compilar
+
+Es lo más contraintuitivo de todo el despliegue de la UI y se descubre tarde:
+esa variable **no se lee en runtime**, Vite la escribe adentro del bundle cuando
+compila. O sea que **cambiar la URL de la API obliga a rebuildear el front**; no
+alcanza con editarla en el panel y reiniciar, porque un sitio estático no
+"reinicia" nada.
+
+Va la URL exacta del servicio de la API, **sin barra final**.
+
+Si falta, `urlBase()` cae a "mismo origen" —que es correcto cuando la API sirve
+la UI, y acá no la sirve—, así que la app cargaría perfecto y fallaría todos los
+pedidos contra el CDN con un `Failed to fetch` que no dice una palabra de la
+causa. Por eso **el build se cae a propósito** cuando corre en Render sin esa
+variable (ver `vite.config.ts`): ruidoso y de un minuto, en vez de silencioso y
+de una tarde.
+
+### El huevo y la gallina de las dos URLs
+
+La API necesita la URL de este sitio en `ORIGENES_PERMITIDOS` y este sitio
+necesita la de la API en `VITE_API_URL`, y **ninguna existe hasta crear los
+servicios**. El orden que sale de eso —crear los dos primero, completar las dos
+variables después, y recién ahí el primer deploy que sirve— está escrito en el
+`DESPLIEGUE.md` del repo de la API, que es donde vive el despliegue completo.
+
+### Nada de `_redirects` ni de reescrituras
+
+El ruteo es **por hash** (`#/animales/…`, decisión 51), así que el servidor nunca
+ve más que `/`: cualquier ruta profunda funciona sin que él sepa una palabra. La
+reescritura `/* → /index.html` que todo el mundo agrega "por las dudas" acá no
+arregla nada y esconde los 404 de verdad. No se agrega.
+
+### El vacío que le mandaba al admin a pedirse permiso a sí mismo
+
+En una base recién instalada **no existe ningún establecimiento** y el único
+usuario es el admin. Cuando entra, `GET /establecimientos` le devuelve la lista
+vacía — y hasta acá el selector le decía *"Todavía no te dieron acceso a ningún
+tambo. Pedíselo a un administrador"*. **Él es el administrador.** Es literalmente
+la primera pantalla que alguien ve en producción y le daba una instrucción
+imposible.
+
+Nunca apareció porque la demo siembra el tambo antes de que nadie entre y los
+tests parten de una sesión con establecimientos. Ahora el vacío son **dos**
+casos: con `usuario.es_admin` en la mano, al admin se le dice lo que **sí** puede
+hacer —crear el tambo, las personas y sus permisos, en ese orden— y que eso va
+contra la API porque esta UI no tiene pantallas de administración.
+
+Que no las tenga **es una decisión, no un olvido**: administrar es trabajo que se
+hace una vez cada tanto y no le corresponde a la pantalla del corral. El mensaje
+lo dice con esas palabras, para que no se lea como una funcionalidad que falta.
+
 ## Dónde está el resto
 
 El backend vive en **`https://github.com/MugiwaraNoSeva/tambo.git`**: el núcleo

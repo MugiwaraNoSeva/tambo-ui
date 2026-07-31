@@ -24,6 +24,27 @@ declare const process: { env: Record<string, string | undefined> };
 
 const apiDeDesarrollo = process.env['DEMO_URL'] ?? 'http://127.0.0.1:3000';
 
+// ── El build de Render no sale sin saber dónde está la API ──────────────────
+//
+// `VITE_API_URL` **se incrusta en el bundle al compilar**, no se lee en runtime.
+// Si falta, `urlBase()` cae a "mismo origen" — que es correcto cuando la API
+// sirve la UI, y acá no la sirve: la UI es un sitio estático y la API vive en
+// otro host. El resultado sería una app que carga perfecto, muestra el login y
+// falla todos los pedidos contra el CDN, con un "Failed to fetch" que no dice
+// una palabra de la causa. Falla en silencio y se diagnostica mal.
+//
+// En Render eso no puede ser otra cosa que un error de configuración, así que el
+// build se cae acá: es ruidoso y se arregla en un minuto. Fuera de Render el
+// mismo origen sigue siendo legítimo y esto no se entromete.
+if (process.env['RENDER'] === 'true' && (process.env['VITE_API_URL'] ?? '').trim() === '') {
+  throw new Error(
+    'Falta VITE_API_URL y esto es un build de Render: la UI quedaría pidiéndole los datos al ' +
+      'sitio estático en vez de a la API. Poné la URL del servicio de la API (sin barra final) ' +
+      'en las variables de entorno del sitio y volvé a desplegar. Se incrusta al compilar, así ' +
+      'que cambiarla obliga a rebuildear.',
+  );
+}
+
 export default defineConfig({
   plugins: [react()],
   server: {

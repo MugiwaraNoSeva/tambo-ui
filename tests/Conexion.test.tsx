@@ -122,13 +122,41 @@ describe('varios tambos', () => {
 });
 
 describe('ningún tambo', () => {
-  it('dice qué hacer, y no muestra una lista vacía ni un error', async () => {
+  it('al tambero le dice a quién pedírselo, sin lista vacía ni error', async () => {
     montarApi({ ...sesionDePrueba(usuarioEscritura, []) });
     render(<App />);
 
     expect(await screen.findByText(/pedíselo a un administrador/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     // La única salida que le queda tiene que estar.
+    expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
+  });
+
+  // ── El primer arranque de producción ─────────────────────────────────────
+  //
+  // En una base recién instalada no hay ningún establecimiento y el único
+  // usuario es el admin: esta es, literalmente, la primera pantalla que alguien
+  // ve. Mandarlo a pedirle permiso a un administrador es mandarlo a pedírselo a
+  // sí mismo. No apareció nunca porque la demo siembra el tambo antes de que
+  // nadie entre y el resto de los tests parte de una sesión con tambos.
+
+  it('al admin NO le dice que le pida permiso a un administrador: es él', async () => {
+    montarApi({ ...sesionDePrueba(usuarioAdmin, []) });
+    render(<App />);
+
+    await screen.findByText(/no hay ningún tambo cargado/i);
+    expect(screen.queryByText(/pedíselo a un administrador/i)).not.toBeInTheDocument();
+  });
+
+  it('y le dice lo que sí puede hacer, que es crear el tambo', async () => {
+    montarApi({ ...sesionDePrueba(usuarioAdmin, []) });
+    render(<App />);
+
+    // Los tres pedidos del primer arranque, en orden. Sin esto el mensaje sería
+    // "no podés hacer nada acá", que es cierto y no sirve.
+    expect(await screen.findByText('POST /establecimientos')).toBeInTheDocument();
+    expect(screen.getByText('POST /usuarios')).toBeInTheDocument();
+    expect(screen.getByText(/permisos/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
   });
 });
