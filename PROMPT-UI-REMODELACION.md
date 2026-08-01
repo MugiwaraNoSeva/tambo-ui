@@ -396,6 +396,37 @@ Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué
       en vuelo, porque con un mock instantáneo serie y paralelo se ven igual.
       **Sigue pendiente lo visual**, como en la Parte 1: la extensión de Chrome no
       está conectada en esta máquina.
-- [ ] Parte 3 — El camino corto, y volver a donde estabas
+- [x] Parte 3 — `0c0b0ef` — Los cinco puntos hechos. **Medido: de 16 pedidos y ~6
+      toques a 7 y 4** para cargarle un evento a una vaca desde el tablero (3 del
+      tablero + 0 de la carga + 1 POST + 3 al volver). La ficha bajó de cinco
+      lecturas a tres, la carga de una a cero, y la vuelta ya no pasa por el rodeo.
+      **Lo que el prompt pedía y no se hizo entero, con su porqué:** decía que el
+      historial de reglas (`GET /configuraciones`) tampoco se pidiera al entrar. Se
+      dejó, porque es lo que hace que el historial diga la verdad sobre bajo qué
+      parámetros se juzgó cada evento —el pago entero de la decisión 92— y
+      esconderlo detrás de un clic lo volvería invisible. El ahorro real ahí es
+      **cachearlo por establecimiento** (es el mismo para todo el tambo y hoy viaja
+      una vez por ficha), no diferirlo; queda anotado en el README y no cuesta un
+      pedido más que antes.
+      **Lo que apareció al hacerlo:** (1) la vuelta necesita un filtro de seguridad
+      que el prompt no mencionaba — `?de=` termina en un `href` y llega de la barra
+      de direcciones, así que solo se acepta lo que empieza con `#/`; sin eso, un
+      `?de=https://…` convierte la flecha de volver en un enlace a cualquier lado.
+      Tiene sus tres tests. (2) El atajo de la fila **cambia el nombre accesible de
+      la fila vecina**: "Cargar un evento a 104" matchea `/104/` igual que la fila,
+      y eso rompió dos tests que buscaban por nombre sin anclar. El nombre del atajo
+      tiene que llevar la caravana —quien no ve la pantalla necesita saber a qué
+      animal le va a cargar— así que se ancló la búsqueda, no se acortó el rótulo.
+      (3) El `hoy` del servidor ahora se fija **al abrir el formulario**: releerlo
+      en cada dibujo hace que una carga abierta antes de medianoche cambie de día
+      sola, y con "Ayer" en pantalla eso se vuelve visible.
+      **253 tests. 18 de los viejos cambiaron y ninguno por casualidad**: los de la
+      ficha abren la tarjeta antes de mirarla (comportamiento nuevo), los del
+      tablero y el rodeo esperan el origen en el `href` (dirección nueva), y el de
+      la anulación afirma **dos** refrescos en vez de cuatro — las tarjetas que
+      nadie abrió no se refrescan, y refrescarlas sería pagar dos viajes para tirar
+      el resultado. 20 tests nuevos, entre ellos los bordes de `diaAnterior` (1900
+      contra 2000, que es donde falla el `% 4`). Typecheck limpio y build en verde.
+      **Sigue pendiente lo visual**, por lo mismo que en las Partes 1 y 2.
 - [ ] Parte 4 — El tablero que prioriza y el rodeo que se filtra a un toque
 - [ ] Parte 5 — El escritorio, y la verificación contra la demo de verdad
