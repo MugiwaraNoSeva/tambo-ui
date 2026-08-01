@@ -22,7 +22,21 @@ export type Ruta =
   | { nombre: 'cargar'; id: string }
   | { nombre: 'alta' }
   | { nombre: 'tanque' }
-  | { nombre: 'cuenta' };
+  | { nombre: 'cuenta' }
+  // Las tres del panel. Son de **otro árbol**: las de arriba son rutas de un
+  // tambo —se dibujan adentro del establecimiento activo, que les da el nombre,
+  // la `Config` y el permiso— y estas no tienen tambo. La lista de tambos no
+  // pertenece a ninguno, y la gente de uno se mira sin estar conectado a él.
+  | { nombre: 'panel' }
+  | { nombre: 'panel-tambo'; id: string }
+  | { nombre: 'panel-usuarios' };
+
+/**
+ * ¿Esta ruta es del panel? La pregunta `App` para saber de qué lado del árbol
+ * dibujar, y existe como función para que agregar una cuarta ruta de admin no
+ * obligue a acordarse de sumarla a un `||` en otro archivo.
+ */
+export const esRutaDeAdmin = (ruta: Ruta): boolean => ruta.nombre.startsWith('panel');
 
 function suscribir(avisar: () => void): () => void {
   window.addEventListener('hashchange', avisar);
@@ -43,8 +57,20 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'animales' && segunda !== undefined) {
     return tercera === 'cargar' ? { nombre: 'cargar', id: segunda } : { nombre: 'animal', id: segunda };
   }
+  // El panel, con su propio "cae en el inicio": lo que empieza con `admin` y no
+  // se entiende va a la lista de tambos y **no** al tablero. Salir del panel por
+  // un `admin/tanbos` mal tipeado sería mandar a otra aplicación por una letra.
+  if (primera === 'admin') {
+    if (segunda === 'usuarios') return { nombre: 'panel-usuarios' };
+    if (segunda === 'tambos' && tercera !== undefined) return { nombre: 'panel-tambo', id: tercera };
+    return { nombre: 'panel' };
+  }
   // Cualquier cosa que no se entienda cae en el tablero, que es el inicio: una
   // pantalla de "no encontrado" para un hash tipeado a mano no le sirve a nadie.
+  //
+  // Que `#/admin` de alguien que no es admin caiga acá **también es esto**, y no
+  // hace falta que esta función lo sepa: quien decide es `App`, que es el único
+  // que sabe quién está mirando. La cerradura de verdad es el 403 de la API.
   return { nombre: 'tablero' };
 }
 
@@ -62,6 +88,9 @@ export const aCargar = (id: string) => `#/animales/${id}/cargar`;
 export const aAlta = () => '#/alta';
 export const aTanque = () => '#/tanque';
 export const aCuenta = () => '#/cuenta';
+export const aPanel = () => '#/admin';
+export const aPanelTambo = (id: string) => `#/admin/tambos/${id}`;
+export const aPanelUsuarios = () => '#/admin/usuarios';
 
 /** Navegación imperativa, para después de guardar algo. */
 export function ir(destino: string): void {

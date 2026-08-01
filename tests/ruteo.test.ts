@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { aAnimal, aCargar, leerRuta } from '../src/ruteo';
+import {
+  aAnimal,
+  aCargar,
+  aPanel,
+  aPanelTambo,
+  aPanelUsuarios,
+  esRutaDeAdmin,
+  leerRuta,
+} from '../src/ruteo';
 
 describe('leerRuta', () => {
   it('el hash vacío es el tablero', () => {
@@ -21,5 +29,31 @@ describe('leerRuta', () => {
   it('lo que no se entiende cae en el tablero, no en un error', () => {
     expect(leerRuta('#/cualquiera')).toEqual({ nombre: 'tablero' });
     expect(leerRuta('#/animales')).toEqual({ nombre: 'tablero' });
+  });
+});
+
+describe('las rutas del panel', () => {
+  it('lee las tres, y cada constructora vuelve por donde salió', () => {
+    expect(leerRuta(aPanel())).toEqual({ nombre: 'panel' });
+    expect(leerRuta(aPanelUsuarios())).toEqual({ nombre: 'panel-usuarios' });
+    expect(leerRuta(aPanelTambo('abc'))).toEqual({ nombre: 'panel-tambo', id: 'abc' });
+  });
+
+  it('un hash de admin que no se entiende cae en el panel, no en el tablero', () => {
+    // Salir del panel por una letra mal tipeada sería mandarlo a otra
+    // aplicación: el inicio del panel es el panel.
+    expect(leerRuta('#/admin/tanbos')).toEqual({ nombre: 'panel' });
+    expect(leerRuta('#/admin/tambos')).toEqual({ nombre: 'panel' });
+    expect(leerRuta('#/admin/loquesea')).toEqual({ nombre: 'panel' });
+  });
+
+  it('esRutaDeAdmin separa los dos árboles', () => {
+    expect(leerRuta(aPanel())).toSatisfy(esRutaDeAdmin);
+    expect(leerRuta(aPanelTambo('abc'))).toSatisfy(esRutaDeAdmin);
+    expect(leerRuta(aPanelUsuarios())).toSatisfy(esRutaDeAdmin);
+    // Y ninguna del tambo se cuela: son dos árboles y no uno con una rama.
+    expect(esRutaDeAdmin(leerRuta('#/'))).toBe(false);
+    expect(esRutaDeAdmin(leerRuta('#/rodeo'))).toBe(false);
+    expect(esRutaDeAdmin(leerRuta(aAnimal('abc')))).toBe(false);
   });
 });
