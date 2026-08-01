@@ -59,9 +59,17 @@ async function entrarAlTamboComoAdmin() {
     await screen.findByRole('link', { name: /La Esperanza/ }, { timeout: 10000 }),
   );
   await userEvent.click(
-    await screen.findByRole('button', { name: 'Entrar al tambo' }, { timeout: 10000 }),
+    await screen.findByRole('button', { name: /Entrar al tambo/ }, { timeout: 10000 }),
   );
   await screen.findByRole('heading', { name: 'La Esperanza' }, { timeout: 10000 });
+}
+
+/** Del panel al menú de La Esperanza, y de ahí a la pantalla de su gente. */
+async function irALaGenteDelTambo() {
+  await userEvent.click(
+    await screen.findByRole('link', { name: /La Esperanza/ }, { timeout: 10000 }),
+  );
+  await userEvent.click(await screen.findByRole('link', { name: /Su gente/ }, { timeout: 10000 }));
 }
 
 beforeEach(() => {
@@ -169,7 +177,7 @@ describe('la demo, con los tres usuarios', () => {
 
     // ── Crearla ────────────────────────────────────────────────────────────
     await userEvent.click(
-      await screen.findByRole('link', { name: 'Las personas' }, { timeout: 10000 }),
+      await screen.findByRole('link', { name: 'Todas las personas' }, { timeout: 10000 }),
     );
     await screen.findByRole('heading', { name: 'Todas' }, { timeout: 10000 });
     await userEvent.click(screen.getByRole('button', { name: 'Crear una persona' }));
@@ -186,9 +194,7 @@ describe('la demo, con los tres usuarios', () => {
 
     // ── Darle acceso a La Esperanza ────────────────────────────────────────
     window.location.hash = '#/admin';
-    await userEvent.click(
-      await screen.findByRole('link', { name: /La Esperanza/ }, { timeout: 10000 }),
-    );
+    await irALaGenteDelTambo();
     const quien = await screen.findByLabelText('Quién', {}, { timeout: 10000 });
     await userEvent.selectOptions(
       quien,
@@ -220,6 +226,78 @@ describe('la demo, con los tres usuarios', () => {
     // El admin sigue apareciendo aparte: entra a este tambo sin figurar en el
     // reparto, que es la trampa que ninguna lista filtrada por permiso ve.
     expect(screen.getByRole('heading', { name: 'Y además, los administradores' })).toBeInTheDocument();
+  }, 60000);
+
+  /**
+   * El CRUD del tambo contra la API de verdad: crear, renombrar, archivar —y ver
+   * que archivado **frena una carga**, que es lo único que ningún mock puede
+   * probar—, y desarchivar para dejar la demo como estaba.
+   */
+  it('el CRUD de tambos: crea uno, lo renombra, lo archiva y lo desarchiva', async () => {
+    const sufijo = String(Date.now()).slice(-6);
+    await entrar('admin');
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Crear un tambo' }, { timeout: 10000 }),
+    );
+    await userEvent.type(
+      await screen.findByLabelText('Nombre del tambo', {}, { timeout: 10000 }),
+      `El Ombú ${sufijo}`,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Crear el tambo' }));
+
+    // Aparece en la lista, con nadie adentro.
+    const fila = await screen.findByRole(
+      'link',
+      { name: new RegExp(`El Ombú ${sufijo}`) },
+      { timeout: 10000 },
+    );
+    await userEvent.click(fila);
+
+    // Renombrarlo.
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Editar el tambo' }, { timeout: 10000 }),
+    );
+    const campo = screen.getByLabelText('Nombre');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, `El Ombú Viejo ${sufijo}`);
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar el nombre' }));
+    expect(
+      await screen.findByRole('heading', { name: `El Ombú Viejo ${sufijo}` }, { timeout: 10000 }),
+    ).toBeInTheDocument();
+
+    // Archivarlo, y que lo diga.
+    await userEvent.click(screen.getByRole('button', { name: 'Archivar el tambo' }));
+    expect(
+      await screen.findByText(/Este tambo está archivado/i, {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+
+    // Sale de la lista, y aparece si se lo va a buscar.
+    window.location.hash = '#/admin';
+    await waitFor(
+      () => expect(screen.queryByText(new RegExp(`El Ombú Viejo ${sufijo}`))).not.toBeInTheDocument(),
+      { timeout: 10000 },
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Ver también los archivados' }));
+    expect(
+      await screen.findByText(new RegExp(`El Ombú Viejo ${sufijo}`), {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+
+    // Y lo que ningún mock prueba: archivado, la API **no deja cargar**. Se
+    // entra al tambo y el alta se come el 409 con su mensaje.
+    await userEvent.click(screen.getByRole('link', { name: new RegExp(`El Ombú Viejo ${sufijo}`) }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Entrar al tambo/ }, { timeout: 10000 }),
+    );
+    window.location.hash = '#/alta';
+    await userEvent.type(
+      await screen.findByLabelText('Caravana', {}, { timeout: 10000 }),
+      `8${sufijo.slice(-3)}`,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+    expect(
+      await screen.findByText(/está archivado/i, {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
   }, 60000);
 
   it('el de lectura no tiene panel: `#/admin` le cae en su tablero', async () => {

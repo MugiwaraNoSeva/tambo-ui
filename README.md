@@ -18,10 +18,18 @@ derecho; con varios hay una lista, y el último elegido queda guardado.
 
 ## Y el administrador tiene su panel
 
-**El admin no ve esto.** Su inicio es `#/admin`: la lista de tambos, y adentro de
-cada uno la gente que entra y con qué permiso. Desde ahí crea tambos, crea
-personas, reparte y saca permisos — y entra al tambo a usarlo como cualquiera de
-su gente, porque puede todo en todos.
+**El admin no ve esto.** Su inicio es `#/admin`, y son tres pantallas encadenadas:
+
+1. **los tambos** — la lista, crear uno, y ver los archivados si hace falta;
+2. **un tambo** — un menú de qué hacer con él: entrar a usarlo, su gente, o
+   editarlo y archivarlo;
+3. **su gente** — quién entra y con qué permiso, y la persona entera: nombre,
+   contraseña, si está activa, si es administradora.
+
+El menú del medio existe porque las tres cosas tienen frecuencias distintas:
+entrar es de todos los días, repartir permisos es de vez en cuando, y archivar un
+tambo pasa una vez en la vida. Apiladas en una pantalla sola, la de todos los
+días quedaba abajo de las otras dos.
 
 Hasta la tanda del panel esto se hacía con `curl` y este README decía por qué:
 *"administrar es trabajo que se hace una vez cada tanto y no le corresponde a la
@@ -115,11 +123,12 @@ src/
   estilos.css        El sistema de diseño entero
 ```
 
-Doce pantallas, en **dos árboles**. Las del tambo son nueve: login, conexión (el
+Trece pantallas, en **dos árboles**. Las del tambo son nueve: login, conexión (el
 selector), tablero, rodeo, ficha, carga de evento, alta, tanque y mi cuenta. Las
-del panel son tres —la lista de tambos, un tambo con su gente, y las personas— y
-se dibujan **afuera** del establecimiento activo, porque no son de ningún tambo.
-"Mi cuenta" es la única que vive en los dos: la contraseña es de la persona.
+del panel son cuatro —los tambos, el menú de uno, su gente, y todas las personas—
+y se dibujan **afuera** del establecimiento activo, porque no son de ningún
+tambo. "Mi cuenta" es la única que vive en los dos: la contraseña es de la
+persona.
 
 Las cuatro librerías que **no** están —componentes, Tailwind, router y charts— y
 por qué, en la decisión 51. La revisión de esa decisión cuando el CSS creció está
@@ -367,6 +376,34 @@ Un detalle que se ve solo desde este lado: para el admin, un tambo que no existe
 contesta **404 y no 403**. El 403 parejo está para no decirle a un extraño qué
 tambos hay, y él no es un extraño.
 
+### Un tambo tampoco se borra: se archiva
+
+Es la misma respuesta que para las personas, y por eso tiene la misma forma —un
+campo del `PATCH`— en vez de un `DELETE` que archive por debajo. De un
+establecimiento cuelgan sus animales, su log, sus permisos y su tanque, y el log
+no admite borrados: borrarlo es romper esas referencias o romper la historia
+(decisión 91 de la spec).
+
+Lo que **sí** hace archivar, y conviene saberlo porque no es "esconder":
+
+- sale de la lista, y vuelve con "Ver también los archivados";
+- **deja de aceptar cargas**, con un 409 que también se come el admin;
+- y se sigue mirando entero — el rodeo, las fichas, el historial, el tanque. Ese
+  es el punto de archivar en vez de borrar: el log queda, y el log es para leerlo.
+
+La pantalla lo dice con esas palabras y el botón no pide una confirmación con
+cara de irreversible, porque no lo es: se deshace con el mismo botón.
+
+### El nombre se edita, la `Config` no
+
+`PATCH /establecimientos/{est}` acepta `config`, y esta UI **no la ofrece**. Son
+diecisiete números que se validan entre ellos —el mínimo de gestación contra el
+máximo, el secado contra el parto probable— y que deciden qué cargas acepta el
+tambo. Ofrecerlos al pasar, al lado del nombre, es ofrecer que alguien cambie sin
+querer con qué valida el dominio. Cuando haga falta tocarlos va a ser en una
+pantalla que se tome ese trabajo en serio; hasta entonces, el renglón que lo
+explica está donde alguien lo iría a buscar.
+
 ### Lo que el panel no hace, y por qué
 
 - **No borra a nadie.** No existe `DELETE /usuarios`: el log firma con
@@ -383,13 +420,22 @@ tambos hay, y él no es un extraño.
   promesa que la pantalla no puede cumplir. La salida —nombrar a otro y que ese
   otro te desactive— se dice con palabras. `ULTIMO_ADMIN` sí se muestra cuando
   llega: esa cuenta la lleva el servidor y la UI no debería llevarla.
-- **No edita el nombre ni la `Config` del tambo.** No existe
-  `PATCH /establecimientos/{est}`, así que la `Config` se fija al crear y no la
-  cambia nadie, ni por acá ni por `curl`. Ofrecer el formulario sería prometer lo
-  que la API no puede cumplir.
 - **No pagina ni busca.** `GET /usuarios` devuelve a todos, por nombre y sin
   paginar, y el sistema tiene un puñado de personas. Cuando sean cientos, se
   revisa.
+
+### La lista global de personas es la segunda puerta
+
+El camino de todos los días es entrar por el tambo: ahí está la gente que
+importa, con el permiso que se viene a cambiar. La lista completa (`Todas las
+personas`) se queda igual porque hay **dos clases de persona que ninguna lista
+por tambo puede mostrar**: los administradores, que no figuran en el reparto de
+ninguno, y quien todavía no tiene acceso a ninguno. Sin ella, esas dos serían
+invisibles salvo en el momento exacto de crearlas.
+
+Las dos pantallas comparten la ficha de la persona —se edita igual se la mire
+desde donde se la mire— y lo que cambia es lo que se le cuelga al lado: adentro
+de un tambo, los controles del permiso sobre ese tambo.
 
 ## Cómo se despliega
 

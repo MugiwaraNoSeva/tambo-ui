@@ -140,7 +140,7 @@ describe('el admin, que no tiene permisos y puede todo', () => {
   async function entrarAlTambo(hash = '') {
     montarTodo(usuarioAdmin, aPanelTambo(EST));
     render(<App />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Entrar al tambo' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Entrar al tambo/ }));
     if (hash !== '') window.location.hash = hash;
   }
 

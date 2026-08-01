@@ -17,7 +17,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
-import { aPanel, aPanelTambo, aPanelUsuarios } from '../src/ruteo';
+import { aPanel, aPanelTambo, aPanelTamboGente, aPanelUsuarios } from '../src/ruteo';
 import { montarApi, type Manejador } from './servidor';
 import {
   EST,
@@ -42,6 +42,10 @@ const montarPanel = (hash = aPanel(), cambios: Record<string, Manejador> = {}) =
   return montarApi({
     ...sesionDePrueba(usuarioAdmin, losDosTambos),
     'GET /usuarios': { cuerpo: personas },
+    // La pantalla de la gente pide los tambos **con los archivados**: es la que
+    // escribe en qué tambo entra cada uno, y un permiso sobre un tambo archivado
+    // sigue siendo un permiso que hay que poder leer.
+    'GET /establecimientos?archivados=true': { cuerpo: { establecimientos: losDosTambos } },
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     ...rutasDelTablero,
     ...cambios,
@@ -158,11 +162,110 @@ describe('la primera pantalla de producción', () => {
   });
 });
 
+// ── El menú del tambo, y su CRUD ─────────────────────────────────────────────
+
+describe('el menú de un tambo', () => {
+  it('ofrece las tres cosas que se pueden hacer con él', async () => {
+    montarPanel(aPanelTambo(EST));
+    render(<App />);
+
+    // Entrar es lo de todos los días y va primero; su gente es de vez en cuando;
+    // editarlo, una vez en la vida.
+    expect(await screen.findByRole('button', { name: /Entrar al tambo/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Su gente/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar el tambo' })).toBeInTheDocument();
+  });
+
+  it('le cambia el nombre con un PATCH de un solo campo', async () => {
+    const falsa = montarPanel(aPanelTambo(EST), {
+      [`PATCH /establecimientos/${EST}`]: { cuerpo: { ...establecimiento, nombre: 'La Esperanza S.A.' } },
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar el tambo' }));
+    const campo = screen.getByLabelText('Nombre');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'La Esperanza S.A.');
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar el nombre' }));
+
+    await waitFor(() =>
+      expect(falsa.cuerpoDe(`PATCH /establecimientos/${EST}`)).toEqual({
+        nombre: 'La Esperanza S.A.',
+      }),
+    );
+  });
+
+  it('no ofrece tocar la Config, y dice por qué', async () => {
+    montarPanel(aPanelTambo(EST));
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar el tambo' }));
+    expect(screen.getByText(/no se tocan desde acá/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/gestación/i)).not.toBeInTheDocument();
+  });
+
+  it('archiva, que es la baja que este sistema tiene: no hay borrar', async () => {
+    const falsa = montarPanel(aPanelTambo(EST), {
+      [`PATCH /establecimientos/${EST}`]: { cuerpo: { ...establecimiento, archivado: true } },
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar el tambo' }));
+    // Ni "eliminar" ni "borrar" en ningún lado: de un tambo cuelga su historial.
+    expect(screen.queryByRole('button', { name: /eliminar|borrar/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Archivar el tambo' }));
+
+    await waitFor(() =>
+      expect(falsa.cuerpoDe(`PATCH /establecimientos/${EST}`)).toEqual({ archivado: true }),
+    );
+  });
+
+  it('el archivado avisa que se mira y no se carga, y se puede desarchivar', async () => {
+    const falsa = montarPanel(aPanelTambo(EST), {
+      [`GET /establecimientos/${EST}`]: { cuerpo: { ...establecimiento, archivado: true } },
+      [`PATCH /establecimientos/${EST}`]: { cuerpo: establecimiento },
+    });
+    render(<App />);
+
+    expect(await screen.findByText(/Este tambo está archivado/i)).toBeInTheDocument();
+    expect(screen.getByText(/no cargar nada nuevo/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar el tambo' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Desarchivar el tambo' }));
+
+    await waitFor(() =>
+      expect(falsa.cuerpoDe(`PATCH /establecimientos/${EST}`)).toEqual({ archivado: false }),
+    );
+  });
+});
+
+describe('los archivados en la lista', () => {
+  it('no vienen, hasta que alguien los va a buscar', async () => {
+    const falsa = montarPanel(aPanel(), {
+      'GET /establecimientos?archivados=true': {
+        cuerpo: { establecimientos: [...losDosTambos, { id: 'z', nombre: 'La Que Cerró', archivado: true }] },
+      },
+    });
+    render(<App />);
+
+    await screen.findByRole('link', { name: /El Ombú/ });
+    expect(screen.queryByText('La Que Cerró')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ver también los archivados' }));
+
+    expect(await screen.findByText('La Que Cerró')).toBeInTheDocument();
+    expect(screen.getByText('archivado')).toBeInTheDocument();
+    // El default es el listado de todos los días, y la query lo dice.
+    expect(falsa.pedidos.some((p) => p.ruta === '/establecimientos')).toBe(true);
+    expect(falsa.pedidos.some((p) => p.ruta === '/establecimientos?archivados=true')).toBe(true);
+  });
+});
+
 // ── El tambo por dentro ──────────────────────────────────────────────────────
 
 describe('quién entra a este tambo', () => {
   it('los muestra con su permiso, y al desactivado como lo que es', async () => {
-    montarPanel(aPanelTambo(EST));
+    montarPanel(aPanelTamboGente(EST));
     render(<App />);
 
     await screen.findByRole('heading', { name: 'La Esperanza' });
@@ -184,7 +287,7 @@ describe('quién entra a este tambo', () => {
    * a este tambo" y lo omita está mintiendo.
    */
   it('los administradores aparecen, aunque no figuren en el reparto', async () => {
-    montarPanel(aPanelTambo(EST));
+    montarPanel(aPanelTamboGente(EST));
     render(<App />);
 
     await screen.findByRole('heading', { name: 'La Esperanza' });
@@ -196,7 +299,7 @@ describe('quién entra a este tambo', () => {
   });
 
   it('un tambo sin nadie lo dice, y no muestra una lista vacía', async () => {
-    montarPanel(aPanelTambo(EST2), {
+    montarPanel(aPanelTamboGente(EST2), {
       [`GET /establecimientos/${EST2}`]: { cuerpo: { ...establecimiento, id: EST2, nombre: 'El Ombú' } },
     });
     render(<App />);
@@ -222,7 +325,7 @@ describe('quién entra a este tambo', () => {
 
 describe('repartir el acceso', () => {
   it('cambiar de rol es un PUT sobre la misma ruta, sin revocar antes', async () => {
-    const falsa = montarPanel(aPanelTambo(EST), {
+    const falsa = montarPanel(aPanelTamboGente(EST), {
       [`PUT /usuarios/${usuarioLectura.id}/permisos/${EST}`]: {
         cuerpo: { ...usuarioLectura, activo: true },
       },
@@ -244,7 +347,7 @@ describe('repartir el acceso', () => {
   });
 
   it('sacar el acceso manda el DELETE de esa persona en este tambo', async () => {
-    const falsa = montarPanel(aPanelTambo(EST), {
+    const falsa = montarPanel(aPanelTamboGente(EST), {
       [`DELETE /usuarios/${usuarioEscritura.id}/permisos/${EST}`]: { status: 204 },
     });
     render(<App />);
@@ -265,7 +368,7 @@ describe('repartir el acceso', () => {
   });
 
   it('darle acceso a alguien que ya existe no pide la lista de nuevo', async () => {
-    const falsa = montarPanel(aPanelTambo(EST), {
+    const falsa = montarPanel(aPanelTamboGente(EST), {
       [`PUT /usuarios/${usuarioSinTambos.id}/permisos/${EST}`]: {
         cuerpo: { ...usuarioSinTambos, permisos: [{ establecimiento_id: EST, rol: 'lectura' }] },
       },
@@ -286,7 +389,7 @@ describe('repartir el acceso', () => {
   });
 
   it('los que ya entran no están entre los candidatos, ni los administradores', async () => {
-    montarPanel(aPanelTambo(EST));
+    montarPanel(aPanelTamboGente(EST));
     render(<App />);
 
     const quien = await screen.findByLabelText('Quién');
@@ -299,7 +402,7 @@ describe('repartir el acceso', () => {
   });
 
   it('un rechazo se muestra con el mensaje de la API y la lista queda como estaba', async () => {
-    montarPanel(aPanelTambo(EST), {
+    montarPanel(aPanelTamboGente(EST), {
       [`DELETE /usuarios/${usuarioEscritura.id}/permisos/${EST}`]: {
         status: 403,
         cuerpo: { codigo: 'SIN_PERMISO', mensaje: 'Esto lo hace un administrador.' },
@@ -323,7 +426,7 @@ describe('entrar al tambo y volver', () => {
     montarPanel(aPanelTambo(EST));
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Entrar al tambo' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Entrar al tambo/ }));
 
     // El tablero del tambo, con su nombre arriba: la misma puerta del tambero.
     expect(await screen.findByRole('heading', { name: 'La Esperanza' })).toBeInTheDocument();
@@ -337,7 +440,7 @@ describe('entrar al tambo y volver', () => {
     montarPanel(aPanelTambo(EST));
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Entrar al tambo' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Entrar al tambo/ }));
     await screen.findByText('Preñez del rodeo');
     await userEvent.click(screen.getByRole('button', { name: 'Volver al panel' }));
 
@@ -349,7 +452,7 @@ describe('entrar al tambo y volver', () => {
     montarPanel(aPanelTambo(EST));
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Entrar al tambo' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Entrar al tambo/ }));
     await screen.findByText('Preñez del rodeo');
 
     // Una preferencia que se escribe y nadie lee es un valor que envejece hasta

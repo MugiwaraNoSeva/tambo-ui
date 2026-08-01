@@ -1,32 +1,44 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// El panel del admin: los tambos, la gente de cada uno, y la puerta para entrar.
+// El panel del admin. Tres pantallas encadenadas y el orden es el trabajo:
 //
-// Hasta esta tanda, administrar se hacía con `curl` y esta UI lo decía en voz
-// alta: *"administrar es trabajo que se hace una vez cada tanto y no le
-// corresponde a la pantalla del corral"*. Era cierto y se revisó — el porqué
-// está en el README—, así que acá vive lo que antes eran tres comandos.
+//   1. **los tambos** — la lista, crear uno, y ver los archivados si hace falta;
+//   2. **un tambo** — un menú de qué querés hacer con él: entrar a usarlo,
+//      administrar su gente, o editarlo y archivarlo;
+//   3. **la gente de ese tambo** — quién entra, con qué permiso, y la persona
+//      entera (nombre, contraseña, si está activa, si es admin).
 //
-// **Esto no es de un tambo.** Por eso se dibuja afuera del establecimiento
-// activo: la lista no pertenece a ninguno, y la gente de uno se mira sin estar
-// conectado a él. `App` parte el árbol una sola vez y este archivo es el otro
-// lado.
+// El menú del medio existe porque son cosas de distinta naturaleza y con
+// distinta frecuencia: entrar al tambo es lo de todos los días, repartir
+// permisos es de vez en cuando, y archivarlo pasa una vez en la vida. Apiladas
+// en una sola pantalla, la de todos los días queda abajo de las otras dos.
+//
+// **Esto no es de un tambo**, en el sentido del árbol: se dibuja afuera del
+// establecimiento activo. La lista no pertenece a ninguno, y la gente de uno se
+// mira sin estar conectado a él. `App` parte el árbol una sola vez y este
+// archivo es el otro lado.
 //
 // Nada de acá protege nada: la cerradura es el 403 de la API, que estas rutas se
-// comen enteras si las pide alguien que no es admin. Lo que hay acá es la
-// pantalla que le corresponde al que sí lo es.
+// comen enteras si las pide alguien que no es admin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useState, type FormEvent } from 'react';
 import { api } from '../api/cliente';
-import type { Rol, UsuarioAdmin } from '../api/tipos';
+import type { EstablecimientoDeLaLista, Rol, UsuarioAdmin } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { Campo } from '../componentes/formulario';
-import { aPanel, aPanelTambo, aPanelUsuarios, type Ruta } from '../ruteo';
+import {
+  aPanel,
+  aPanelTambo,
+  aPanelTamboGente,
+  aPanelUsuarios,
+  ir,
+  type Ruta,
+} from '../ruteo';
 import { usarSalir, usarUsuario } from '../usuario';
 import { mensajeDe, usarPedido } from '../usarPedido';
 import { Cuenta } from './Cuenta';
-import { Personas } from './Personas';
+import { AltaDePersona, FichaDePersona, Personas } from './Personas';
 
 export function Panel({
   ruta,
@@ -37,15 +49,18 @@ export function Panel({
 }) {
   switch (ruta.nombre) {
     case 'panel-tambo':
-      return <TamboDelPanel id={ruta.id} alEntrarAlTambo={alEntrarAlTambo} />;
+      return <MenuDelTambo id={ruta.id} alEntrarAlTambo={alEntrarAlTambo} />;
+
+    case 'panel-tambo-gente':
+      return <GenteDelTambo id={ruta.id} />;
 
     case 'panel-usuarios':
       return <Personas />;
 
     // "Mi cuenta" es la única pantalla que vive en los dos árboles: la
     // contraseña es de la persona y no del tambo. Y en una base recién instalada
-    // es la única forma que tiene el admin de cambiar la suya — el `curl` del
-    // despliegue lo manda a hacerlo antes de que exista un solo tambo.
+    // es la única forma que tiene el admin de cambiar la suya — el despliegue lo
+    // manda a hacerlo antes de que exista un solo tambo.
     case 'cuenta':
       return <Cuenta volverA={aPanel()} />;
 
@@ -56,7 +71,7 @@ export function Panel({
   }
 }
 
-// ── Los tambos ───────────────────────────────────────────────────────────────
+// ── 1. Los tambos ────────────────────────────────────────────────────────────
 
 /**
  * La lista de tambos, que es el inicio del admin.
@@ -71,12 +86,13 @@ export function Panel({
 function ListaDeTambos() {
   const usuario = usarUsuario();
   const salir = usarSalir();
-  const traerTambos = useCallback(() => api.establecimientos(), []);
+  const [conArchivados, setConArchivados] = useState(false);
+  const traerTambos = useCallback(() => api.establecimientos(conArchivados), [conArchivados]);
   const tambos = usarPedido(traerTambos);
   const traerPersonas = useCallback(() => api.usuarios(), []);
   const personas = usarPedido(traerPersonas);
 
-  if (tambos.cargando) {
+  if (tambos.cargando && tambos.datos === null) {
     return (
       <Armazon titulo="Administración">
         <Cargando que="Buscando los tambos…" />
@@ -102,16 +118,17 @@ function ListaDeTambos() {
 
   return (
     <Armazon titulo="Administración">
-      {lista.length === 0 ? (
+      {lista.length === 0 && !conArchivados ? (
         <PrimerTambo alCrear={tambos.recargar} nombre={usuario.nombre} />
       ) : (
         <>
-          <Tarjeta titulo="Los tambos" subtitulo="Tocá uno para ver quién entra y con qué permiso.">
+          <Tarjeta titulo="Los tambos" subtitulo="Tocá uno para ver qué se puede hacer con él.">
             <ul className="lista">
               {lista.map((tambo) => (
                 <li key={tambo.id}>
                   <a className="fila" href={aPanelTambo(tambo.id)}>
                     <span className="nombre-tambo">{tambo.nombre}</span>
+                    {tambo.archivado && <span className="etiqueta gris">archivado</span>}
                     <span className="renglon">{rotuloDeCuenta(cuentaDe(tambo.id))}</span>
                     <span className="flecha" aria-hidden="true">
                       ›
@@ -126,9 +143,19 @@ function ListaDeTambos() {
         </>
       )}
 
+      {/* Un botón y no una casilla: los archivados no son un filtro que uno deja
+          puesto, son algo que se va a buscar una vez. */}
+      <button
+        className="boton ancho secundario"
+        type="button"
+        onClick={() => setConArchivados((v) => !v)}
+      >
+        {conArchivados ? 'Ocultar los archivados' : 'Ver también los archivados'}
+      </button>
+
       <div className="acciones">
         <a className="boton secundario" href={aPanelUsuarios()}>
-          Las personas
+          Todas las personas
         </a>
         <a className="boton secundario" href="#/cuenta">
           Mi cuenta
@@ -159,9 +186,9 @@ const rotuloDeCuenta = (cuantos: number | null): string => {
  * El vacío del panel, que es **la primera pantalla de producción**.
  *
  * En una base recién instalada no existe ningún establecimiento y el único
- * usuario es el admin. Hasta esta tanda, acá se le imprimían tres `curl` y un
- * párrafo explicando que la UI no administraba. Ahora administra: lo que va es
- * el formulario que crea el primer tambo.
+ * usuario es el admin. Hasta la tanda del panel, acá se le imprimían tres `curl`
+ * y un párrafo explicando que la UI no administraba. Ahora administra: lo que va
+ * es el formulario que crea el primer tambo.
  */
 function PrimerTambo({ nombre, alCrear }: { nombre: string; alCrear: () => void }) {
   return (
@@ -202,10 +229,12 @@ function NuevoTambo({ alCrear }: { alCrear: () => void }) {
 /**
  * Un campo y nada más: **el nombre**.
  *
- * La `Config` no se pide ni se ofrece. La API le pone la del núcleo al crear, y
- * no existe un `PATCH /establecimientos/{est}` que la cambie después — ni por
- * acá ni por `curl`. Un formulario que la ofreciera estaría prometiendo algo que
- * la API no puede cumplir, y se descubriría al querer guardarlo.
+ * La `Config` no se pide ni se ofrece, ni al crear ni al editar. Son diecisiete
+ * números que se validan entre ellos —el mínimo de gestación contra el máximo,
+ * el secado contra el parto probable— y que deciden si una preñez es plausible.
+ * Ofrecerlos al pasar, al lado del nombre, es ofrecer que alguien cambie sin
+ * querer con qué valida el dominio. La API los acepta; cuando haga falta
+ * tocarlos, va a ser en una pantalla que se tome el trabajo en serio.
  */
 function FormularioDeTambo({ alCrear, rotulo }: { alCrear: () => void; rotulo: string }) {
   const [nombre, setNombre] = useState('');
@@ -245,55 +274,37 @@ function FormularioDeTambo({ alCrear, rotulo }: { alCrear: () => void; rotulo: s
   );
 }
 
-// ── El tambo por dentro ──────────────────────────────────────────────────────
+// ── 2. Un tambo: qué se puede hacer con él ───────────────────────────────────
 
 /**
- * Quién entra a este tambo, con qué permiso, y la puerta para entrar a usarlo.
+ * El menú del tambo. Tres cosas, y las tres son de distinta naturaleza:
  *
- * La lista sale de `GET /usuarios` filtrada por `permisos`, y tiene **tres
- * trampas** que la respuesta obvia no ve. Las tres están escritas donde pasan:
+ *   · **entrar** — usarlo como cualquiera de su gente. Es lo de todos los días y
+ *     por eso es la acción principal;
+ *   · **su gente** — quién entra, con qué permiso, y editar a la persona;
+ *   · **editarlo** — el nombre, y archivarlo.
  *
- *   1. los administradores no figuran en el reparto de ningún tambo y entran a
- *      todos igual (`RepartoAjeno`);
- *   2. los desactivados sí figuran, y **no entran** (`FilaDePersona`);
- *   3. la misma respuesta trae a todo el sistema, así que dar acceso a alguien
- *      que ya existe no necesita otro pedido (`DarAcceso`).
+ * Estaban las tres apiladas en una sola pantalla y la de todos los días quedaba
+ * abajo de las otras dos.
  */
-function TamboDelPanel({
+function MenuDelTambo({
   id,
   alEntrarAlTambo,
 }: {
   id: string;
   alEntrarAlTambo: (id: string) => void;
 }) {
-  const traerTambo = useCallback(() => api.establecimiento(id), [id]);
-  const tambo = usarPedido(traerTambo);
+  const traer = useCallback(() => api.establecimiento(id), [id]);
+  const tambo = usarPedido(traer);
   const traerPersonas = useCallback(() => api.usuarios(), []);
   const personas = usarPedido(traerPersonas);
-  const [guardando, setGuardando] = useState(false);
-  const [rechazo, setRechazo] = useState<string | null>(null);
 
-  const { recargar: recargarPersonas } = personas;
-  const repartir = useCallback(
-    async (accion: () => Promise<unknown>) => {
-      setGuardando(true);
-      setRechazo(null);
-      try {
-        await accion();
-        // Lo que quedó lo dice el servidor. El `PUT` devuelve el usuario ya
-        // actualizado, pero acá cambia una lista entera —quién entra a este
-        // tambo— y esa la arma la respuesta completa, no una fila.
-        recargarPersonas();
-      } catch (causa) {
-        setRechazo(mensajeDe(causa));
-      } finally {
-        setGuardando(false);
-      }
-    },
-    [recargarPersonas],
-  );
-
-  if (tambo.cargando) {
+  // `&& datos === null` es lo que hace que **recargar no desmonte la pantalla**.
+  // Sin eso, guardar un cambio la manda de vuelta a "cargando", y al volver de
+  // ahí el formulario que se estaba usando aparece cerrado: se pierde el lugar
+  // por haber hecho lo que la pantalla pedía. Lo encontró el humo contra la demo
+  // de verdad, donde renombrar y archivar son dos gestos seguidos.
+  if (tambo.cargando && tambo.datos === null) {
     return (
       <Armazon titulo="El tambo" volverA={aPanel()}>
         <Cargando que="Buscando el tambo…" />
@@ -315,51 +326,252 @@ function TamboDelPanel({
     );
   }
 
-  const nombre = tambo.datos.nombre;
+  const { nombre, archivado } = tambo.datos;
+  const cuantos =
+    personas.datos === null
+      ? null
+      : personas.datos.usuarios.filter((u) => u.permisos.some((p) => p.establecimiento_id === id))
+          .length;
 
   return (
     <Armazon titulo={nombre} volverA={aPanel()}>
-      <Tarjeta titulo="Este tambo">
-        <p className="vacio">
-          Entrar es usarlo como cualquiera de su gente: cargás, das de alta y anulás, porque sos
-          administrador. La vuelta al panel está en el tablero.
-        </p>
-        <button
-          className="boton ancho"
-          type="button"
-          onClick={() => alEntrarAlTambo(id)}
-        >
-          Entrar al tambo
-        </button>
+      {archivado && (
+        <Aviso tono="atencion" titulo="Este tambo está archivado">
+          Se puede mirar todo lo que tiene —el rodeo, las fichas, el historial— pero no cargar nada
+          nuevo: la API rechaza las cargas hasta que alguien lo desarchive.
+        </Aviso>
+      )}
+
+      <Tarjeta titulo="Qué querés hacer">
+        <ul className="lista">
+          <li>
+            <button className="fila" type="button" onClick={() => alEntrarAlTambo(id)}>
+              <span className="nombre-tambo">Entrar al tambo</span>
+              <span className="renglon">
+                {archivado
+                  ? 'Mirarlo como cualquiera de su gente. Cargar, no.'
+                  : 'Usarlo como cualquiera de su gente: cargás, das de alta y anulás.'}
+              </span>
+              <span className="flecha" aria-hidden="true">
+                ›
+              </span>
+            </button>
+          </li>
+          <li>
+            <a className="fila" href={aPanelTamboGente(id)}>
+              <span className="nombre-tambo">Su gente</span>
+              <span className="renglon">
+                {cuantos === null ? 'Quién entra y con qué permiso.' : rotuloDeCuenta(cuantos)}
+              </span>
+              <span className="flecha" aria-hidden="true">
+                ›
+              </span>
+            </a>
+          </li>
+        </ul>
       </Tarjeta>
 
-      {personas.cargando && <Cargando que="Buscando a la gente…" />}
+      <EditarTambo
+        id={id}
+        nombre={nombre}
+        archivado={archivado}
+        alCambiar={tambo.recargar}
+      />
+    </Armazon>
+  );
+}
 
-      {personas.error !== null && (
+/**
+ * Editar el tambo y archivarlo.
+ *
+ * **Archivar es la baja que este sistema tiene**, y no hay otra: no existe
+ * `DELETE /establecimientos/{est}` porque del tambo cuelgan sus animales, su log
+ * y sus permisos, y el log no admite borrados (decisión 91). Por eso el botón no
+ * dice "eliminar" ni pide confirmación con cara de irreversible: lo que hace se
+ * deshace con el mismo botón, y lo que hay que explicar es qué cambia.
+ */
+function EditarTambo({
+  id,
+  nombre,
+  archivado,
+  alCambiar,
+}: {
+  id: string;
+  nombre: string;
+  archivado: boolean;
+  alCambiar: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [nuevo, setNuevo] = useState(nombre);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function guardar(cambio: { nombre?: string; archivado?: boolean }) {
+    setGuardando(true);
+    setError(null);
+    try {
+      await api.editarEstablecimiento(id, cambio);
+      alCambiar();
+    } catch (causa) {
+      setError(mensajeDe(causa));
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!abierto) {
+    return (
+      <button className="boton ancho secundario" type="button" onClick={() => setAbierto(true)}>
+        Editar el tambo
+      </button>
+    );
+  }
+
+  return (
+    <Tarjeta titulo="El tambo">
+      <form
+        onSubmit={(evento) => {
+          evento.preventDefault();
+          void guardar({ nombre: nuevo.trim() });
+        }}
+      >
+        <Campo etiqueta="Nombre">
+          <input value={nuevo} onChange={(e) => setNuevo(e.target.value)} required />
+        </Campo>
+        <button
+          className="boton chico secundario"
+          type="submit"
+          disabled={guardando || nuevo.trim() === '' || nuevo.trim() === nombre}
+        >
+          Cambiar el nombre
+        </button>
+      </form>
+
+      <p className="renglon">
+        Los parámetros del dominio —días de gestación, período de espera, umbral de secado— no se
+        tocan desde acá: son diecisiete números que se validan entre ellos y deciden qué cargas
+        acepta el tambo.
+      </p>
+
+      <h3>{archivado ? 'Desarchivar' : 'Archivar'}</h3>
+      <p className="renglon">
+        {archivado
+          ? 'Vuelve a la lista y se puede volver a cargar en él.'
+          : 'Sale de la lista y deja de aceptar cargas. Todo lo que tiene se sigue mirando: un tambo no se borra, porque su historial no se borra.'}
+      </p>
+      <button
+        className={`boton chico ${archivado ? 'secundario' : 'peligro'}`}
+        type="button"
+        disabled={guardando}
+        onClick={() => void guardar({ archivado: !archivado })}
+      >
+        {archivado ? 'Desarchivar el tambo' : 'Archivar el tambo'}
+      </button>
+
+      {error !== null && <Aviso titulo="No se pudo guardar">{error}</Aviso>}
+
+      <button className="boton ancho secundario" type="button" onClick={() => setAbierto(false)}>
+        Listo
+      </button>
+    </Tarjeta>
+  );
+}
+
+// ── 3. La gente de un tambo ──────────────────────────────────────────────────
+
+/**
+ * Quién entra a este tambo, con qué permiso, y la persona entera.
+ *
+ * La lista sale de `GET /usuarios` filtrada por `permisos`, y tiene **tres
+ * trampas** que la respuesta obvia no ve. Las tres están escritas donde pasan:
+ *
+ *   1. los administradores no figuran en el reparto de ningún tambo y entran a
+ *      todos igual (`RepartoAjeno`);
+ *   2. los desactivados sí figuran, y **no entran** (la ficha lo dice);
+ *   3. la misma respuesta trae a todo el sistema, así que dar acceso a alguien
+ *      que ya existe no necesita otro pedido (`DarAcceso`).
+ */
+function GenteDelTambo({ id }: { id: string }) {
+  const traerTambo = useCallback(() => api.establecimiento(id), [id]);
+  const tambo = usarPedido(traerTambo);
+  const traerPersonas = useCallback(() => api.usuarios(), []);
+  const personas = usarPedido(traerPersonas);
+  const traerTambos = useCallback(() => api.establecimientos(true), []);
+  const tambos = usarPedido(traerTambos);
+  const [guardando, setGuardando] = useState(false);
+  const [rechazo, setRechazo] = useState<string | null>(null);
+  /** La recién creada, para dejarla elegida en "dar acceso", que es lo que sigue. */
+  const [recienCreada, setRecienCreada] = useState<string | null>(null);
+
+  const { recargar: recargarPersonas } = personas;
+  const repartir = useCallback(
+    async (accion: () => Promise<unknown>) => {
+      setGuardando(true);
+      setRechazo(null);
+      try {
+        await accion();
+        // Lo que quedó lo dice el servidor. El `PUT` devuelve el usuario ya
+        // actualizado, pero acá cambia una lista entera —quién entra a este
+        // tambo— y esa la arma la respuesta completa, no una fila.
+        recargarPersonas();
+      } catch (causa) {
+        setRechazo(mensajeDe(causa));
+      } finally {
+        setGuardando(false);
+      }
+    },
+    [recargarPersonas],
+  );
+
+  const titulo = tambo.datos?.nombre ?? 'El tambo';
+
+  if (personas.cargando && personas.datos === null) {
+    return (
+      <Armazon titulo={titulo} volverA={aPanelTambo(id)}>
+        <Cargando que="Buscando a la gente…" />
+      </Armazon>
+    );
+  }
+
+  if (personas.error !== null || personas.datos === null) {
+    return (
+      <Armazon titulo={titulo} volverA={aPanelTambo(id)}>
         <TarjetaCaida titulo="Quién entra" error={personas.error} reintentar={personas.recargar} />
-      )}
+      </Armazon>
+    );
+  }
 
-      {personas.datos !== null && (
-        <>
-          {rechazo !== null && <Aviso titulo="No se pudo guardar">{rechazo}</Aviso>}
+  const gente = personas.datos.usuarios;
 
-          <Reparto
-            est={id}
-            personas={personas.datos.usuarios}
-            guardando={guardando}
-            repartir={repartir}
-          />
+  return (
+    <Armazon titulo={titulo} volverA={aPanelTambo(id)}>
+      {rechazo !== null && <Aviso titulo="No se pudo guardar">{rechazo}</Aviso>}
 
-          <RepartoAjeno personas={personas.datos.usuarios} />
+      <Reparto
+        est={id}
+        personas={gente}
+        tambos={tambos.datos?.establecimientos ?? null}
+        guardando={guardando}
+        repartir={repartir}
+        alCambiar={personas.recargar}
+      />
 
-          <DarAcceso
-            est={id}
-            personas={personas.datos.usuarios}
-            guardando={guardando}
-            repartir={repartir}
-          />
-        </>
-      )}
+      <RepartoAjeno personas={gente} />
+
+      <DarAcceso
+        est={id}
+        personas={gente}
+        guardando={guardando}
+        repartir={repartir}
+        elegida={recienCreada}
+      />
+
+      <AltaDePersona
+        alCrear={(nueva) => {
+          setRecienCreada(nueva);
+          personas.recargar();
+        }}
+      />
     </Armazon>
   );
 }
@@ -373,13 +585,17 @@ type Repartir = (accion: () => Promise<unknown>) => Promise<void>;
 function Reparto({
   est,
   personas,
+  tambos,
   guardando,
   repartir,
+  alCambiar,
 }: {
   est: string;
   personas: UsuarioAdmin[];
+  tambos: EstablecimientoDeLaLista[] | null;
   guardando: boolean;
   repartir: Repartir;
+  alCambiar: () => void;
 }) {
   const conPermiso = personas.filter((u) => permisoEn(u, est) !== null);
 
@@ -394,81 +610,47 @@ function Reparto({
         </p>
       ) : (
         <ul className="lista-simple">
-          {conPermiso.map((persona) => (
-            <FilaDePersona
-              key={persona.id}
-              persona={persona}
-              rol={permisoEn(persona, est) as Rol}
-              guardando={guardando}
-              alCambiar={(rol) => repartir(() => api.otorgarPermiso(persona.id, est, rol))}
-              alSacar={() => repartir(() => api.revocarPermiso(persona.id, est))}
-            />
-          ))}
+          {conPermiso.map((persona) => {
+            const rol = permisoEn(persona, est) as Rol;
+            const elOtro: Rol = rol === 'escritura' ? 'lectura' : 'escritura';
+            return (
+              <FichaDePersona
+                key={persona.id}
+                persona={persona}
+                tambos={tambos}
+                alCambiar={alCambiar}
+              >
+                {/* El permiso sobre **este** tambo, que es lo que se viene a
+                    hacer acá. El cambio es un toque porque son dos roles: el
+                    botón ofrece el otro. No hace falta revocar antes —el `PUT`
+                    cambia en su lugar— y revocar abriría un hueco en el medio. */}
+                <div className="etiquetas">
+                  <span className={`etiqueta ${rol === 'escritura' ? 'verde' : 'gris'}`}>{rol}</span>
+                </div>
+                <div className="acciones">
+                  <button
+                    className="boton chico secundario"
+                    type="button"
+                    disabled={guardando}
+                    onClick={() => void repartir(() => api.otorgarPermiso(persona.id, est, elOtro))}
+                  >
+                    Pasar a {elOtro}
+                  </button>
+                  <button
+                    className="boton chico secundario"
+                    type="button"
+                    disabled={guardando}
+                    onClick={() => void repartir(() => api.revocarPermiso(persona.id, est))}
+                  >
+                    Sacar el acceso
+                  </button>
+                </div>
+              </FichaDePersona>
+            );
+          })}
         </ul>
       )}
     </Tarjeta>
-  );
-}
-
-/**
- * Una persona con permiso sobre este tambo.
- *
- * **El desactivado se muestra, y se muestra como lo que es.** Su permiso sigue
- * ahí y aun así no entra: esconderlo dejaría al admin sin poder volver a
- * entrarlo, que es lo único que se hace con alguien desactivado, y mostrarlo
- * como a los demás diría que entra alguien que no entra.
- *
- * El cambio de permiso es un toque porque son **dos** roles: el botón ofrece el
- * otro. No hace falta revocar antes —el `PUT` cambia en su lugar—, y revocar
- * antes abriría un hueco en el medio.
- */
-function FilaDePersona({
-  persona,
-  rol,
-  guardando,
-  alCambiar,
-  alSacar,
-}: {
-  persona: UsuarioAdmin;
-  rol: Rol;
-  guardando: boolean;
-  alCambiar: (rol: Rol) => void;
-  alSacar: () => void;
-}) {
-  const elOtro: Rol = rol === 'escritura' ? 'lectura' : 'escritura';
-
-  return (
-    <li>
-      <div className="etiquetas">
-        <strong>{persona.nombre}</strong>
-        <span className={`etiqueta ${rol === 'escritura' ? 'verde' : 'gris'}`}>{rol}</span>
-        {!persona.activo && <span className="etiqueta rojo">desactivado</span>}
-      </div>
-      <span className="renglon">{persona.email}</span>
-      {!persona.activo && (
-        <span className="renglon aviso-suave">
-          No entra: está desactivado. El permiso queda para cuando vuelva.
-        </span>
-      )}
-      <div className="acciones">
-        <button
-          className="boton chico secundario"
-          type="button"
-          disabled={guardando}
-          onClick={() => alCambiar(elOtro)}
-        >
-          Pasar a {elOtro}
-        </button>
-        <button
-          className="boton chico secundario"
-          type="button"
-          disabled={guardando}
-          onClick={alSacar}
-        >
-          Sacar el acceso
-        </button>
-      </div>
-    </li>
   );
 }
 
@@ -492,7 +674,7 @@ function RepartoAjeno({ personas }: { personas: UsuarioAdmin[] }) {
     <Tarjeta titulo="Y además, los administradores">
       <p className="vacio">
         Entran a todos los tambos sin figurar en el reparto de ninguno. Para sacarle el acceso a
-        uno hay que dejar de hacerlo administrador, en Las personas.
+        uno hay que dejar de hacerlo administrador, en Todas las personas.
       </p>
       <ul className="lista-simple">
         {admins.map((admin) => (
@@ -515,71 +697,73 @@ function RepartoAjeno({ personas }: { personas: UsuarioAdmin[] }) {
  *
  * No hace falta otro pedido para armar esta lista: `GET /usuarios` trae a todo
  * el sistema, así que los candidatos son los que ya vinieron menos los que ya
- * entran. Crear a alguien nuevo es la otra pantalla, y el enlace está acá porque
- * este es el momento en que uno se entera de que la persona no existe.
+ * entran. Y si la persona no existe, el alta está justo abajo — de ahí vuelve
+ * ya elegida acá, que es lo que uno iba a hacer a continuación.
  */
 function DarAcceso({
   est,
   personas,
   guardando,
   repartir,
+  elegida,
 }: {
   est: string;
   personas: UsuarioAdmin[];
   guardando: boolean;
   repartir: Repartir;
+  elegida: string | null;
 }) {
   const [quien, setQuien] = useState('');
   const [rol, setRol] = useState<Rol>('escritura');
 
   // Los admins no están: ya entran, y "darles permiso" no cambiaría nada.
   const candidatos = personas.filter((u) => !u.es_admin && permisoEn(u, est) === null);
+  const seleccionada = quien !== '' ? quien : (elegida ?? '');
+
+  if (candidatos.length === 0) {
+    return (
+      <Tarjeta titulo="Dar acceso">
+        <p className="vacio">
+          Todas las personas que hay ya entran a este tambo. Si falta alguien, creala acá abajo.
+        </p>
+      </Tarjeta>
+    );
+  }
 
   return (
     <Tarjeta titulo="Dar acceso">
-      {candidatos.length === 0 ? (
-        <p className="vacio">
-          Todas las personas que hay ya entran a este tambo. Si falta alguien, primero hay que
-          crearla.
-        </p>
-      ) : (
-        <form
-          onSubmit={(evento) => {
-            evento.preventDefault();
-            void repartir(() => api.otorgarPermiso(quien, est, rol)).then(() => setQuien(''));
-          }}
+      <form
+        onSubmit={(evento) => {
+          evento.preventDefault();
+          void repartir(() => api.otorgarPermiso(seleccionada, est, rol)).then(() => setQuien(''));
+        }}
+      >
+        <Campo etiqueta="Quién">
+          <select value={seleccionada} onChange={(e) => setQuien(e.target.value)} required>
+            <option value="">Elegí a alguien…</option>
+            {candidatos.map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.nombre} — {persona.email}
+                {persona.activo ? '' : ' (desactivado)'}
+              </option>
+            ))}
+          </select>
+        </Campo>
+
+        <Campo
+          etiqueta="Con qué permiso"
+          ayuda="Escritura carga eventos, altas y tanque. Lectura solamente mira."
         >
-          <Campo etiqueta="Quién">
-            <select value={quien} onChange={(e) => setQuien(e.target.value)} required>
-              <option value="">Elegí a alguien…</option>
-              {candidatos.map((persona) => (
-                <option key={persona.id} value={persona.id}>
-                  {persona.nombre} — {persona.email}
-                  {persona.activo ? '' : ' (desactivado)'}
-                </option>
-              ))}
-            </select>
-          </Campo>
+          <select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
+            <option value="escritura">escritura</option>
+            <option value="lectura">lectura</option>
+          </select>
+        </Campo>
 
-          <Campo
-            etiqueta="Con qué permiso"
-            ayuda="Escritura carga eventos, altas y tanque. Lectura solamente mira."
-          >
-            <select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
-              <option value="escritura">escritura</option>
-              <option value="lectura">lectura</option>
-            </select>
-          </Campo>
-
-          <button className="boton ancho" type="submit" disabled={guardando || quien === ''}>
-            {guardando ? 'Dando acceso…' : 'Dar el acceso'}
-          </button>
-        </form>
-      )}
-
-      <a className="boton ancho secundario" href={aPanelUsuarios()}>
-        Crear una persona
-      </a>
+        <button className="boton ancho" type="submit" disabled={guardando || seleccionada === ''}>
+          {guardando ? 'Dando acceso…' : 'Dar el acceso'}
+        </button>
+      </form>
     </Tarjeta>
   );
 }

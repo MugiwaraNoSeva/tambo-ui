@@ -29,6 +29,7 @@ export type Ruta =
   // pertenece a ninguno, y la gente de uno se mira sin estar conectado a él.
   | { nombre: 'panel' }
   | { nombre: 'panel-tambo'; id: string }
+  | { nombre: 'panel-tambo-gente'; id: string }
   | { nombre: 'panel-usuarios' };
 
 /**
@@ -48,7 +49,7 @@ const hashActual = (): string => window.location.hash;
 /** De `#/animales/abc/cargar` a `{nombre: 'cargar', id: 'abc'}`. */
 export function leerRuta(hash: string): Ruta {
   const partes = hash.replace(/^#\/?/, '').split('/').filter((p) => p !== '');
-  const [primera, segunda, tercera] = partes;
+  const [primera, segunda, tercera, cuarta] = partes;
 
   if (primera === 'rodeo') return { nombre: 'rodeo' };
   if (primera === 'alta') return { nombre: 'alta' };
@@ -62,7 +63,11 @@ export function leerRuta(hash: string): Ruta {
   // un `admin/tanbos` mal tipeado sería mandar a otra aplicación por una letra.
   if (primera === 'admin') {
     if (segunda === 'usuarios') return { nombre: 'panel-usuarios' };
-    if (segunda === 'tambos' && tercera !== undefined) return { nombre: 'panel-tambo', id: tercera };
+    if (segunda === 'tambos' && tercera !== undefined) {
+      return cuarta === 'gente'
+        ? { nombre: 'panel-tambo-gente', id: tercera }
+        : { nombre: 'panel-tambo', id: tercera };
+    }
     return { nombre: 'panel' };
   }
   // Cualquier cosa que no se entienda cae en el tablero, que es el inicio: una
@@ -90,6 +95,7 @@ export const aTanque = () => '#/tanque';
 export const aCuenta = () => '#/cuenta';
 export const aPanel = () => '#/admin';
 export const aPanelTambo = (id: string) => `#/admin/tambos/${id}`;
+export const aPanelTamboGente = (id: string) => `#/admin/tambos/${id}/gente`;
 export const aPanelUsuarios = () => '#/admin/usuarios';
 
 /** Navegación imperativa, para después de guardar algo. */

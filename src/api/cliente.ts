@@ -25,6 +25,7 @@ import type {
   CuerpoEvento,
   CuerpoLogin,
   CuerpoPassword,
+  CuerpoPatchEstablecimiento,
   CuerpoPatchUsuario,
   CuerpoTanque,
   RespuestaAlertas,
@@ -240,14 +241,29 @@ export const api = {
    */
   revocarPermiso: (id: string, est: string) => pedir<void>('DELETE', P(id, est)),
 
-  /** Crear el tambo. Sin `config`: la pone la API y después no la cambia nadie. */
+  /** Crear el tambo. Sin `config`: la pone la API con la del núcleo. */
   crearEstablecimiento: (cuerpo: CuerpoEstablecimiento) =>
     post<RespuestaEstablecimientoCreado>('/establecimientos', cuerpo),
 
+  /**
+   * Editar el tambo: el nombre, y archivarlo o desarchivarlo.
+   *
+   * **No hay `borrarEstablecimiento` porque no hay `DELETE`**: de un tambo
+   * cuelgan sus animales, su log y sus permisos, y el log no admite borrados.
+   * Archivar es la baja que este sistema tiene (decisión 91), igual que
+   * desactivar es la de las personas.
+   */
+  editarEstablecimiento: (est: string, cuerpo: CuerpoPatchEstablecimiento) =>
+    pedir<RespuestaEstablecimiento>('PATCH', E(est), cuerpo),
+
   // ── Y de acá en adelante, las del tambo ────────────────────────────────────
 
-  /** Mis tambos: donde tengo permiso, o todos si soy admin. De acá sale el selector. */
-  establecimientos: () => get<RespuestaEstablecimientos>('/establecimientos'),
+  /**
+   * Mis tambos: donde tengo permiso, o todos si soy admin. De acá sale el
+   * selector. **Sin los archivados**, salvo que se los pida el panel.
+   */
+  establecimientos: (archivados = false) =>
+    get<RespuestaEstablecimientos>(`/establecimientos${archivados ? '?archivados=true' : ''}`),
 
   establecimiento: (est: string) => get<RespuestaEstablecimiento>(E(est)),
 

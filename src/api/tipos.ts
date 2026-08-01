@@ -168,10 +168,19 @@ export interface CuerpoPermiso {
   rol: Rol;
 }
 
-/** Un tambo del selector: lo justo para dibujar la lista (`GET /establecimientos`). */
+/**
+ * Un tambo del selector: lo justo para dibujar la lista
+ * (`GET /establecimientos`).
+ *
+ * `archivado` viene siempre, y en el listado normal es siempre `false`: la API
+ * no devuelve los archivados salvo que se los pidan. Está igual porque la misma
+ * fila se usa con `?archivados=true`, y entonces es lo único que distingue una
+ * de otra.
+ */
 export interface EstablecimientoDeLaLista {
   id: string;
   nombre: string;
+  archivado: boolean;
 }
 
 export interface RespuestaEstablecimientos {
@@ -192,6 +201,23 @@ export interface CuerpoEstablecimiento {
 export interface RespuestaEstablecimientoCreado {
   id: string;
   nombre: string;
+}
+
+/**
+ * `PATCH /establecimientos/{est}`: el nombre y archivar.
+ *
+ * **`config` no está**, aunque la API lo acepte. Ajustar los parámetros del
+ * dominio —días de gestación, período voluntario de espera, umbral de secado— es
+ * otra conversación y otra pantalla: son diecisiete números que se validan entre
+ * ellos, y un formulario que los ofrezca al pasar, al lado del nombre, es un
+ * formulario donde alguien cambia sin querer lo que decide si una preñez es
+ * plausible. Cuando haga falta, se hace en serio.
+ *
+ * Igual que el de usuarios: **al menos un campo**, y uno desconocido es 400.
+ */
+export interface CuerpoPatchEstablecimiento {
+  nombre?: string;
+  archivado?: boolean;
 }
 
 // ── El sobre de los errores (§9.1) ───────────────────────────────────────────
@@ -226,6 +252,8 @@ export interface RespuestaEstablecimiento {
   id: string;
   nombre: string;
   config: Config;
+  /** Archivado se mira y no se carga: la API contesta 409 a cualquier carga. */
+  archivado: boolean;
 }
 
 // ── Animales ─────────────────────────────────────────────────────────────────

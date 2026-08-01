@@ -27,8 +27,8 @@ import {
 } from './fixtures';
 
 const LOS_DOS = [
-  { id: EST, nombre: 'La Esperanza' },
-  { id: EST2, nombre: 'El Ombú' },
+  { id: EST, nombre: 'La Esperanza', archivado: false },
+  { id: EST2, nombre: 'El Ombú', archivado: false },
 ];
 
 const elOmbu = { ...establecimiento, id: EST2, nombre: 'El Ombú' };

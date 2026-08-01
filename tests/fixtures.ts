@@ -80,6 +80,13 @@ export const establecimiento: RespuestaEstablecimiento = {
   id: EST,
   nombre: 'La Esperanza',
   config: CONFIG_DEFAULT,
+  archivado: false,
+};
+
+/** El mismo, cerrado: se mira entero y no acepta una carga más. */
+export const establecimientoArchivado: RespuestaEstablecimiento = {
+  ...establecimiento,
+  archivado: true,
 };
 
 // ── La sesión ────────────────────────────────────────────────────────────────
@@ -120,7 +127,7 @@ export const usuarioAdmin: Usuario = {
 };
 
 export const misEstablecimientos: RespuestaEstablecimientos = {
-  establecimientos: [{ id: EST, nombre: 'La Esperanza' }],
+  establecimientos: [{ id: EST, nombre: 'La Esperanza', archivado: false }],
 };
 
 // ── El panel del admin ───────────────────────────────────────────────────────
@@ -140,12 +147,16 @@ export const misEstablecimientos: RespuestaEstablecimientos = {
 // Vienen ordenados por nombre, que es como los devuelve la API.
 
 /** El nombre del segundo tambo, para el panel: dos filas y no una. */
-export const establecimiento2: EstablecimientoDeLaLista = { id: EST2, nombre: 'El Ombú' };
+export const establecimiento2: EstablecimientoDeLaLista = {
+  id: EST2,
+  nombre: 'El Ombú',
+  archivado: false,
+};
 
 /** Los dos que ve el admin, en el orden de la API (por nombre). */
 export const losDosTambos: EstablecimientoDeLaLista[] = [
   establecimiento2,
-  { id: EST, nombre: 'La Esperanza' },
+  { id: EST, nombre: 'La Esperanza', archivado: false },
 ];
 
 /** El que se fue: su permiso sigue ahí y aun así no entra. */

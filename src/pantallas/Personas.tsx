@@ -1,9 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Las personas: crearlas, editarlas, desactivarlas y resetearles la contraseña.
 //
-// Es la otra mitad del panel. Del tambo se decide **quién entra** (eso está en
-// `Panel.tsx`); acá se decide **quién existe**, que es lo de antes y lo que vale
-// para todos los tambos a la vez.
+// Este archivo es **la lista completa del sistema** y las dos piezas que la
+// pantalla de cada tambo reusa: `AltaDePersona` y `FichaDePersona`. La ficha es
+// la misma en los dos lados —una persona se edita igual se la mire desde donde
+// se la mire— y lo que cambia es lo que se le cuelga al lado: en un tambo, los
+// controles del permiso sobre ese tambo, que entran por `children`.
+//
+// Esta lista global es la **segunda puerta**, no la principal: el camino de todos
+// los días es entrar por el tambo. Existe igual porque hay dos clases de persona
+// que ninguna lista por tambo puede mostrar — los administradores, que no
+// figuran en el reparto de ninguno, y quien todavía no tiene acceso a ninguno—.
 //
 // Tres cosas que esta pantalla tiene que decir en voz alta, porque las tres se
 // asumen al revés:
@@ -18,7 +25,7 @@
 //     escribió en un formulario y ya nadie la sabe.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import { api } from '../api/cliente';
 import type { EstablecimientoDeLaLista, UsuarioAdmin } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
@@ -38,8 +45,13 @@ export function Personas() {
   const tambos = usarPedido(traerTambos);
 
   return (
-    <Armazon titulo="Las personas" volverA={aPanel()}>
-      <Alta alCrear={personas.recargar} />
+    <Armazon titulo="Todas las personas" volverA={aPanel()}>
+      <p className="vacio">
+        Todas las del sistema, entren al tambo que entren. Para repartir el acceso a un tambo, el
+        camino corto es entrar por él.
+      </p>
+
+      <AltaDePersona alCrear={personas.recargar} />
 
       {personas.cargando && <Cargando que="Buscando a la gente…" />}
 
@@ -54,7 +66,7 @@ export function Personas() {
         >
           <ul className="lista-simple">
             {personas.datos.usuarios.map((persona) => (
-              <Persona
+              <FichaDePersona
                 key={persona.id}
                 persona={persona}
                 tambos={tambos.datos?.establecimientos ?? null}
@@ -70,7 +82,16 @@ export function Personas() {
 
 // ── Crear ────────────────────────────────────────────────────────────────────
 
-function Alta({ alCrear }: { alCrear: () => void }) {
+/**
+ * El alta, que es la misma acá y adentro de un tambo.
+ *
+ * `alCrear` recibe **el id de la persona nueva** porque de este lado no sirve
+ * para nada y del otro sí: la pantalla del tambo la deja elegida en el "dar
+ * acceso" de al lado, que es lo que uno iba a hacer a continuación. Crear y dar
+ * el permiso siguen siendo dos gestos —dos pedidos, y el rol se elige— porque
+ * elegirlo en silencio sería decidir por el admin lo único que hay que decidir.
+ */
+export function AltaDePersona({ alCrear }: { alCrear: (id: string) => void }) {
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -105,7 +126,7 @@ function Alta({ alCrear }: { alCrear: () => void }) {
     setGuardando(true);
     setError(null);
     try {
-      await api.crearUsuario({
+      const creada = await api.crearUsuario({
         nombre: nombre.trim(),
         email: email.trim(),
         password,
@@ -117,7 +138,7 @@ function Alta({ alCrear }: { alCrear: () => void }) {
       setPassword('');
       setEsAdmin(false);
       setAbierto(false);
-      alCrear();
+      alCrear(creada.id);
     } catch (causa) {
       // El formulario **no se vacía**: el rechazo cotidiano acá es el 409 del
       // email repetido, y hacerle escribir todo de nuevo por eso sería castigar
@@ -189,15 +210,23 @@ function Alta({ alCrear }: { alCrear: () => void }) {
 
 // ── Una persona, y lo que se le puede hacer ──────────────────────────────────
 
-function Persona({
+export function FichaDePersona({
   persona,
   tambos,
   alCambiar,
+  children,
 }: {
   persona: UsuarioAdmin;
   /** Para escribir en qué tambo entra con nombre y no con uuid. Null si no vino. */
   tambos: EstablecimientoDeLaLista[] | null;
   alCambiar: () => void;
+  /**
+   * Lo que le agrega el contexto: adentro de un tambo, los controles del permiso
+   * sobre **ese** tambo. Van afuera del "Editar" y no adentro porque cambiar un
+   * permiso es lo que se viene a hacer todos los días, y editar a la persona es
+   * lo que se hace de vez en cuando.
+   */
+  children?: ReactNode;
 }) {
   const yo = usarUsuario();
   const [abierto, setAbierto] = useState(false);
@@ -235,6 +264,15 @@ function Persona({
       </div>
       <span className="renglon">{persona.email}</span>
 
+      {/* La mitad de la información que trae `activo`, dicha donde se ve: el
+          desactivado conserva sus permisos y **no entra**. Sin este renglón, una
+          fila con permiso de escritura parece alguien que está cargando. */}
+      {!persona.activo && (
+        <span className="renglon aviso-suave">
+          No entra: está desactivado. Sus permisos quedan para cuando vuelva.
+        </span>
+      )}
+
       {persona.es_admin ? (
         <span className="renglon">Entra a todos los tambos.</span>
       ) : persona.permisos.length === 0 ? (
@@ -246,6 +284,8 @@ function Persona({
             .join(', ')}
         </span>
       )}
+
+      {children}
 
       {!abierto ? (
         <button
