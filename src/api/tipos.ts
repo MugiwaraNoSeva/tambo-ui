@@ -112,6 +112,62 @@ export interface CuerpoPassword {
   nueva: string;
 }
 
+// ── La administración: las personas y el reparto (§9) ────────────────────────
+//
+// El vocabulario del panel del admin. Va acá abajo y no en otro archivo por lo
+// mismo que lo de arriba: es el sobre de §9, y §9 se escribe una sola vez.
+
+/**
+ * El usuario **visto por un admin**: lo mismo que `Usuario` más si está activo.
+ *
+ * Se escribe como extensión y no copiando los cinco campos a propósito: el día
+ * que a `Usuario` le agreguen uno, este se entera solo. Del otro lado son dos
+ * funciones (`vistaUsuario` y `vistaAdmin`) con la misma relación.
+ *
+ * **`activo` es la mitad de la información de la lista**, no un detalle: un
+ * usuario desactivado con permiso de escritura sobre un tambo sigue figurando en
+ * su reparto y **no entra**. Esconderlo dejaría al admin sin poder volver a
+ * entrarlo, que es lo único que se hace con alguien desactivado.
+ */
+export interface UsuarioAdmin extends Usuario {
+  activo: boolean;
+}
+
+/** `GET /usuarios`: **todos** los del sistema, desactivados incluidos, por nombre. */
+export interface RespuestaUsuarios {
+  usuarios: UsuarioAdmin[];
+}
+
+/**
+ * `POST /usuarios`. La contraseña es **obligatoria** aunque la base admita
+ * cuentas sin ninguna (así nacen el admin inicial y los que convirtió la
+ * migración): crear a alguien sin contraseña es crear a alguien que no puede
+ * entrar y que va a llamar por teléfono.
+ */
+export interface CuerpoAltaUsuario {
+  nombre: string;
+  email: string;
+  password: string;
+  es_admin?: boolean;
+}
+
+/**
+ * `PATCH /usuarios/{id}`: todos opcionales, **y hay que mandar al menos uno**.
+ * Un `{}` es 400 y un campo que la ruta no conoce también (decisión 78), así que
+ * quien arma este cuerpo manda lo que cambió y nada más.
+ */
+export interface CuerpoPatchUsuario {
+  nombre?: string;
+  activo?: boolean;
+  es_admin?: boolean;
+  password?: string;
+}
+
+/** `PUT …/permisos/{est}`: otorga o cambia, que es el mismo pedido. */
+export interface CuerpoPermiso {
+  rol: Rol;
+}
+
 /** Un tambo del selector: lo justo para dibujar la lista (`GET /establecimientos`). */
 export interface EstablecimientoDeLaLista {
   id: string;
@@ -120,6 +176,22 @@ export interface EstablecimientoDeLaLista {
 
 export interface RespuestaEstablecimientos {
   establecimientos: EstablecimientoDeLaLista[];
+}
+
+/**
+ * `POST /establecimientos`. **Sin `config`**: la API le pone `CONFIG_DEFAULT`, y
+ * no hay `PATCH /establecimientos/{est}` que la cambie después — ni por acá ni
+ * por `curl`. Un formulario que ofreciera editarla estaría prometiendo algo que
+ * la API no puede cumplir.
+ */
+export interface CuerpoEstablecimiento {
+  nombre: string;
+}
+
+/** Lo que devuelve el alta: el id nuevo y el nombre, nada más. */
+export interface RespuestaEstablecimientoCreado {
+  id: string;
+  nombre: string;
 }
 
 // ── El sobre de los errores (§9.1) ───────────────────────────────────────────

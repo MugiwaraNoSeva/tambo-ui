@@ -17,7 +17,9 @@ import type {
   CuerpoError,
   EstablecimientoDeLaLista,
   RespuestaEstablecimientos,
+  RespuestaUsuarios,
   Usuario,
+  UsuarioAdmin,
   RespuestaAlertas,
   RespuestaAnimal,
   RespuestaAnimales,
@@ -119,6 +121,62 @@ export const usuarioAdmin: Usuario = {
 
 export const misEstablecimientos: RespuestaEstablecimientos = {
   establecimientos: [{ id: EST, nombre: 'La Esperanza' }],
+};
+
+// ── El panel del admin ───────────────────────────────────────────────────────
+//
+// La gente del sistema, con los cinco casos que la pantalla tiene que saber
+// distinguir. Ninguno está de adorno:
+//
+//   · **el admin**, que viene con `permisos: []` y entra a los dos tambos igual:
+//     el filtro por establecimiento no lo devuelve nunca y una lista que lo
+//     omita miente sobre quién entra;
+//   · **el de escritura** y **el de lectura**, que son el caso normal;
+//   · **el desactivado**, que sigue figurando en el reparto de La Esperanza y
+//     **no entra** — es la mitad de la información que `activo` trae;
+//   · **la que no tiene ningún permiso**, que es a quien se le da acceso sin
+//     tener que crearla de nuevo.
+//
+// Vienen ordenados por nombre, que es como los devuelve la API.
+
+/** El nombre del segundo tambo, para el panel: dos filas y no una. */
+export const establecimiento2: EstablecimientoDeLaLista = { id: EST2, nombre: 'El Ombú' };
+
+/** Los dos que ve el admin, en el orden de la API (por nombre). */
+export const losDosTambos: EstablecimientoDeLaLista[] = [
+  establecimiento2,
+  { id: EST, nombre: 'La Esperanza' },
+];
+
+/** El que se fue: su permiso sigue ahí y aun así no entra. */
+export const usuarioDesactivado: UsuarioAdmin = {
+  id: 'dddddddd-4444-4444-4444-dddddddddddd',
+  nombre: 'Tomás',
+  email: 'tomas@demo.local',
+  es_admin: false,
+  permisos: [{ establecimiento_id: EST, rol: 'escritura' }],
+  activo: false,
+};
+
+/** La que existe y todavía no entra a ningún lado: se le da acceso, no se la crea. */
+export const usuarioSinTambos: UsuarioAdmin = {
+  id: 'eeeeeeee-5555-5555-5555-eeeeeeeeeeee',
+  nombre: 'Rosa',
+  email: 'rosa@demo.local',
+  es_admin: false,
+  permisos: [],
+  activo: true,
+};
+
+/** `GET /usuarios`: todos, con sus permisos y con los desactivados, por nombre. */
+export const personas: RespuestaUsuarios = {
+  usuarios: [
+    { ...usuarioAdmin, activo: true },
+    { ...usuarioEscritura, activo: true },
+    usuarioSinTambos,
+    usuarioDesactivado,
+    { ...usuarioLectura, activo: true },
+  ],
 };
 
 /**

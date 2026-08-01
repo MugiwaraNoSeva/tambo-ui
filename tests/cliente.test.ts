@@ -3,18 +3,23 @@
 
 import { describe, expect, it } from 'vitest';
 import { ErrorApi, ErrorDeRed, api } from '../src/api/cliente';
+import { guardarToken } from '../src/sesion';
 import { montarApi, montarApiCaida } from './servidor';
 import {
   EST,
+  TOKEN,
   V102,
   alertas,
   animales,
   animalesConBajas,
   establecimiento,
+  personas,
   rechazoForzable,
   rechazoNoForzable,
   tanque,
   tanqueDelPeriodo,
+  usuarioDesactivado,
+  usuarioEscritura,
 } from './fixtures';
 
 describe('las rutas de §9', () => {
@@ -73,6 +78,126 @@ describe('las rutas de §9', () => {
     const r = await api.alertas(EST);
     expect(r.para_revisar[0]?.caravana).toBe('104');
     expect(r.para_secar[0]?.caravana).toBe('103');
+  });
+});
+
+describe('las rutas del admin', () => {
+  it('trae a todas las personas, con los desactivados adentro', async () => {
+    const falsa = montarApi({ 'GET /usuarios': { cuerpo: personas } });
+
+    const r = await api.usuarios();
+
+    expect(falsa.pedidos[0]?.ruta).toBe('/usuarios');
+    expect(r.usuarios).toHaveLength(5);
+    // `activo` es la mitad de la información de esta lista: el que se fue sigue
+    // figurando con su permiso y aun así no entra.
+    expect(r.usuarios.find((u) => u.nombre === 'Tomás')?.activo).toBe(false);
+    expect(r.usuarios.filter((u) => u.activo)).toHaveLength(4);
+  });
+
+  it('crea la persona con la contraseña inicial adentro del cuerpo', async () => {
+    const falsa = montarApi({
+      'POST /usuarios': { status: 201, cuerpo: { ...usuarioEscritura, activo: true } },
+    });
+
+    await api.crearUsuario({
+      nombre: 'Rosa',
+      email: 'rosa@demo.local',
+      password: 'la-inicial',
+      es_admin: false,
+    });
+
+    expect(falsa.cuerpoDe('POST /usuarios')).toEqual({
+      nombre: 'Rosa',
+      email: 'rosa@demo.local',
+      password: 'la-inicial',
+      es_admin: false,
+    });
+  });
+
+  it('el PATCH manda solo lo que cambió: un campo de más es 400 (decisión 78)', async () => {
+    const id = usuarioDesactivado.id;
+    const falsa = montarApi({
+      [`PATCH /usuarios/${id}`]: { cuerpo: { ...usuarioDesactivado, activo: true } },
+    });
+
+    await api.editarUsuario(id, { activo: true });
+
+    expect(falsa.pedidos[0]?.metodo).toBe('PATCH');
+    expect(falsa.cuerpoDe(`PATCH /usuarios/${id}`)).toEqual({ activo: true });
+  });
+
+  it('otorgar y cambiar el permiso son el mismo PUT sobre la misma ruta', async () => {
+    const id = usuarioEscritura.id;
+    const falsa = montarApi({
+      [`PUT /usuarios/${id}/permisos/${EST}`]: { cuerpo: { ...usuarioEscritura, activo: true } },
+    });
+
+    await api.otorgarPermiso(id, EST, 'lectura');
+    await api.otorgarPermiso(id, EST, 'escritura');
+
+    expect(falsa.pedidos.map((p) => p.ruta)).toEqual([
+      `/usuarios/${id}/permisos/${EST}`,
+      `/usuarios/${id}/permisos/${EST}`,
+    ]);
+    expect(falsa.cuerpoDe(`PUT /usuarios/${id}/permisos/${EST}`)).toEqual({ rol: 'escritura' });
+  });
+
+  it('revocar contesta 204 sin cuerpo, y eso no revienta al parsear', async () => {
+    const id = usuarioEscritura.id;
+    const falsa = montarApi({ [`DELETE /usuarios/${id}/permisos/${EST}`]: { status: 204 } });
+
+    await expect(api.revocarPermiso(id, EST)).resolves.toBeUndefined();
+
+    expect(falsa.pedidos[0]?.metodo).toBe('DELETE');
+    expect(falsa.pedidos[0]?.cuerpo).toBeUndefined();
+  });
+
+  it('crea el tambo con el nombre y sin `config`: la pone la API', async () => {
+    const falsa = montarApi({
+      'POST /establecimientos': { status: 201, cuerpo: { id: EST, nombre: 'La Querencia' } },
+    });
+
+    const r = await api.crearEstablecimiento({ nombre: 'La Querencia' });
+
+    expect(r.id).toBe(EST);
+    expect(falsa.cuerpoDe('POST /establecimientos')).toEqual({ nombre: 'La Querencia' });
+  });
+
+  it('el token viaja en todas, también en las que no llevan cuerpo', async () => {
+    const id = usuarioEscritura.id;
+    guardarToken(TOKEN);
+    const falsa = montarApi({
+      'GET /usuarios': { cuerpo: personas },
+      [`DELETE /usuarios/${id}/permisos/${EST}`]: { status: 204 },
+    });
+
+    await api.usuarios();
+    await api.revocarPermiso(id, EST);
+
+    expect(falsa.autorizacionDe('GET /usuarios')).toBe(`Bearer ${TOKEN}`);
+    expect(falsa.autorizacionDe(`DELETE /usuarios/${id}/permisos/${EST}`)).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it('el email repetido llega como 409 con su mensaje entero', async () => {
+    montarApi({
+      'POST /usuarios': {
+        status: 409,
+        cuerpo: {
+          codigo: 'EMAIL_EN_USO',
+          mensaje: 'Ya hay una cuenta con ese email. Si es la misma persona, dale permiso.',
+          forzable: false,
+        },
+      },
+    });
+
+    const error = (await api
+      .crearUsuario({ nombre: 'Rosa', email: 'rosa@demo.local', password: 'la-inicial' })
+      .catch((e: unknown) => e)) as ErrorApi;
+
+    expect(error.status).toBe(409);
+    expect(error.cuerpo.codigo).toBe('EMAIL_EN_USO');
+    expect(error.message).toContain('Ya hay una cuenta con ese email');
   });
 });
 

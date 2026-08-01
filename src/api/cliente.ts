@@ -19,16 +19,20 @@
 
 import type {
   CuerpoAlta,
+  CuerpoAltaUsuario,
   CuerpoError,
+  CuerpoEstablecimiento,
   CuerpoEvento,
   CuerpoLogin,
   CuerpoPassword,
+  CuerpoPatchUsuario,
   CuerpoTanque,
   RespuestaAlertas,
   RespuestaAlta,
   RespuestaAnimal,
   RespuestaAnimales,
   RespuestaEstablecimiento,
+  RespuestaEstablecimientoCreado,
   RespuestaEstablecimientos,
   RespuestaEvento,
   RespuestaEventos,
@@ -38,7 +42,10 @@ import type {
   RespuestaRodeo,
   RespuestaTanque,
   RespuestaTanquePost,
+  RespuestaUsuarios,
   RespuestaYo,
+  Rol,
+  UsuarioAdmin,
 } from './tipos';
 import { anotarFechaDeLaRespuesta } from '../reloj';
 import { caerLaSesion, tokenGuardado } from '../sesion';
@@ -177,6 +184,8 @@ const post = <T>(ruta: string, cuerpo: unknown) => pedir<T>('POST', ruta, cuerpo
 
 const E = (est: string) => `/establecimientos/${encodeURIComponent(est)}`;
 const A = (est: string, animal: string) => `${E(est)}/animales/${encodeURIComponent(animal)}`;
+const U = (usuario: string) => `/usuarios/${encodeURIComponent(usuario)}`;
+const P = (usuario: string, est: string) => `${U(usuario)}/permisos/${encodeURIComponent(est)}`;
 
 // ── Las operaciones, en el orden de la tabla de §9 ───────────────────────────
 
@@ -198,6 +207,44 @@ export const api = {
   /** Cambiar la contraseña propia. Contesta 204 y no cierra la sesión. */
   cambiarPassword: (cuerpo: CuerpoPassword) =>
     pedir<void>('POST', '/auth/password', cuerpo, { validaUnaPassword: true }),
+
+  // ── Las del admin ──────────────────────────────────────────────────────────
+  //
+  // Ninguna lleva `validaUnaPassword`, y en dos de ellas viaja una contraseña.
+  // No es un olvido: esa marca es para el pedido cuyo 401 habla de una
+  // contraseña **que se acaba de escribir en el formulario** —el login y el
+  // cambio propio—. Acá la contraseña que viaja es la que el admin le pone a
+  // otro, así que un 401 en `POST /usuarios` es su propia sesión que se cayó y
+  // tiene que mandarlo al login como cualquier otro pedido. Siguen siendo dos.
+
+  /** Crear una persona. La contraseña inicial se le dice de boca: no hay correo. */
+  crearUsuario: (cuerpo: CuerpoAltaUsuario) => post<UsuarioAdmin>('/usuarios', cuerpo),
+
+  /** Todas las personas del sistema, con sus permisos y **con los desactivados**. */
+  usuarios: () => get<RespuestaUsuarios>('/usuarios'),
+
+  /** Nombre, activo, admin y resetear la contraseña. Mandar solo lo que cambió. */
+  editarUsuario: (id: string, cuerpo: CuerpoPatchUsuario) =>
+    pedir<UsuarioAdmin>('PATCH', U(id), cuerpo),
+
+  /** Dar acceso a un tambo, **o cambiarlo**: es el mismo pedido y es idempotente. */
+  otorgarPermiso: (id: string, est: string, rol: Rol) =>
+    pedir<UsuarioAdmin>('PUT', P(id, est), { rol }),
+
+  /**
+   * Sacar el acceso. Contesta **204 sin cuerpo**, también cuando no había nada
+   * que revocar: quien llama pidió que esta persona no entre a este tambo, y
+   * después de esto no entra. `pedir()` ya devuelve `undefined` en el 204 —el
+   * único otro de la app es `POST /auth/password`—, y por eso esta operación no
+   * pasa por los helpers `get`/`post`, que no cubren `DELETE`.
+   */
+  revocarPermiso: (id: string, est: string) => pedir<void>('DELETE', P(id, est)),
+
+  /** Crear el tambo. Sin `config`: la pone la API y después no la cambia nadie. */
+  crearEstablecimiento: (cuerpo: CuerpoEstablecimiento) =>
+    post<RespuestaEstablecimientoCreado>('/establecimientos', cuerpo),
+
+  // ── Y de acá en adelante, las del tambo ────────────────────────────────────
 
   /** Mis tambos: donde tengo permiso, o todos si soy admin. De acá sale el selector. */
   establecimientos: () => get<RespuestaEstablecimientos>('/establecimientos'),
