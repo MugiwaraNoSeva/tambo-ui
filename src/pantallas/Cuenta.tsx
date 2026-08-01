@@ -27,11 +27,18 @@ import { mensajeDe } from '../usarPedido';
 /** El mínimo que exige la API. Es de forma, no de dominio: el largo lo dice §9. */
 const LARGO_MINIMO = 8;
 
-export function Cuenta() {
+/**
+ * `volverA` existe porque esta pantalla vive en los dos árboles: el tambero
+ * vuelve a su tablero y el admin al panel, que es de donde entró. Es la única de
+ * las nueve que no es de un tambo — mi contraseña es mía y no de ningún
+ * establecimiento—, y en una base recién instalada es la única forma que tiene
+ * el admin de cambiar la suya: todavía no hay tambo al que entrar.
+ */
+export function Cuenta({ volverA = aTablero() }: { volverA?: string }) {
   const usuario = usarUsuario();
 
   return (
-    <Armazon titulo="Mi cuenta" volverA={aTablero()}>
+    <Armazon titulo="Mi cuenta" volverA={volverA}>
       <Tarjeta titulo={usuario.nombre} subtitulo={usuario.email}>
         <p className="vacio">
           {usuario.es_admin

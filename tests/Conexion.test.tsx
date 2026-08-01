@@ -4,6 +4,11 @@
 // ninguno no es una lista vacía sino alguien esperando que le den acceso, y el
 // guardado que ya no está no puede dejar la app pegada contra un tambo al que no
 // puede entrar. **El `localStorage` propone; la lista de la API decide.**
+//
+// Esta es la pantalla **del tambero**. El admin no pasa por acá: su inicio es el
+// panel, y lo suyo se prueba en `Panel.test.tsx` — incluido el vacío del primer
+// arranque, que era el caso que esta pantalla tenía que resolver mientras él
+// pasaba por acá.
 
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -18,7 +23,6 @@ import {
   rutasDelTablero,
   sesionDePrueba,
   sinPermiso,
-  usuarioAdmin,
   usuarioEscritura,
 } from './fixtures';
 
@@ -111,14 +115,6 @@ describe('varios tambos', () => {
     expect(window.localStorage.getItem('tambo.token')).toBe(TOKEN);
   });
 
-  it('el admin ve todos los tambos aunque no tenga ni un permiso', async () => {
-    montarDos({}, usuarioAdmin);
-    render(<App />);
-
-    await screen.findByRole('heading', { name: /en qué tambo estás/i });
-    expect(screen.getByRole('button', { name: 'La Esperanza' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'El Ombú' })).toBeInTheDocument();
-  });
 });
 
 describe('ningún tambo', () => {
@@ -129,34 +125,6 @@ describe('ningún tambo', () => {
     expect(await screen.findByText(/pedíselo a un administrador/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     // La única salida que le queda tiene que estar.
-    expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
-  });
-
-  // ── El primer arranque de producción ─────────────────────────────────────
-  //
-  // En una base recién instalada no hay ningún establecimiento y el único
-  // usuario es el admin: esta es, literalmente, la primera pantalla que alguien
-  // ve. Mandarlo a pedirle permiso a un administrador es mandarlo a pedírselo a
-  // sí mismo. No apareció nunca porque la demo siembra el tambo antes de que
-  // nadie entre y el resto de los tests parte de una sesión con tambos.
-
-  it('al admin NO le dice que le pida permiso a un administrador: es él', async () => {
-    montarApi({ ...sesionDePrueba(usuarioAdmin, []) });
-    render(<App />);
-
-    await screen.findByText(/no hay ningún tambo cargado/i);
-    expect(screen.queryByText(/pedíselo a un administrador/i)).not.toBeInTheDocument();
-  });
-
-  it('y le dice lo que sí puede hacer, que es crear el tambo', async () => {
-    montarApi({ ...sesionDePrueba(usuarioAdmin, []) });
-    render(<App />);
-
-    // Los tres pedidos del primer arranque, en orden. Sin esto el mensaje sería
-    // "no podés hacer nada acá", que es cierto y no sirve.
-    expect(await screen.findByText('POST /establecimientos')).toBeInTheDocument();
-    expect(screen.getByText('POST /usuarios')).toBeInTheDocument();
-    expect(screen.getByText(/permisos/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
   });
 });

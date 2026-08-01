@@ -19,13 +19,13 @@
 //   - **ninguno** no es una lista vacía ni un error: es alguien a quien todavía
 //     no le dieron acceso, y lo que necesita es saber a quién pedírselo.
 //
-// Y "ninguno" son **dos** casos, no uno. En una base recién instalada no existe
-// ningún establecimiento y el único usuario es el admin, así que la primera
-// pantalla que alguien ve en producción es esta, vacía — y decirle *"pedíselo a
-// un administrador"* al administrador es darle una instrucción imposible. No
-// apareció nunca porque la demo siembra el tambo antes de que nadie entre y los
-// tests parten de una sesión con establecimientos. Con `usuario.es_admin` en la
-// mano, el vacío del admin dice lo que **sí** puede hacer.
+// Y "ninguno" es **un** caso solo, otra vez. Fue dos mientras el admin pasaba
+// por acá: en una base recién instalada no hay ningún establecimiento y el único
+// usuario es él, así que esta pantalla vacía era la primera de producción y le
+// decía *"pedíselo a un administrador"* — una instrucción imposible. La
+// respuesta de entonces fue imprimirle los tres `curl`; la de ahora es que **el
+// admin no llega acá**: tiene su panel, y ahí el vacío es el formulario que crea
+// el primer tambo. Esta pantalla volvió a ser lo que era, la del tambero.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { urlBase } from '../api/cliente';
@@ -60,40 +60,10 @@ export function Conexion({
 
         {tambos.length === 0 ? (
           <Tarjeta titulo={`Hola, ${usuario.nombre}`}>
-            {usuario.es_admin ? (
-              <>
-                <p className="vacio">
-                  Todavía no hay ningún tambo cargado, y el que los crea sos vos: sos
-                  administrador.
-                </p>
-                <p className="vacio">
-                  Esta pantalla no lo hace, y es a propósito — administrar es trabajo que se hace
-                  una vez cada tanto y no le corresponde a la pantalla del corral. Va contra la
-                  API, en este orden:
-                </p>
-                <ul className="lista-simple">
-                  <li>
-                    <code>POST /establecimientos</code> — el tambo
-                  </li>
-                  <li>
-                    <code>POST /usuarios</code> — las personas que lo van a usar
-                  </li>
-                  <li>
-                    <code>PUT /usuarios/&#123;id&#125;/permisos/&#123;est&#125;</code> — con{' '}
-                    <code>escritura</code> o <code>lectura</code>
-                  </li>
-                </ul>
-                <p className="vacio">
-                  Los comandos completos están en el README. Cuando el tambo exista, esta pantalla
-                  te lo va a ofrecer como a todos.
-                </p>
-              </>
-            ) : (
-              <p className="vacio">
-                Todavía no te dieron acceso a ningún tambo. Pedíselo a un administrador: él es
-                quien reparte los permisos.
-              </p>
-            )}
+            <p className="vacio">
+              Todavía no te dieron acceso a ningún tambo. Pedíselo a un administrador: él es quien
+              reparte los permisos.
+            </p>
           </Tarjeta>
         ) : (
           <Tarjeta titulo="¿En qué tambo estás?" subtitulo="Queda guardado para la próxima.">

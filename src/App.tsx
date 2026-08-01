@@ -41,10 +41,11 @@ import { Conexion } from './pantallas/Conexion';
 import { Cuenta } from './pantallas/Cuenta';
 import { Ficha } from './pantallas/Ficha';
 import { Login } from './pantallas/Login';
+import { Panel } from './pantallas/Panel';
 import { Rodeo } from './pantallas/Rodeo';
 import { Tablero } from './pantallas/Tablero';
 import { Tanque } from './pantallas/Tanque';
-import { aCuenta, aTablero, usarRuta } from './ruteo';
+import { aCuenta, aPanel, aTablero, esRutaDeAdmin, ir, usarRuta, type Ruta } from './ruteo';
 import { alCaerLaSesion, guardarToken, olvidarToken, tokenGuardado, type CaidaDeSesion } from './sesion';
 import { ProveedorUsuario, usarSalir, usarUsuario } from './usuario';
 import { esSinPermiso, usarPedido } from './usarPedido';
@@ -95,8 +96,61 @@ export function App() {
 
   return (
     <ProveedorUsuario value={{ usuario, salir }}>
-      <ConTambo />
+      {/* Acá se parte el árbol. El tambero elige tambo y de ahí no sale; el
+          admin arranca en el panel, que no es de ningún tambo. */}
+      {usuario.es_admin ? <ComoAdmin /> : <ConTambo />}
     </ProveedorUsuario>
+  );
+}
+
+/**
+ * El admin: el panel es su inicio, y el tambo se abre desde ahí.
+ *
+ * **No pasa por el selector**, y no es un atajo: el selector entra derecho
+ * cuando hay un solo tambo —es el 90% de los tamberos y una lista de un elemento
+ * es una pantalla de peaje—, y para el admin eso sería fatal. En una base recién
+ * instalada hay exactamente un tambo, así que el admin entraría derecho a él y
+ * **no vería el panel nunca**. El atajo es para el que tiene un tambo; el admin,
+ * por definición, es el que los ve todos.
+ *
+ * Qué se dibuja lo deciden dos cosas y el orden importa:
+ *
+ *   1. si la ruta es del panel, el panel — aunque tenga un tambo abierto, porque
+ *      un `#/admin` escrito o tocado es un pedido explícito de volver;
+ *   2. si no, hace falta un tambo abierto. Sin él **también es el panel**: el
+ *      hash no abre un tambo por su cuenta. Es la misma regla que ya rige del
+ *      otro lado —al tambero que todavía no eligió, el selector le tapa
+ *      cualquier hash— y por eso un enlace profundo a la ficha de un animal deja
+ *      al admin en el panel hasta que elija en cuál de los tambos mirarla.
+ *
+ * El tambo abierto **no se guarda** en `localStorage` a diferencia del que elige
+ * el tambero. Ahí es una preferencia que la próxima visita lee; acá nadie la
+ * leería —el inicio del admin es el panel, decidido arriba—, y una preferencia
+ * que se escribe y no se lee es un valor que envejece hasta que alguien le cree.
+ */
+function ComoAdmin() {
+  const [tamboAbierto, setTamboAbierto] = useState<string | null>(null);
+  const ruta = usarRuta();
+
+  const entrarAlTambo = useCallback((id: string) => {
+    setTamboAbierto(id);
+    ir(aTablero());
+  }, []);
+
+  const volverAlPanel = useCallback(() => {
+    setTamboAbierto(null);
+    ir(aPanel());
+  }, []);
+
+  if (tamboAbierto === null || esRutaDeAdmin(ruta)) {
+    return <Panel ruta={ruta} alEntrarAlTambo={entrarAlTambo} />;
+  }
+
+  // La misma puerta que usa el tambero, con otra salida. Escribirle una segunda
+  // sería duplicar la verificación contra la API, la `Config`, el cálculo del
+  // permiso y el manejo del rechazo de la puerta.
+  return (
+    <Conectado id={tamboAbierto} salida={{ rotulo: 'Volver al panel', irse: volverAlPanel }} />
   );
 }
 
@@ -220,10 +274,27 @@ function ConTambo() {
   return (
     <Conectado
       id={id}
-      alSalirDelTambo={volverAlSelector}
-      puedeCambiarDeTambo={tambos.length > 1}
+      salida={{ rotulo: tambos.length > 1 ? 'Cambiar de tambo' : null, irse: volverAlSelector }}
     />
   );
+}
+
+/**
+ * Cómo se sale del tambo, que es lo único que distingue a los dos que entran.
+ *
+ * El tambero vuelve al selector y el admin al panel, y por eso el rótulo viaja
+ * al lado de la función: un botón que diga "Cambiar de tambo" y lleve al panel
+ * es peor que no tener botón. `rotulo: null` es "no hay a dónde ir" —el tambero
+ * de un solo tambo—, y entonces el botón no se dibuja.
+ */
+interface SalidaDelTambo {
+  rotulo: string | null;
+  /**
+   * `porque` es el aviso que se muestra al llegar y `queReboto`, el 403 anotado.
+   * Los dos son del selector: el panel no los usa, y por eso `volverAlPanel`
+   * —que no recibe ninguno— encaja igual.
+   */
+  irse: (porque: string | null, queReboto?: string) => void;
 }
 
 /**
@@ -236,24 +307,17 @@ function ConTambo() {
  * tengo permiso contesta 403 exista o no, el id revocado y el inventado se ven
  * igual — y los dos se arreglan eligiendo otro.
  */
-function Conectado({
-  id,
-  alSalirDelTambo,
-  puedeCambiarDeTambo,
-}: {
-  id: string;
-  alSalirDelTambo: (porque: string | null, queReboto?: string) => void;
-  puedeCambiarDeTambo: boolean;
-}) {
+function Conectado({ id, salida }: { id: string; salida: SalidaDelTambo }) {
   const usuario = usarUsuario();
+  const { irse } = salida;
   const traer = useCallback(() => api.establecimiento(id), [id]);
   const { datos, cargando, error, causa } = usarPedido(traer);
 
   const sinPermiso = esSinPermiso(causa);
   useEffect(() => {
     if (!sinPermiso) return;
-    alSalirDelTambo('No tenés permiso sobre ese tambo. Elegí uno de los tuyos.', id);
-  }, [sinPermiso, alSalirDelTambo, id]);
+    irse('No tenés permiso sobre ese tambo. Elegí uno de los tuyos.', id);
+  }, [sinPermiso, irse, id]);
 
   if (cargando || sinPermiso) {
     return (
@@ -266,9 +330,13 @@ function Conectado({
   if (error !== null || datos === null) {
     return (
       <Armazon titulo="Tambo">
+        {/* Para el admin, acá también cae el **404** del id inventado en la
+            barra de direcciones: el 403 parejo existe para no decirle a un
+            extraño qué tambos hay, y él no es un extraño. Los dos se arreglan
+            por la misma puerta, que es volver a donde se elige. */}
         <Aviso titulo="No se pudo conectar">{error ?? 'El servidor no contestó.'}</Aviso>
-        <button className="boton ancho secundario" type="button" onClick={() => alSalirDelTambo(null)}>
-          Elegir otro tambo
+        <button className="boton ancho secundario" type="button" onClick={() => irse(null)}>
+          {salida.rotulo ?? 'Elegir otro tambo'}
         </button>
       </Armazon>
     );
@@ -284,15 +352,22 @@ function Conectado({
 
   return (
     <ProveedorEstablecimiento value={activo}>
-      <Pantallas alDesconectar={puedeCambiarDeTambo ? () => alSalirDelTambo(null) : null} />
+      <Pantallas salida={salida} />
     </ProveedorEstablecimiento>
   );
 }
 
-function Pantallas({ alDesconectar }: { alDesconectar: (() => void) | null }) {
+function Pantallas({ salida }: { salida: SalidaDelTambo }) {
   const { nombre } = usarEstablecimiento();
   const salir = usarSalir();
-  const ruta = usarRuta();
+  const cruda = usarRuta();
+
+  // **Las rutas del panel no existen de este lado.** Un `#/admin` tocado por
+  // alguien que no es admin —un enlace viejo, una dirección compartida— cae en
+  // el inicio como cualquier otro hash que no se entienda. Sin esta línea el
+  // `switch` de abajo no matchea ninguna rama y la pantalla queda en blanco:
+  // el árbol se partió arriba y este lado solo conoce sus propias rutas.
+  const ruta: Ruta = esRutaDeAdmin(cruda) ? { nombre: 'tablero' } : cruda;
 
   switch (ruta.nombre) {
     // El tablero es el inicio y por eso lleva el nombre del tambo en el
@@ -301,12 +376,13 @@ function Pantallas({ alDesconectar }: { alDesconectar: (() => void) | null }) {
       return (
         <Armazon titulo={nombre}>
           <Tablero />
-          {/* Las tres salidas del tablero, juntas y al final: cambiar de tambo
-              (la sesión sigue), mi cuenta, y salir (la sesión se va). */}
+          {/* Las tres salidas del tablero, juntas y al final: irse del tambo
+              (la sesión sigue) —al selector si es el tambero, al panel si es el
+              admin, y el rótulo lo dice—, mi cuenta, y salir (la sesión se va). */}
           <div className="acciones">
-            {alDesconectar !== null && (
-              <button className="boton secundario" type="button" onClick={alDesconectar}>
-                Cambiar de tambo
+            {salida.rotulo !== null && (
+              <button className="boton secundario" type="button" onClick={() => salida.irse(null)}>
+                {salida.rotulo}
               </button>
             )}
             <a className="boton secundario" href={aCuenta()}>

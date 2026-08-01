@@ -11,15 +11,18 @@
 
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import type { Usuario } from '../src/api/tipos';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
+import { aPanelTambo } from '../src/ruteo';
 import { montarApi } from './servidor';
 import {
   EST,
   HOY,
   V102,
   establecimiento,
+  personas,
   rutasDeLaFicha,
   rutasDelTablero,
   sesionDePrueba,
@@ -37,6 +40,8 @@ function montarTodo(usuario: Usuario, hash = '') {
   return montarApi({
     ...sesionDePrueba(usuario),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+    // Del panel, que es por donde entra el admin.
+    'GET /usuarios': { cuerpo: personas },
     ...rutasDelTablero,
     ...rutasDeLaFicha,
     // Sin el registro de hoy a propósito: es el estado en que el tablero ofrece
@@ -126,10 +131,22 @@ describe('el rol de escritura', () => {
 });
 
 describe('el admin, que no tiene permisos y puede todo', () => {
+  /**
+   * El admin **no pasa por el selector**: entra al tambo desde su panel. Lo que
+   * estos dos tests prueban no cambió —que `permisos: []` no lo deja mirando una
+   * UI de solo lectura— pero se prueba por la puerta que ahora usa, que es la
+   * única que tiene.
+   */
+  async function entrarAlTambo(hash = '') {
+    montarTodo(usuarioAdmin, aPanelTambo(EST));
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Entrar al tambo' }));
+    if (hash !== '') window.location.hash = hash;
+  }
+
   it('ve las puertas de carga aunque su lista de permisos venga vacía', async () => {
     expect(usuarioAdmin.permisos).toEqual([]);
-    montarTodo(usuarioAdmin);
-    render(<App />);
+    await entrarAlTambo();
 
     await screen.findByText('Preñez del rodeo');
     expect(screen.getByRole('link', { name: /dar de alta/i })).toBeInTheDocument();
@@ -137,8 +154,7 @@ describe('el admin, que no tiene permisos y puede todo', () => {
   });
 
   it('y también puede anular', async () => {
-    montarTodo(usuarioAdmin, `#/animales/${V102}`);
-    render(<App />);
+    await entrarAlTambo(`#/animales/${V102}`);
 
     await screen.findByText(/toro Urubó/);
     expect(screen.getByRole('button', { name: /anular este evento/i })).toBeInTheDocument();
