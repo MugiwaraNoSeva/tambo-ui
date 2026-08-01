@@ -133,8 +133,9 @@ son de ningún tambo. "Mi cuenta" es la única que vive en los dos: la contrase�
 es de la persona.
 
 Las cuatro librerías que **no** están —componentes, Tailwind, router y charts— y
-por qué, en la decisión 51. La revisión de esa decisión cuando el CSS creció está
-en la 61.
+por qué, en la decisión 51. Esa decisión se revisó **dos** veces: en la 61,
+cuando el CSS pasó de 400 líneas, y de nuevo al remodelar. Las dos siguen abajo,
+en *El sistema de diseño*.
 
 ## Las reglas que no se negocian
 
@@ -478,6 +479,116 @@ invisibles salvo en el momento exacto de crearlas.
 Las dos pantallas comparten la ficha de la persona —se edita igual se la mire
 desde donde se la mire— y lo que cambia es lo que se le cuelga al lado: adentro
 de un tambo, los controles del permiso sobre ese tambo.
+
+## El sistema de diseño
+
+Todo vive en `src/estilos.css`, y desde la remodelación son **tres escalas de
+variables**: color, tipografía y espacio. Fuera de ese archivo no se escribe un
+color ni un tamaño de letra.
+
+### Quince tamaños de letra eran cuatro repetidos
+
+El encabezado de `estilos.css` decía que si algún día había que agregarle una
+escala tipográfica, era que la app había crecido y la decisión había que
+revisarla. Creció: había **quince tamaños escritos a mano** y la mitad eran
+duplicados accidentales con dos centésimas de diferencia — `0.78` para el rótulo
+de un dato, `0.80` para el rótulo de un bloque y `0.82` para el de una cifra,
+haciendo los tres el mismo trabajo y ninguno a propósito.
+
+Quedaron **siete pasos**, y juntar los duplicados movió once selectores. Ninguno
+más de 1,7 px, y se listan acá porque "casi nada" no es "nada":
+
+| Qué | Antes | Ahora | Δ |
+|---|---|---|---|
+| Las cifras grandes (`.cifra .valor`) | 1.6rem | 1.5rem | −1,7 px |
+| La flecha de volver | 1.4rem | 1.5rem | +1,7 px |
+| El título del encabezado | 1.05rem | 1rem | −0,85 px |
+| Una cifra sin datos | 1.05rem | 1rem | −0,85 px |
+| El título de un aviso | 0.95rem | 0.9rem | −0,85 px |
+| Las marcas del historial y el código de error | 0.75rem | 0.78rem | +0,51 px |
+| El título de "lo que quedaría inválido" | 0.85rem | 0.82rem | −0,51 px |
+| El detalle de una fila y los renglones | 0.88rem | 0.9rem | +0,34 px |
+| El rótulo de bloque (`h3` de tarjeta) | 0.8rem | 0.78rem | −0,34 px |
+
+El más grande es el de las cifras, y es el que vale la pena explicar: la
+caravana de una fila (1.5) y el número de un KPI (1.6) son **el mismo papel** —un
+número que se lee de reojo— y que fueran distintos no lo había decidido nadie.
+Unificarlos es la decisión; cuál de los dos valores ganaba es arbitrario.
+
+Tres tamaños quedaron **afuera de la escala a propósito**, y cada uno tiene su
+comentario al lado: los 17 px del `body`, que son la raíz de la que cuelgan los
+`rem`; los 17 px de los campos, porque abajo de 16 px iOS hace zoom al enfocar; y
+los 10 y 12 px de los rótulos de la curva, que están adentro de un `<svg>` con
+`viewBox` — ahí un `px` es una unidad de usuario y no un píxel de CSS, así que un
+`rem` escalaría contra otra cosa.
+
+### El espacio va por la grilla de 4, y todavía no la cubre entera
+
+Seis pasos (4 a 24). Se migraron los valores que **ya** estaban en la grilla; los
+que no —6, 10, 14, 18— quedaron literales, porque moverlos ahora correría el
+layout de pantallas que la remodelación todavía no tocó. Se pagan pantalla por
+pantalla. **Lo que se escriba nuevo usa la escala**: si hace falta un valor que
+no está, el que falta es el paso.
+
+### Los colores se desdoblaron por papel, y por eso hay modo oscuro
+
+Un mismo `--verde` era el fondo del encabezado **y** la tinta de un botón
+secundario. En claro eso funciona; de noche deja de funcionar, porque el fondo
+tiene que seguir siendo oscuro y la tinta tiene que aclararse. Ahora cada familia
+tiene hasta cinco papeles (`--verde`, `--sobre-verde`, `--verde-texto`,
+`--verde-tenue`, `--verde-borde`), y de paso desaparecieron los siete colores que
+estaban escritos a mano sueltos por el archivo.
+
+Con eso, el modo oscuro es **solo un juego de valores**: ninguna regla del
+archivo sabe que existe. Va por `prefers-color-scheme` y **no** hay un botón para
+cambiarlo, y ese es el punto: el teléfono ya sabe qué hora es y da vuelta el tema
+justo en las horas en que el tambo trabaja. Una preferencia que hay que acordarse
+de cambiar dos veces por día no la cambia nadie.
+
+Por qué existe: **el primer ordeñe empieza antes del amanecer.** El porqué escrito
+del tema claro era el sol de frente al mediodía, y es cierto — pero una pantalla
+blanca al máximo de brillo en un corral oscuro a las cinco de la mañana encandila
+igual. Las dos reglas que no se negocian valen igual de noche: ningún estado se
+comunica solo con color, y cada par fondo/texto mantiene su contraste.
+
+Lo segundo está **medido y no prometido**: los once pares del tema oscuro —tinta
+sobre papel y sobre fondo, el texto de cada botón sobre su color, y cada etiqueta
+y cada aviso sobre su fondo tenue— van de **5,9:1 a 14,8:1**, todos por encima
+del 4,5:1 que pide AA para texto normal. El más ajustado es el blanco sobre el
+verde del botón, que es el mismo par que ya existía en claro.
+
+### Y Tailwind sigue afuera, por segunda vez
+
+La decisión 51 lo descartó y la 61 lo revisó a las 619 líneas. Esta es la tercera
+mirada, con el archivo en 933 y catorce pantallas, y la respuesta no cambió:
+**cero dependencias de runtime es la bandera del proyecto** —es lo mismo que
+sostiene el uuid propio, el ruteo en treinta líneas y `scrypt` a mano del otro
+lado— y lo que Tailwind resuelve, que es la consistencia entre decenas de
+pantallas mantenidas por un equipo, acá lo resuelven tres escalas de variables
+que entran en una pantalla.
+
+Lo que sí cambió es el disparador, que antes decía "cuando crezca" y ahora tiene
+un número: **se vuelve a mirar si `estilos.css` pasa de 1.200 líneas, o si
+aparece la tercera pantalla que necesita un componente que no está en
+`componentes/`.** Un disparador que se cumple y nadie mira vuelve inútiles a
+todos los demás, que es exactamente lo que dijo la 61.
+
+### Dos controles nuevos: el chip y el segmentado
+
+Los dos existen para lo mismo —que elegir cueste **un** toque y no tres— y la
+diferencia entre ellos es si se puede soltar:
+
+- **`Chips`** filtra, y tocar el que ya está puesto lo saca. Por eso `null` es
+  "sin filtrar" y no hace falta una opción "Todas" al principio de la lista.
+- **`Segmentado`** elige, y siempre hay uno elegido. Por dentro son
+  `<input type="radio">` de verdad adentro de un `<fieldset>`: elegir uno entre
+  varios excluyentes ya tiene una forma que el browser sabe —las flechas mueven
+  el foco, el lector anuncia "2 de 4"— y reimplementarla con botones sería
+  escribir peor lo que ya está. El input se esconde de la **vista** con posición
+  y opacidad, nunca con `display: none`, que lo sacaría también del foco.
+
+Los dos llevan su palabra siempre y anuncian lo elegido sin depender del color
+(`aria-pressed` en el chip, el `checked` del radio en el otro).
 
 ## Cómo se despliega
 

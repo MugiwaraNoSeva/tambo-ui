@@ -12,9 +12,15 @@
 // API, con el mensaje que §5.6 redactó para el tambero, y se muestra tal cual.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import type { CuerpoError } from '../api/tipos';
 import { Aviso } from './basicos';
+
+/** Una opción de un chip o de un segmentado: el valor que viaja y lo que se lee. */
+export interface Opcion<T extends string> {
+  valor: T;
+  rotulo: string;
+}
 
 /**
  * Un campo con su rótulo. El `<label>` envuelve al control: así el toque en el
@@ -42,6 +48,109 @@ export function Campo({
       </label>
       {ayuda !== undefined && <span className="ayuda">{ayuda}</span>}
     </div>
+  );
+}
+
+/**
+ * Un filtro a un toque, en vez de un desplegable.
+ *
+ * Un `select` en el celular son **tres** toques —abrir, elegir, confirmar— y
+ * mientras está abierto tapa la pantalla; un chip es uno y no tapa nada. Por eso
+ * reemplaza al desplegable cuando las opciones son pocas y se cambian seguido,
+ * que es el caso de los filtros del rodeo.
+ *
+ * **Es un filtro y por lo tanto se apaga**: tocar el que ya está elegido lo
+ * saca, y `null` es "ninguno, mostrá todo". Eso es lo que hace innecesaria una
+ * opción "Todas" al principio de la lista — la opción de no filtrar es soltar el
+ * que está puesto.
+ *
+ * Lo elegido se dice de tres formas y ninguna es solo el color: el fondo, el
+ * borde y `aria-pressed`, que es lo que lo hace legible para quien no ve la
+ * pantalla. Cada chip lleva su palabra siempre.
+ */
+export function Chips<T extends string>({
+  etiqueta,
+  opciones,
+  elegida,
+  alElegir,
+}: {
+  /** Qué se está filtrando. No se dibuja: nombra al grupo para quien no ve. */
+  etiqueta: string;
+  opciones: readonly Opcion<T>[];
+  /** `null` es "sin filtrar". */
+  elegida: T | null;
+  alElegir: (valor: T | null) => void;
+}) {
+  return (
+    <div className="chips" role="group" aria-label={etiqueta}>
+      {opciones.map(({ valor, rotulo }) => {
+        const puesta = valor === elegida;
+        return (
+          <button
+            key={valor}
+            type="button"
+            className="chip"
+            aria-pressed={puesta}
+            onClick={() => alElegir(puesta ? null : valor)}
+          >
+            {rotulo}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Elegir una entre pocas, sin abrir nada y viéndolas todas juntas.
+ *
+ * Es el hermano excluyente de `Chips`: donde el chip filtra y se puede soltar,
+ * acá **siempre hay una elegida**. Es lo que reemplaza al desplegable cuando lo
+ * que se elige manda sobre el resto de la pantalla — el tipo de evento de una
+ * corrida, por ejemplo, que decide qué campos se ven abajo.
+ *
+ * Por dentro son `<input type="radio">` de verdad y no botones, y eso no es
+ * decoración: elegir uno entre varios excluyentes ya tiene una forma que el
+ * browser sabe —el foco se mueve con las flechas, el lector de pantalla anuncia
+ * "2 de 4"— y reimplementarla con botones sería escribir peor lo que ya está.
+ * El `<fieldset>` con su `<legend>` es lo que agrupa; el input se esconde de la
+ * **vista** con posición y opacidad, nunca con `display: none`, que lo sacaría
+ * también del foco y de la accesibilidad.
+ */
+export function Segmentado<T extends string>({
+  etiqueta,
+  opciones,
+  elegida,
+  alElegir,
+}: {
+  etiqueta: string;
+  opciones: readonly Opcion<T>[];
+  elegida: T;
+  alElegir: (valor: T) => void;
+}) {
+  // Dos segmentados en la misma pantalla no pueden compartir el `name` o se
+  // comportan como un solo grupo de radios. `useId` lo resuelve sin que quien
+  // lo usa tenga que acordarse de pasar un nombre único.
+  const nombre = useId();
+
+  return (
+    <fieldset className="segmentado-campo">
+      <legend>{etiqueta}</legend>
+      <div className="segmentado">
+        {opciones.map(({ valor, rotulo }) => (
+          <label className="opcion" key={valor}>
+            <input
+              type="radio"
+              name={nombre}
+              value={valor}
+              checked={valor === elegida}
+              onChange={() => alElegir(valor)}
+            />
+            {rotulo}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
