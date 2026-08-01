@@ -326,7 +326,40 @@ necesitás**:
 
 Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué quedó>`.
 
-- [ ] Parte 1 — El vocabulario visual
+- [x] Parte 1 — `073d517` — Las tres escalas puestas y los dos controles hechos sin
+      que ninguna pantalla los use. **El prompt pedía un imposible y conviene saberlo
+      antes de la Parte 5**: la verificación decía "en claro tiene que verse
+      exactamente igual", y había **quince** tamaños de letra escritos a mano donde la
+      mitad eran duplicados accidentales de dos centésimas (`0.78`/`0.80`/`0.82`
+      haciendo el mismo trabajo). Una escala que preserve los quince *es* el estado
+      anterior. Se colapsaron a **siete pasos**, lo que movió **once selectores**,
+      ninguno más de 1,7 px, y están todos con su delta en el README. El más grande
+      es `.cifra .valor` (1.6 → 1.5rem): la caravana de una fila y el número de un KPI
+      son el mismo papel y que fueran distintos no lo había decidido nadie.
+      Tres tamaños quedan fuera de la escala **a propósito** y con su comentario: los
+      17 px del `body` (la raíz de los `rem`), los 17 px de los campos (abajo de 16 px
+      iOS hace zoom) y los 10/12 px de la curva, que están adentro de un `viewBox`
+      donde un `px` no es un píxel de CSS — un `rem` ahí escalaría contra otra cosa.
+      **El modo oscuro va.** La pregunta que el prompt dejaba abierta se cerró que sí,
+      por `prefers-color-scheme` y sin botón: el teléfono ya da vuelta el tema justo
+      en las horas en que el tambo trabaja, y una preferencia que hay que cambiar dos
+      veces por día no la cambia nadie. Lo que lo destrabó fue desdoblar los colores
+      por papel (un mismo `--verde` era fondo del encabezado **y** tinta de un botón
+      secundario), y de paso desaparecieron los siete colores literales sueltos por el
+      archivo. Los once pares del tema oscuro **medidos**: de 5,9:1 a 14,8:1, todos
+      por encima del 4,5:1 de AA.
+      La escala de espacio (grilla de 4) **no cubre el archivo entero**: los valores
+      fuera de la grilla —6, 10, 14, 18— quedaron literales porque moverlos correría
+      el layout de pantallas que esta parte no toca. Se pagan en las Partes 3 a 5.
+      Verificado: ninguna `var()` usada sin definir, cero colores literales fuera de
+      los bloques de tokens, 217 tests (los 207 de antes **sin tocar uno solo**, más
+      10 de los controles), typecheck limpio y build en verde.
+      **Pendiente de mirar: la comparación visual.** La extensión de Chrome no está
+      conectada en esta máquina, así que el "se ve igual que antes" está sostenido por
+      el análisis de los deltas y no por dos capturas al lado. El dev server levanta
+      sin problema (`npm run dev`, `localhost:5173`); si alguien puede mirarlo, lo que
+      hay que confirmar son las cifras del tablero y la flecha de volver, que son los
+      dos deltas de 1,7 px.
 - [ ] Parte 2 — La carga en serie: el modo lista
 - [ ] Parte 3 — El camino corto, y volver a donde estabas
 - [ ] Parte 4 — El tablero que prioriza y el rodeo que se filtra a un toque
