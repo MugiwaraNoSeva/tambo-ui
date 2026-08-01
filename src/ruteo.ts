@@ -194,7 +194,17 @@ export const aCargar = (
   extra: { desde?: string; caravana?: string | null } = {},
 ) => con(`#/animales/${id}/cargar`, { de: extra.desde, c: extra.caravana });
 
-export const aCorrida = (origen: OrigenDeCorrida) => `#/corrida/${origen}`;
+/**
+ * Una corrida, con los filtros que tenía puestos quien la empezó.
+ *
+ * Solo los usa el origen `rodeo` —las dos listas de trabajo ya vienen acotadas
+ * por el servidor— y es lo que hace que el contador diga "quedan 30" y no
+ * "quedan 197". Los arma `aParametros` de `filtros.ts`.
+ */
+export const aCorrida = (
+  origen: OrigenDeCorrida,
+  filtros: Record<string, string | undefined> = {},
+) => con(`#/corrida/${origen}`, filtros);
 export const aAlta = () => '#/alta';
 export const aTanque = () => '#/tanque';
 export const aCuenta = () => '#/cuenta';

@@ -596,13 +596,76 @@ guardó es el que se comió el 401, del que ya avisa el mensaje del login ("ese
 evento no se guardó"). Después de volver a entrar, las que faltan son las que
 siguen en la lista.
 
-### Lo que la corrida todavía no hace
+### Y hereda los filtros del rodeo
 
-Desde el rodeo se recorre el rodeo **entero**: no se lleva los filtros de arriba.
-Adentro se busca por caravana, que es como se encuentra a la que está en la
-manga, así que funciona — pero el contador dice "quedan 197" en vez de "quedan
-30". Se arregla en la tanda del rodeo, cuando esos tres desplegables sean chips y
-haya un filtro que valga la pena hacer viajar.
+Quien filtró "en ordeñe" y tocó "Cargarle lo mismo a estas 30" recorre esas
+treinta, no las doscientas. Los filtros viajan en la dirección, como todo lo que
+una pantalla necesita saber sin ir a buscarlo, y la cuenta que los aplica es
+**la misma** que usa el rodeo (`filtros.ts`) — escrita dos veces, el día que se
+agregue un filtro habría dos listas que se despegan y un contador que miente.
+
+Dos detalles que se ven solo desde acá:
+
+- **la corrida dice qué está recortando**, arriba de todo. Una lista de treinta
+  cuando el rodeo tiene doscientas, sin explicación, se lee como que faltan
+  animales;
+- **un filtro que no se reconoce se descarta.** Un `?repro=PRENIADA` tipeado a
+  mano, tomado en serio, no matchearía ninguna fila y dejaría una corrida vacía
+  sin decir por qué. Descartado, la corrida recorre de más —que se ve— en vez de
+  recorrer de menos, que no se ve.
+
+Las **de baja** no viajan nunca: a un animal de baja no se le carga nada, y una
+corrida con ellas adentro terminaría en un rechazo por fila.
+
+## El tablero que prioriza y el rodeo que se filtra a un toque
+
+### Una lista de tareas, no un informe
+
+El orden del tablero ya era el correcto —primero lo que hay que hacer, después
+cómo viene el rodeo, último el tanque— pero **la jerarquía visual no lo decía**:
+"Para revisar (3)" pesaba exactamente lo mismo que el reparto de dietas, y no son
+la misma clase de cosa. Una son tres animales esperando en el corral; la otra es
+una referencia que se mira cuando se planta la ración.
+
+Una lista con trabajo pendiente ahora se destaca con tres señales y ninguna es
+solo el color: el borde de la izquierda, el número grande en ámbar, y —la que más
+pesa— que **la lista vacía no las lleva**. Una mañana sin nada que hacer se ve
+distinta de una con cuatro vacas esperando antes de leer una sola palabra.
+
+El número se resalta **sin cambiar cómo se lee el rótulo**: el paréntesis se
+estiliza, no se saca. Para quien no ve la pantalla el encabezado sigue diciendo
+"Para revisar (3)" y no "3 Para revisar", que es lo que pasaría si el número se
+moviera adelante.
+
+Y la lista vacía sigue diciendo su frase completa —"ninguna para revisar: las
+inseminadas tienen su tacto al día"— porque en el tablero de la mañana "ninguna"
+es la respuesta a una pregunta que el tambero se hizo, y un espacio en blanco se
+lee como que la pantalla no cargó.
+
+### Los filtros del rodeo son chips
+
+Eran tres `<select>` apilados y ocupaban una pantalla entera: había que
+scrollear para ver la primera vaca. Un `select` en el celular son **tres** toques
+—abrir, elegir, confirmar— y mientras está abierto tapa la lista que se está
+filtrando.
+
+Con chips, filtrar es **un** toque y lo que está puesto se ve sin abrir nada.
+Tocar el que ya está puesto lo suelta, y eso es lo que hace innecesaria una opción
+"Todas" al principio de cada lista: la opción de no filtrar es soltar el que está.
+
+El filtrado sigue siendo en el cliente y sin saber nada de dominio (decisión 58):
+compara el estado que la fila trae con el que el chip dice. Quién está INSEMINADA
+lo decidió el núcleo cuatro capas más abajo.
+
+### Y se dice en palabras qué está filtrado
+
+Once chips en tres grupos: encontrar los dos que están puestos obliga a barrer la
+pantalla. Abajo del último grupo hay un renglón que lo dice —*"Filtrando por
+caravana «10» · preñada"*— con **"Quitar los filtros"** al lado.
+
+El caso que lo justifica es la lista vacía: cuando no aparece ninguna vaca, lo
+primero que hay que saber es por qué, y "ningún animal con esos filtros" no
+alcanza si los filtros están repartidos en tres grupos más arriba.
 
 ## El camino corto de una vaca sola
 

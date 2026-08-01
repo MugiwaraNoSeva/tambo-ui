@@ -118,10 +118,23 @@ function ListaDeTrabajo({
   corrida: string;
 }) {
   const { puedeCargar } = usarEstablecimiento();
+  const hay = animales.length > 0;
 
   return (
-    <Tarjeta titulo={`${titulo} (${animales.length})`} subtitulo={subtitulo}>
-      {animales.length === 0 ? (
+    <Tarjeta
+      // El número adelante y grande: es lo que se mira primero al levantar el
+      // teléfono, y lo que decide si hay que ir al corral o no. El rótulo entero
+      // sigue siendo "Para revisar (3)" para quien no ve la pantalla — el
+      // paréntesis se estiliza, no se saca.
+      titulo={
+        <>
+          {titulo} <span className="cuanto">({animales.length})</span>
+        </>
+      }
+      subtitulo={subtitulo}
+      destacada={hay}
+    >
+      {!hay ? (
         <p className="vacio">{vacia}</p>
       ) : (
         <>

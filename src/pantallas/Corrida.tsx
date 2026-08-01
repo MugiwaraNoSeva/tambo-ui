@@ -35,9 +35,10 @@ import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Cifra, SoloLectura, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { Campo, CampoFecha, Rechazo, Segmentado, type Opcion } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
+import { deParametros, enPalabras, filtrar } from '../filtros';
 import { TIPO_EVENTO, caravanaVisible, numero } from '../formato';
 import { hoyDelServidor } from '../reloj';
-import { aRodeo, aTablero, type OrigenDeCorrida } from '../ruteo';
+import { aRodeo, aTablero, usarHash, type OrigenDeCorrida } from '../ruteo';
 import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
@@ -91,7 +92,7 @@ const ORIGEN: Record<
     titulo: 'Corrida — el rodeo',
     vuelveA: aRodeo(),
     tipo: 'celo',
-    vacia: 'El rodeo está vacío.',
+    vacia: 'Ningún animal con esos filtros. Volvé al rodeo y quitá alguno.',
   },
 };
 
@@ -130,16 +131,28 @@ export function Corrida({ origen }: { origen: OrigenDeCorrida }) {
   const { id: est, puedeCargar } = usarEstablecimiento();
   const donde = ORIGEN[origen];
 
+  // Los filtros que traía puestos quien empezó la corrida. Solo el origen
+  // `rodeo` los usa: las dos listas de trabajo ya vienen acotadas del servidor.
+  const hash = usarHash();
+  const filtros = useMemo(() => deParametros(hash), [hash]);
+
   const traer = useCallback(async (): Promise<AnimalDeLista[]> => {
     if (origen === 'rodeo') {
       const r = await api.animales(est);
-      return r.animales.map((a) => ({ animal_id: a.animal_id, caravana: a.caravana }));
+      // Se filtra con la misma cuenta que el rodeo (`filtros.ts`) y **antes** de
+      // quedarse con la caravana: los estados que el filtro mira se pierden en
+      // ese map, así que el orden importa.
+      return filtrar(r.animales, deParametros(hash)).map((a) => ({
+        animal_id: a.animal_id,
+        caravana: a.caravana,
+      }));
     }
     const r = await api.alertas(est);
     return origen === 'para-revisar' ? r.para_revisar : r.para_secar;
-  }, [est, origen]);
+  }, [est, origen, hash]);
 
   const { datos, cargando, error, recargar } = usarPedido(traer);
+  const puestos = origen === 'rodeo' ? enPalabras(filtros) : [];
 
   if (!puedeCargar) {
     return (
@@ -151,6 +164,14 @@ export function Corrida({ origen }: { origen: OrigenDeCorrida }) {
 
   return (
     <Armazon titulo={donde.titulo} volverA={donde.vuelveA}>
+      {/* Qué recorta esta corrida, arriba de todo: una lista de treinta cuando
+          el rodeo tiene doscientas necesita decir por qué, o se lee como que
+          faltan animales. */}
+      {puestos.length > 0 && (
+        <Aviso tono="bien" titulo="Con los filtros del rodeo">
+          Solo las de {puestos.join(' · ')}. Para recorrer el rodeo entero, volvé y quitalos.
+        </Aviso>
+      )}
       {cargando && <Cargando que="Armando la corrida…" />}
       {!cargando && (error !== null || datos === null) && (
         <TarjetaCaida titulo="La lista" error={error} reintentar={recargar} />

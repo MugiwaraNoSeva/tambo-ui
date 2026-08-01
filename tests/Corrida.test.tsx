@@ -20,6 +20,7 @@ import {
   V103,
   V104,
   animal102,
+  animales,
   establecimiento,
   rechazoForzable,
   sesionDePrueba,
@@ -348,5 +349,69 @@ describe('la cola', () => {
 
     const posts = falsa.pedidos.filter((p) => p.metodo === 'POST');
     expect(posts).toHaveLength(1);
+  });
+});
+
+describe('la corrida heredada del rodeo', () => {
+  function montarDesdeElRodeo(cola = ''): ApiFalsa {
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    window.location.hash = `#/corrida/rodeo${cola}`;
+    anotarFechaDeLaRespuesta({ fecha: HOY });
+    return montarApi({
+      ...sesionDePrueba(),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
+      [postDe(V104)]: CARGADO,
+    });
+  }
+
+  const enLaLista = (): (string | null)[] =>
+    [...document.querySelectorAll('.lista .caravana')].map((e) => e.textContent);
+
+  it('sin filtros recorre el rodeo entero', async () => {
+    montarDesdeElRodeo();
+    render(<App />);
+    await esperarLaLista();
+
+    expect(enLaLista()).toEqual(['101', '102', '103', '104', '105', '106', '150']);
+  });
+
+  it('con los filtros del rodeo recorre solo esas, y el contador dice la verdad', async () => {
+    // Era lo que quedaba a medias de la Parte 2: la corrida traía las doscientas
+    // y el contador decía "quedan 197" cuando el rodeo mostraba 30.
+    montarDesdeElRodeo('?repro=INSEMINADA');
+    render(<App />);
+    await esperarLaLista();
+
+    expect(enLaLista()).toEqual(['104', '105']);
+    expect(cifra('Quedan')).toBe('2');
+  });
+
+  it('dice qué está recortando, o una lista corta se lee como que faltan animales', async () => {
+    montarDesdeElRodeo('?repro=INSEMINADA&prod=SECA');
+    render(<App />);
+    await esperarLaLista();
+
+    expect(screen.getByText(/Solo las de inseminada · seca/)).toBeInTheDocument();
+  });
+
+  it('un filtro que no se reconoce se descarta en vez de vaciar la corrida', async () => {
+    // Un `?repro=PRENIADA` tipeado a mano, tomado en serio, no matchearía
+    // ninguna fila y dejaría una corrida vacía sin decir por qué. Descartado,
+    // recorre de más —que se ve— en vez de recorrer de menos, que no se ve.
+    montarDesdeElRodeo('?repro=PRENIADA');
+    render(<App />);
+    await esperarLaLista();
+
+    expect(enLaLista()).toHaveLength(7);
+    expect(screen.queryByText(/Solo las de/)).not.toBeInTheDocument();
+  });
+
+  it('la búsqueda por caravana también viaja', async () => {
+    montarDesdeElRodeo('?q=10');
+    render(<App />);
+    await esperarLaLista();
+
+    expect(enLaLista()).toEqual(['101', '102', '103', '104', '105', '106']);
   });
 });

@@ -3,7 +3,7 @@
 // no vuelvan a pedirla. Que la 103 esté preñada lo decidió el núcleo.
 
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { aAnimal, aRodeo } from '../src/ruteo';
@@ -34,6 +34,10 @@ const caravanas = (): string[] =>
   [...document.querySelectorAll('.lista .caravana')].map((e) => e.textContent ?? '');
 
 const contador = () => screen.getByRole('heading', { name: /^\d+ de \d+$/ }).textContent;
+
+/** Un chip de uno de los tres grupos de filtros, buscado por el nombre del grupo. */
+const chip = (grupo: string, rotulo: string): HTMLElement =>
+  within(screen.getByRole('group', { name: grupo })).getByRole('button', { name: rotulo });
 
 describe('la lista del rodeo', () => {
   it('trae las activas y cada una lleva a su ficha', async () => {
@@ -79,13 +83,15 @@ describe('buscar y filtrar', () => {
     expect(falsa.pedidos.length).toBe(pedidosIniciales);
   });
 
-  it('filtra por estado reproductivo y productivo a la vez', async () => {
+  it('filtra por estado reproductivo y productivo a la vez, a un toque cada uno', async () => {
     montarRodeo();
     render(<App />);
     await screen.findByRole('heading', { name: '7 de 7' });
 
-    await userEvent.selectOptions(screen.getByLabelText('Reproductivo'), 'VACIA');
-    await userEvent.selectOptions(screen.getByLabelText('Productivo'), 'EN_LACTANCIA');
+    // Un toque por filtro, no tres: el desplegable había que abrirlo, elegir y
+    // confirmar, y mientras estaba abierto tapaba la lista.
+    await userEvent.click(chip('Reproductivo', 'Vacía'));
+    await userEvent.click(chip('Productivo', 'En ordeñe'));
 
     expect(caravanas()).toEqual(['102', '106']);
   });
@@ -95,12 +101,43 @@ describe('buscar y filtrar', () => {
     render(<App />);
     await screen.findByRole('heading', { name: '7 de 7' });
 
-    await userEvent.selectOptions(
-      screen.getByLabelText('Categoría de alimentación'),
-      'LACTANCIA_TEMPRANA',
-    );
+    await userEvent.click(chip('Categoría de alimentación', 'Lactancia temprana'));
 
     expect(caravanas()).toEqual(['106']);
+  });
+
+  it('tocar el chip puesto lo suelta: es la forma de dejar de filtrar', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+
+    const vacias = chip('Reproductivo', 'Vacía');
+    await userEvent.click(vacias);
+    expect(contador()).toBe('4 de 7');
+    expect(vacias).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(vacias);
+    expect(contador()).toBe('7 de 7');
+    expect(vacias).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('dice en palabras qué está filtrado, y se quita todo de un toque', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+
+    await userEvent.type(screen.getByLabelText('Caravana'), '10');
+    await userEvent.click(chip('Reproductivo', 'Preñada'));
+
+    // Con once chips en tres grupos, encontrar los dos puestos obliga a barrer
+    // la pantalla. El caso que importa es la lista vacía: lo primero que hay que
+    // saber ahí es por qué está vacía.
+    expect(screen.getByText(/Filtrando por caravana "10" · preñada\./)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar los filtros' }));
+
+    expect(contador()).toBe('7 de 7');
+    expect(screen.queryByText(/Filtrando por/)).not.toBeInTheDocument();
   });
 
   it('sin resultados lo dice, y distingue "no hay" de "no encontré"', async () => {

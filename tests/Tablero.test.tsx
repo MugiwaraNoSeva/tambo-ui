@@ -112,6 +112,33 @@ describe('las dos listas de trabajo', () => {
     expect(screen.getByRole('heading', { name: 'Para secar (1)' })).toBeInTheDocument();
   });
 
+  it('la lista con trabajo pendiente se destaca; la vacía no', async () => {
+    montarTablero();
+    render(<App />);
+
+    // El tablero tiene que leerse como una lista de tareas y no como un informe:
+    // "Para revisar (1)" no puede pesar lo mismo que el reparto de dietas.
+    const revisar = (await screen.findByRole('heading', { name: 'Para revisar (1)' })).closest(
+      '.tarjeta',
+    );
+    expect(revisar).toHaveClass('tarea');
+    // Y la composición del rodeo, que es referencia, no se destaca.
+    expect(screen.getByRole('heading', { name: 'El rodeo hoy' }).closest('.tarjeta')).not.toHaveClass(
+      'tarea',
+    );
+  });
+
+  it('el número se resalta sin cambiar cómo se lee el rótulo', async () => {
+    montarTablero();
+    render(<App />);
+
+    // El paréntesis se estiliza, no se saca: para quien no ve la pantalla el
+    // encabezado tiene que seguir diciendo "Para revisar (1)" y no "1 Para
+    // revisar", que es lo que pasaría si el número se moviera adelante.
+    const titulo = await screen.findByRole('heading', { name: 'Para revisar (1)' });
+    expect(titulo.querySelector('.cuanto')?.textContent).toBe('(1)');
+  });
+
   it('una lista vacía dice "ninguna": es una buena noticia, no un hueco', async () => {
     montarTablero({
       [`GET /establecimientos/${EST}/alertas`]: { cuerpo: alertasVacias },
@@ -121,6 +148,11 @@ describe('las dos listas de trabajo', () => {
     expect(await screen.findByText(/ninguna para revisar/i)).toBeInTheDocument();
     expect(screen.getByText(/ninguna para secar/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^104/ })).not.toBeInTheDocument();
+    // Sin nada que hacer no se destaca: una mañana tranquila se tiene que ver
+    // distinta de una con cuatro vacas esperando, antes de leer una palabra.
+    expect(
+      screen.getByRole('heading', { name: 'Para revisar (0)' }).closest('.tarjeta'),
+    ).not.toHaveClass('tarea');
   });
 });
 

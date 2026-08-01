@@ -7,14 +7,28 @@ import { SIN_DATO } from '../formato';
 export function Tarjeta({
   titulo,
   subtitulo,
+  destacada = false,
   children,
 }: {
-  titulo?: string;
+  /** `ReactNode` y no `string` para que el número de una lista de trabajo se pueda resaltar. */
+  titulo?: ReactNode;
   subtitulo?: string;
+  /**
+   * Esta tarjeta es **trabajo pendiente** y no información.
+   *
+   * En el tablero, "Para revisar (3)" pesaba exactamente lo mismo que el reparto
+   * de dietas, y no son la misma clase de cosa: una son cuatro animales
+   * esperando en el corral y la otra es una referencia que se mira cuando se
+   * planta la ración. El tablero tiene que leerse como una lista de tareas.
+   *
+   * Se apaga sola cuando no hay nada que hacer: una lista vacía es una buena
+   * noticia y destacarla sería un susto por nada.
+   */
+  destacada?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className="tarjeta">
+    <section className={destacada ? 'tarjeta tarea' : 'tarjeta'}>
       {titulo !== undefined && <h2>{titulo}</h2>}
       {subtitulo !== undefined && <p className="subtitulo">{subtitulo}</p>}
       {children}

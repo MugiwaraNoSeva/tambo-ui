@@ -241,6 +241,33 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* ── La tarjeta que es trabajo, no información ───────────────────────────────
+   En el tablero, "Para revisar (3)" pesaba lo mismo que el reparto de dietas, y
+   no son la misma clase de cosa: una son tres animales esperando en el corral y
+   la otra es una referencia que se mira cuando se planta la ración.
+
+   Tres señales y ninguna es solo el color: el borde de la izquierda, el número
+   grande en ámbar, y —lo que más pesa— que la lista vacía **no** las lleva. Una
+   mañana sin trabajo pendiente se ve distinta de una con cuatro vacas esperando
+   antes de leer una sola palabra. */
+
+.tarjeta.tarea {
+  border-left: 4px solid var(--ambar-borde);
+}
+
+.tarjeta.tarea > h2 {
+  color: var(--ambar-tinta);
+}
+
+.tarjeta > h2 .cuanto {
+  font-size: var(--texto-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta.tarea > h2 .cuanto {
+  color: var(--ambar-texto);
+}
+
 .subtitulo {
   margin: -6px 0 var(--espacio-3);
   color: var(--tinta-suave);
@@ -838,6 +865,23 @@ button.fila:disabled {
   background: var(--verde-tenue);
   border-color: var(--verde-borde);
   color: var(--verde-texto);
+}
+
+/* Los tres grupos de chips del rodeo van pegados a su rótulo, que es un `h3` de
+   tarjeta: sin esto el `margin-top` del rótulo siguiente los separa de lo que
+   nombran y se leen como si colgaran del grupo de arriba. */
+.tarjeta h3 + .chips {
+  margin-bottom: var(--espacio-3);
+}
+
+/* Qué está filtrado, en palabras, con su salida al lado. Con once chips en tres
+   grupos hay que barrer la pantalla para encontrar los dos que están puestos, y
+   el caso que importa es el de la lista vacía: lo primero que hay que saber ahí
+   es por qué está vacía. */
+.filtros-puestos {
+  margin-top: var(--espacio-3);
+  padding-top: var(--espacio-3);
+  border-top: 1px solid var(--borde);
 }
 
 /* ── Selector segmentado: elegir entre pocas, sin abrir nada ─────────────────
