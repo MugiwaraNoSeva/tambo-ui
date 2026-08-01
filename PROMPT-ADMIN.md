@@ -305,7 +305,13 @@ estrena seis operaciones que nunca pasaron por acá.
 
 ## Progreso
 
-- [ ] **Parte 1** — Las seis operaciones del cliente y sus tipos · commit `________`
+- [x] **Parte 1** — Las seis operaciones del cliente y sus tipos · commit `a974e5b`
+      Las seis de §9 en `cliente.ts` y su vocabulario en `tipos.ts`, más las
+      fixtures del panel con los cinco casos (el admin sin permisos, el
+      desactivado que figura en el reparto, la que no entra a ningún lado).
+      El prompt no preveía nada que no estuviera: `pedir()` ya manejaba el 204 y
+      el proxy de `vite.config.ts` ya reenviaba `/usuarios`, las dos verificadas
+      en vez de rehechas. 158 tests (10 nuevos), typecheck y build limpios.
 - [ ] **Parte 2** — El ruteo del panel y la partición del árbol · commit `________`
 - [ ] **Parte 3** — La lista de tambos y el alta · commit `________`
 - [ ] **Parte 4** — El tambo por dentro: su gente y el reparto · commit `________`
