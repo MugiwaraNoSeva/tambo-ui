@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aAnimal,
   aCargar,
+  aCorrida,
   aPanel,
   aPanelTambo,
   aPanelUsuarios,
@@ -29,6 +30,23 @@ describe('leerRuta', () => {
   it('lo que no se entiende cae en el tablero, no en un error', () => {
     expect(leerRuta('#/cualquiera')).toEqual({ nombre: 'tablero' });
     expect(leerRuta('#/animales')).toEqual({ nombre: 'tablero' });
+  });
+
+  it('lee las tres corridas, cada una con su origen', () => {
+    expect(leerRuta(aCorrida('para-revisar'))).toEqual({
+      nombre: 'corrida',
+      origen: 'para-revisar',
+    });
+    expect(leerRuta(aCorrida('para-secar'))).toEqual({ nombre: 'corrida', origen: 'para-secar' });
+    expect(leerRuta(aCorrida('rodeo'))).toEqual({ nombre: 'corrida', origen: 'rodeo' });
+  });
+
+  it('una corrida sin origen o con uno inventado no existe', () => {
+    // Adivinarle un origen sería empezar a cargar eventos sobre una lista que
+    // nadie pidió. Cae en el inicio como cualquier hash que no se entienda.
+    expect(leerRuta('#/corrida')).toEqual({ nombre: 'tablero' });
+    expect(leerRuta('#/corrida/para-revizar')).toEqual({ nombre: 'tablero' });
+    expect(leerRuta('#/corrida/todas')).toEqual({ nombre: 'tablero' });
   });
 });
 

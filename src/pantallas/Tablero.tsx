@@ -21,7 +21,7 @@ import { FilaAnimal } from '../componentes/animales';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { usarEstablecimiento } from '../establecimiento';
 import { CATEGORIA, ORDEN_CATEGORIAS, dias, fechaCorta, litros, numero, porcentaje } from '../formato';
-import { aAlta, aRodeo, aTanque } from '../ruteo';
+import { aAlta, aCorrida, aRodeo, aTanque, type OrigenDeCorrida } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
 export function Tablero() {
@@ -80,12 +80,16 @@ function ListasDeTrabajo() {
         subtitulo="Inseminadas que ya pasaron el plazo y siguen sin diagnóstico."
         animales={datos.para_revisar}
         vacia="Ninguna para revisar: las inseminadas tienen su tacto al día."
+        origen="para-revisar"
+        corrida="Tactarlas todas"
       />
       <ListaDeTrabajo
         titulo="Para secar"
         subtitulo="Preñadas que ya tendrían que estar secas y siguen en ordeñe."
         animales={datos.para_secar}
         vacia="Ninguna para secar."
+        origen="para-secar"
+        corrida="Secarlas todas"
       />
     </>
   );
@@ -102,22 +106,40 @@ function ListaDeTrabajo({
   subtitulo,
   animales,
   vacia,
+  origen,
+  corrida,
 }: {
   titulo: string;
   subtitulo: string;
   animales: AnimalDeLista[];
   vacia: string;
+  origen: OrigenDeCorrida;
+  /** El rótulo de la corrida: dice qué se les va a hacer, no "empezar". */
+  corrida: string;
 }) {
+  const { puedeCargar } = usarEstablecimiento();
+
   return (
     <Tarjeta titulo={`${titulo} (${animales.length})`} subtitulo={subtitulo}>
       {animales.length === 0 ? (
         <p className="vacio">{vacia}</p>
       ) : (
-        <ul className="lista">
-          {animales.map((a) => (
-            <FilaAnimal key={a.animal_id} animalId={a.animal_id} caravana={a.caravana} />
-          ))}
-        </ul>
+        <>
+          {/* La corrida va **arriba de la lista** y no al final: es lo que se
+              viene a hacer con estos animales, y abajo de cuatro o de treinta
+              filas habría que scrollear para encontrarla. Al de lectura no se
+              le ofrece — el recorrido entero terminaría en un 403 por animal. */}
+          {puedeCargar && (
+            <a className="boton ancho" href={aCorrida(origen)}>
+              {corrida}
+            </a>
+          )}
+          <ul className="lista">
+            {animales.map((a) => (
+              <FilaAnimal key={a.animal_id} animalId={a.animal_id} caravana={a.caravana} />
+            ))}
+          </ul>
+        </>
       )}
     </Tarjeta>
   );

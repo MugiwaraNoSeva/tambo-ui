@@ -125,8 +125,9 @@ src/
   estilos.css        El sistema de diseño entero
 ```
 
-Catorce pantallas, en **dos árboles**. Las del tambo son nueve: login, conexión
-(el selector), tablero, rodeo, ficha, carga de evento, alta, tanque y mi cuenta.
+Quince pantallas, en **dos árboles**. Las del tambo son diez: login, conexión
+(el selector), tablero, rodeo, ficha, carga de evento, **corrida**, alta, tanque
+y mi cuenta.
 Las del panel son cinco —los tambos, el menú de uno, su gente, sus parámetros, y
 todas las personas— y se dibujan **afuera** del establecimiento activo, porque no
 son de ningún tambo. "Mi cuenta" es la única que vive en los dos: la contraseña
@@ -479,6 +480,129 @@ invisibles salvo en el momento exacto de crearlas.
 Las dos pantallas comparten la ficha de la persona —se edita igual se la mire
 desde donde se la mire— y lo que cambia es lo que se le cuelga al lado: adentro
 de un tambo, los controles del permiso sobre ese tambo.
+
+## La corrida
+
+Es la pantalla que **da vuelta el eje de la app**, y por eso vale la pena decir
+cuál era el eje. Todo lo demás está armado como *un animal → muchos eventos
+posibles*: se entra a una ficha y se elige qué cargarle. Pero el trabajo de la
+mañana es al revés —viene el veterinario y tacta veinticinco seguidas, el
+inseminador recorre las que están en celo, el control lechero pasa por el rodeo
+entero el mismo día—: **lo constante es el tipo y lo que cambia es la caravana.**
+
+Medido antes de escribirla, cargar un tacto por el camino de siempre costaba
+**16 pedidos y unos 6 toques**, y terminaba en una pantalla que no era la de
+origen. Una mañana de veinticinco tactos, 400 pedidos contra una API que duerme
+a los 15 minutos.
+
+Se entra desde las dos listas del tablero y desde el rodeo. Las tres usan datos
+que ya existían (`GET /alertas` y `GET /animales`): **no se agregó un solo
+endpoint**, y la idempotencia que hace todo esto seguro ya estaba resuelta en las
+decisiones 63 y 67.
+
+### La lista se congela al abrir
+
+Después de cargarle el tacto a la tercera vaca, esa vaca **ya no está** "para
+revisar". La lista igual no se vuelve a pedir ni se reordena: se le pone una
+marca y se queda donde estaba.
+
+Es la decisión que más se nota y la más fácil de errarle. Una lista que se
+reacomoda abajo del dedo hace perder el lugar, y perder el lugar en una lista de
+veinticinco es exactamente el defecto que esta pantalla vino a arreglar. La
+libreta de papel no se reordena sola.
+
+El precio es que la lista envejece mientras dura la corrida, y está bien: es una
+foto del trabajo que había cuando se empezó, no un estado en vivo.
+
+### Un rechazo aparta a ese animal y la corrida sigue
+
+El que la API rechaza queda **apartado con su mensaje de §5.6 tal cual**, y el
+recorrido continúa con el siguiente. Los apartados se juntan en una tarjeta al
+final, que es donde vive el **"Confirmar igual"**.
+
+Que esté al final y no en la fila es la parte pensada: confirmar exige
+observaciones, o sea teclado, y el teclado abriéndose en el medio de un recorrido
+de veinticinco corta lo único que esta pantalla tiene para dar. Los rechazos se
+atienden sentado, cuando el rodeo ya pasó.
+
+Confirmar reusa **el mismo id de cliente**: es el mismo hecho, insistido. Uno
+nuevo lo convertiría en un evento distinto y perdería la protección contra el
+duplicado.
+
+### Los pedidos van de a uno
+
+Con la lista a la vista, el dedo va más rápido que la red: tres toques seguidos
+serían tres POST en vuelo. Contra una API que duerme y un celular con una barra
+de señal, eso es la forma más rápida de que fallen todos.
+
+Se resuelve con una cadena de promesas y no con un estado de "cola" que haya que
+dibujar. De paso, el orden en que aparecen los resultados es el orden en que se
+tocó.
+
+### El tipo por default sale del origen, y eso arregla la mitad del problema
+
+Quien entra por "Para revisar" viene a tactar; quien entra por "Para secar", a
+secar. Hasta acá el formulario de carga **volvía a `celo` en cada evento**, así
+que cargar un tacto costaba abrir un desplegable y elegir, veinticinco veces.
+
+El tipo se elige con un segmentado y no con un desplegable, y eso importa por un
+caso concreto: la mayoría de una corrida de tactos son positivos y de vez en
+cuando cae una vacía. Pasar a "Tacto negativo" y volver son **dos toques**, no
+seis. Por eso el tipo se puede cambiar a mitad de corrida sin que eso sea una
+excepción: es el uso normal.
+
+### Una sola fecha, y ninguna observación por animal
+
+El veterinario que pasa el miércoles carga el miércoles entero: preguntar la
+fecha por animal es veinticinco veces la misma respuesta. Sale del servidor y
+nunca del reloj del celular (decisión 52).
+
+Las observaciones se quedan en la carga suelta. En una corrida serían el teclado
+abierto veinticinco veces, y la excepción —el apartado que se confirma— ya las
+pide porque la API las exige.
+
+### Qué entra en una corrida y qué no
+
+Entran los tipos cuyo payload **es el mismo para todas o cabe en un campo**: celo,
+tacto positivo, tacto negativo y secado, que no llevan payload, y el control
+lechero, que lleva un solo número por animal — un input y el siguiente.
+
+Grasa, proteína y RCS no se piden en serie. **El parto y la baja no entran**:
+cada uno lleva un payload propio y distinto por animal —las crías con su sexo y
+su resultado, el motivo de la salida— y un formulario largo repetido veinticinco
+veces no es una corrida, es la pantalla de siempre con más pasos. Esa pantalla
+**se queda**: la corrida no la reemplaza, la complementa.
+
+### La corrida vive en memoria, y el origen viaja en la dirección
+
+La ruta es `#/corrida/<origen>` y lo único que lleva es de qué lista sale. Con
+eso la pantalla pide su lista y la congela. **El progreso no viaja**: recargar
+empieza una corrida nueva, con la lista de ese momento y sin las marcas.
+
+Es lo mismo que ya pasa con cualquier cosa que no se guardó, y que sobreviva a un
+F5 es el problema de la cola offline, que es otra tanda. Una corrida sin origen,
+o con uno que no se entiende, **no existe**: cae en el inicio como cualquier hash
+inventado, porque adivinarle un origen sería empezar a cargar eventos sobre una
+lista que nadie pidió.
+
+### La sesión caída corta la cola
+
+Las 8 horas se cumplen a media mañana y el 401 llega con veinte pedidos
+encadenados atrás, que ahora son veinte 401 seguros. La corrida los corta.
+
+Lo que **no** hace es contar cuántas entraron, y es a propósito: no hace falta.
+Lo que ya entró está guardado —nada se pierde— y el único evento que no se
+guardó es el que se comió el 401, del que ya avisa el mensaje del login ("ese
+evento no se guardó"). Después de volver a entrar, las que faltan son las que
+siguen en la lista.
+
+### Lo que la corrida todavía no hace
+
+Desde el rodeo se recorre el rodeo **entero**: no se lleva los filtros de arriba.
+Adentro se busca por caravana, que es como se encuentra a la que está en la
+manga, así que funciona — pero el contador dice "quedan 197" en vez de "quedan
+30". Se arregla en la tanda del rodeo, cuando esos tres desplegables sean chips y
+haya un filtro que valga la pena hacer viajar.
 
 ## El sistema de diseño
 

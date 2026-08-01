@@ -15,11 +15,26 @@
 
 import { useSyncExternalStore } from 'react';
 
+/**
+ * De qué lista sale una corrida. Viaja en la dirección —y no en un estado que
+ * alguien tenga que pasar de pantalla en pantalla— porque es lo único que la
+ * corrida necesita saber para armarse: con esto pide su lista y la congela.
+ *
+ * Lo que **no** viaja es el progreso. Recargar la página empieza una corrida
+ * nueva, con la lista de ese momento y sin las marcas de lo ya cargado. Es lo
+ * mismo que ya pasa con cualquier cosa que no se guardó, y que sobreviva a un
+ * F5 es el problema de la cola offline, que es otra tanda.
+ */
+export type OrigenDeCorrida = 'para-revisar' | 'para-secar' | 'rodeo';
+
+const ORIGENES: readonly OrigenDeCorrida[] = ['para-revisar', 'para-secar', 'rodeo'];
+
 export type Ruta =
   | { nombre: 'tablero' }
   | { nombre: 'rodeo' }
   | { nombre: 'animal'; id: string }
   | { nombre: 'cargar'; id: string }
+  | { nombre: 'corrida'; origen: OrigenDeCorrida }
   | { nombre: 'alta' }
   | { nombre: 'tanque' }
   | { nombre: 'cuenta' }
@@ -53,6 +68,13 @@ export function leerRuta(hash: string): Ruta {
   const [primera, segunda, tercera, cuarta] = partes;
 
   if (primera === 'rodeo') return { nombre: 'rodeo' };
+  // Una corrida sin origen, o con uno que no se entiende, no existe: cae en el
+  // inicio como cualquier hash inventado. Adivinarle un origen sería empezar a
+  // cargar eventos sobre una lista que nadie pidió.
+  if (primera === 'corrida' && segunda !== undefined) {
+    const origen = ORIGENES.find((o) => o === segunda);
+    if (origen !== undefined) return { nombre: 'corrida', origen };
+  }
   if (primera === 'alta') return { nombre: 'alta' };
   if (primera === 'tanque') return { nombre: 'tanque' };
   if (primera === 'cuenta') return { nombre: 'cuenta' };
@@ -91,6 +113,7 @@ export const aTablero = () => '#/';
 export const aRodeo = () => '#/rodeo';
 export const aAnimal = (id: string) => `#/animales/${id}`;
 export const aCargar = (id: string) => `#/animales/${id}/cargar`;
+export const aCorrida = (origen: OrigenDeCorrida) => `#/corrida/${origen}`;
 export const aAlta = () => '#/alta';
 export const aTanque = () => '#/tanque';
 export const aCuenta = () => '#/cuenta';

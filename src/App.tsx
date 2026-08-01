@@ -38,6 +38,7 @@ import { ProveedorEstablecimiento, puedeCargarEn, usarEstablecimiento } from './
 import { Alta } from './pantallas/Alta';
 import { CargarEvento } from './pantallas/CargarEvento';
 import { Conexion } from './pantallas/Conexion';
+import { Corrida } from './pantallas/Corrida';
 import { Cuenta } from './pantallas/Cuenta';
 import { Ficha } from './pantallas/Ficha';
 import { Login } from './pantallas/Login';
@@ -402,12 +403,15 @@ function Pantallas({ salida }: { salida: SalidaDelTambo }) {
         </Armazon>
       );
 
-    // Estas dos arman su propio armazón: el título lleva la caravana, que es un
-    // dato que todavía no llegó cuando esta función decide qué dibujar.
+    // Estas tres arman su propio armazón: las dos primeras porque el título
+    // lleva la caravana —un dato que todavía no llegó cuando esta función decide
+    // qué dibujar— y la corrida porque su título y su vuelta salen del origen.
     case 'animal':
       return <Ficha id={ruta.id} />;
     case 'cargar':
       return <CargarEvento id={ruta.id} />;
+    case 'corrida':
+      return <Corrida origen={ruta.origen} />;
 
     case 'alta':
       return <Alta />;

@@ -347,6 +347,71 @@ body {
   min-width: 0;
 }
 
+/* ── La corrida ──────────────────────────────────────────────────────────────
+   Las filas de una corrida son las mismas `.fila` de siempre, con tres estados
+   encima. Lo cargado **no se saca ni se mueve de lugar** —la lista se congela al
+   abrir— así que lo único que puede cambiar es cómo se ve, y cada estado lleva
+   su palabra adentro: un tilde verde solo no se lee al sol ni con la vista
+   cansada, y en una lista de veinticinco lo que se busca de reojo es dónde
+   quedó uno. */
+
+.fila.hecha {
+  background: var(--verde-tenue);
+  border-color: var(--verde-borde);
+  cursor: default;
+}
+
+.fila.hecha .caravana {
+  color: var(--verde-texto);
+}
+
+.fila.apartada {
+  background: var(--ambar-tenue);
+  border-color: var(--ambar-borde);
+  cursor: default;
+}
+
+.marca.hecha {
+  color: var(--verde-texto);
+}
+
+.marca.apartada {
+  color: var(--ambar-tinta);
+}
+
+/* Un `<button>` que hace de fila necesita que le saquen lo que el browser le
+   pone, y que el deshabilitado se note sin cambiarle el tamaño. */
+button.fila {
+  appearance: none;
+}
+
+button.fila:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Los litros del control lechero: el único dato por animal que se carga en
+   serie. Angosto a propósito — es un número de dos o tres cifras y al lado
+   tiene que entrar el botón, en un celular angosto. */
+.fila .litros {
+  width: 100%;
+  max-width: 7em;
+  min-height: var(--toque-chico);
+  padding: var(--espacio-2) 10px;
+  border: 1px solid var(--borde);
+  border-radius: var(--espacio-2);
+  background: var(--papel);
+  font: inherit;
+  font-size: 17px;
+  color: inherit;
+}
+
+/* La corrida que se ofrece arriba de una lista de trabajo necesita separarse de
+   las filas que vienen abajo. */
+.tarjeta > .boton.ancho + .lista {
+  margin-top: var(--espacio-3);
+}
+
 /* ── Etiquetas de estado: color Y palabra, siempre ───────────────────────── */
 
 .etiqueta {

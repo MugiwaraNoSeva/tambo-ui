@@ -32,13 +32,14 @@ import {
   categoria as etiquetaCategoria,
   fechaCorta,
 } from '../formato';
+import { aCorrida } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
 /** El valor de un desplegable sin elegir. No es un estado: es "no filtres". */
 const TODOS = '';
 
 export function Rodeo() {
-  const { id } = usarEstablecimiento();
+  const { id, puedeCargar } = usarEstablecimiento();
   const [conBajas, setConBajas] = useState(false);
   const traer = useCallback(() => api.animales(id, conBajas), [id, conBajas]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
@@ -146,6 +147,17 @@ export function Rodeo() {
           <span>Mostrar también las de baja</span>
         </label>
       </Tarjeta>
+
+      {/* La corrida sobre el rodeo entero. **Todavía no se lleva los filtros de
+          arriba**: la lista que recorre son todas las activas, y adentro se
+          busca por caravana, que es como se encuentra a la que está en la manga.
+          Pasarle el filtro puesto es de la Parte 4, cuando estos tres
+          desplegables sean chips y haya un filtro que valga la pena viajar. */}
+      {puedeCargar && (
+        <a className="boton ancho" href={aCorrida('rodeo')}>
+          Cargarle lo mismo a varias
+        </a>
+      )}
 
       <Tarjeta
         titulo={`${filtradas.length} de ${datos.animales.length}`}
