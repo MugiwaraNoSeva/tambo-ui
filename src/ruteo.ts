@@ -30,6 +30,7 @@ export type Ruta =
   | { nombre: 'panel' }
   | { nombre: 'panel-tambo'; id: string }
   | { nombre: 'panel-tambo-gente'; id: string }
+  | { nombre: 'panel-tambo-config'; id: string }
   | { nombre: 'panel-usuarios' };
 
 /**
@@ -64,9 +65,9 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'admin') {
     if (segunda === 'usuarios') return { nombre: 'panel-usuarios' };
     if (segunda === 'tambos' && tercera !== undefined) {
-      return cuarta === 'gente'
-        ? { nombre: 'panel-tambo-gente', id: tercera }
-        : { nombre: 'panel-tambo', id: tercera };
+      if (cuarta === 'gente') return { nombre: 'panel-tambo-gente', id: tercera };
+      if (cuarta === 'config') return { nombre: 'panel-tambo-config', id: tercera };
+      return { nombre: 'panel-tambo', id: tercera };
     }
     return { nombre: 'panel' };
   }
@@ -96,6 +97,7 @@ export const aCuenta = () => '#/cuenta';
 export const aPanel = () => '#/admin';
 export const aPanelTambo = (id: string) => `#/admin/tambos/${id}`;
 export const aPanelTamboGente = (id: string) => `#/admin/tambos/${id}/gente`;
+export const aPanelTamboConfig = (id: string) => `#/admin/tambos/${id}/config`;
 export const aPanelUsuarios = () => '#/admin/usuarios';
 
 /** Navegación imperativa, para después de guardar algo. */

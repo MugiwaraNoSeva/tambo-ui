@@ -30,13 +30,14 @@ import { Campo } from '../componentes/formulario';
 import {
   aPanel,
   aPanelTambo,
+  aPanelTamboConfig,
   aPanelTamboGente,
   aPanelUsuarios,
-  ir,
   type Ruta,
 } from '../ruteo';
 import { usarSalir, usarUsuario } from '../usuario';
 import { mensajeDe, usarPedido } from '../usarPedido';
+import { ConfigDelTambo } from './ConfigDelTambo';
 import { Cuenta } from './Cuenta';
 import { AltaDePersona, FichaDePersona, Personas } from './Personas';
 
@@ -53,6 +54,9 @@ export function Panel({
 
     case 'panel-tambo-gente':
       return <GenteDelTambo id={ruta.id} />;
+
+    case 'panel-tambo-config':
+      return <ConfigDelTambo id={ruta.id} />;
 
     case 'panel-usuarios':
       return <Personas />;
@@ -368,6 +372,17 @@ function MenuDelTambo({
               </span>
             </a>
           </li>
+          <li>
+            <a className="fila" href={aPanelTamboConfig(id)}>
+              <span className="nombre-tambo">Sus parámetros</span>
+              <span className="renglon">
+                Con qué números decide el sistema, y bajo cuáles decidió antes.
+              </span>
+              <span className="flecha" aria-hidden="true">
+                ›
+              </span>
+            </a>
+          </li>
         </ul>
       </Tarjeta>
 
@@ -446,12 +461,6 @@ function EditarTambo({
           Cambiar el nombre
         </button>
       </form>
-
-      <p className="renglon">
-        Los parámetros del dominio —días de gestación, período de espera, umbral de secado— no se
-        tocan desde acá: son diecisiete números que se validan entre ellos y deciden qué cargas
-        acepta el tambo.
-      </p>
 
       <h3>{archivado ? 'Desarchivar' : 'Archivar'}</h3>
       <p className="renglon">

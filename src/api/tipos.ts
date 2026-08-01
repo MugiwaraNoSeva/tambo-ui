@@ -218,6 +218,35 @@ export interface RespuestaEstablecimientoCreado {
 export interface CuerpoPatchEstablecimiento {
   nombre?: string;
   archivado?: boolean;
+  /** Los diecisiete parámetros, **enteros**: se validan entre ellos. */
+  config?: Config;
+  /** Por qué se cambian las reglas. Va al historial, no al establecimiento. */
+  motivo?: string;
+}
+
+/**
+ * Una versión de la `Config`, tal como quedó en el log del tambo.
+ *
+ * `usuario_id` es null en la primera de cada tambo: esa configuración no la puso
+ * nadie, vino con el sistema. Es "no se sabe", que es la verdad, y no un usuario
+ * inventado.
+ */
+export interface VersionDeConfig {
+  id: string;
+  config: Config;
+  /** Instante ISO: la API lo serializa desde un `timestamptz`. */
+  vigente_desde: string;
+  usuario_id: string | null;
+  motivo: string | null;
+}
+
+export interface RespuestaConfiguraciones {
+  configuraciones: VersionDeConfig[];
+}
+
+/** `GET /config-default`: los valores del núcleo, que la UI no puede importar. */
+export interface RespuestaConfigDefault {
+  config: Config;
 }
 
 // ── El sobre de los errores (§9.1) ───────────────────────────────────────────

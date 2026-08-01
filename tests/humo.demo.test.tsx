@@ -278,7 +278,11 @@ describe('la demo, con los tres usuarios', () => {
       () => expect(screen.queryByText(new RegExp(`El Ombú Viejo ${sufijo}`))).not.toBeInTheDocument(),
       { timeout: 10000 },
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Ver también los archivados' }));
+    // `findBy` y no `getBy`: venimos de un cambio de hash y la lista puede estar
+    // todavía pidiendo sus tambos, y mientras pide no dibuja ningún botón.
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Ver también los archivados' }, { timeout: 10000 }),
+    );
     expect(
       await screen.findByText(new RegExp(`El Ombú Viejo ${sufijo}`), {}, { timeout: 10000 }),
     ).toBeInTheDocument();
@@ -298,6 +302,76 @@ describe('la demo, con los tres usuarios', () => {
     expect(
       await screen.findByText(/está archivado/i, {}, { timeout: 10000 }),
     ).toBeInTheDocument();
+  }, 60000);
+
+  /**
+   * Los parámetros contra la API de verdad, que es donde se ve lo único que
+   * ningún mock puede probar: que el cambio **queda en el historial**, firmado
+   * con quien lo hizo y con su porqué.
+   */
+  it('los parámetros: los cambia, quedan en el historial, y vuelve a fábrica', async () => {
+    // El motivo lleva el reloj adentro por lo mismo que la caravana y el email de
+    // los otros dos: el historial es append-only, así que la corrida de hoy
+    // encuentra la de recién, y un texto repetido hace que la búsqueda encuentre
+    // dos. Que se acumulen está bien — es un log.
+    const marca = `Humo ${String(Date.now()).slice(-6)}`;
+    await entrar('admin');
+    await userEvent.click(
+      await screen.findByRole('link', { name: /La Esperanza/ }, { timeout: 10000 }),
+    );
+    await userEvent.click(
+      await screen.findByRole('link', { name: /Sus parámetros/ }, { timeout: 10000 }),
+    );
+
+    // La demo nace con la config del núcleo y una sola versión: la inicial, que
+    // no puso nadie.
+    expect(
+      await screen.findByText('La puso: vino con el sistema', {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+
+    // **No se asume el valor de partida.** Este test se puede correr dos veces
+    // contra la misma demo, y la segunda arranca con lo que dejó la primera; peor
+    // todavía, si la primera se cae a la mitad deja el tambo con el valor de
+    // prueba puesto. Se lee lo que hay, se cambia a otra cosa, y se termina
+    // volviendo a fábrica, que es un estado conocido pase lo que pase.
+    const pve = await screen.findByLabelText('Período voluntario de espera (días)', {}, { timeout: 10000 });
+    const antes = Number((pve as HTMLInputElement).value);
+    const nuevo = antes === 60 ? 55 : 60;
+
+    await userEvent.clear(pve);
+    await userEvent.type(pve, String(nuevo));
+    await userEvent.type(
+      screen.getByLabelText(/Por qué se cambia/),
+      `${marca}: subimos el PVE para probar el historial.`,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar los parámetros' }));
+
+    // Quedó, y quedó firmado: es la pregunta que toda esta tabla vino a contestar.
+    expect(
+      await screen.findByText(new RegExp(`${marca}: subimos el PVE`), {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+    // Adentro de **su** renglón del historial y no en cualquiera: el log se
+    // acumula entre corridas, así que "La puso: Administrador" está tantas veces
+    // como veces se corrió esto. Lo que se afirma es que el cambio de recién
+    // quedó firmado, no que exista una firma en algún lado.
+    const suRenglon = (
+      await screen.findByText(new RegExp(`${marca}: subimos el PVE`))
+    ).closest('li') as HTMLElement;
+    expect(within(suRenglon).getByText('La puso: Administrador')).toBeInTheDocument();
+    expect(screen.getByLabelText('Período voluntario de espera (días)')).toHaveValue(nuevo);
+
+    // Y la vuelta a fábrica, que deja el tambo en un estado conocido para la
+    // próxima corrida. Los valores los trae la API: si esta línea deja 45, es que
+    // `GET /config-default` contestó lo que el núcleo tiene.
+    await userEvent.click(screen.getByRole('button', { name: /Volver a los valores de fábrica/ }));
+    expect(screen.getByLabelText('Período voluntario de espera (días)')).toHaveValue(45);
+    await userEvent.type(screen.getByLabelText(/Por qué se cambia/), `${marca}: vuelta a fábrica.`);
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar los parámetros' }));
+
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'Guardar los parámetros' })).toBeDisabled(),
+      { timeout: 10000 },
+    );
   }, 60000);
 
   it('el de lectura no tiene panel: `#/admin` le cae en su tablero', async () => {

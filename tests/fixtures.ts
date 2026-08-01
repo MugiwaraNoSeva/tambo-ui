@@ -16,6 +16,8 @@ import type {
   Config,
   CuerpoError,
   EstablecimientoDeLaLista,
+  RespuestaConfigDefault,
+  RespuestaConfiguraciones,
   RespuestaEstablecimientos,
   RespuestaUsuarios,
   Usuario,
@@ -120,7 +122,10 @@ export const usuarioLectura: Usuario = {
 /** El admin: `permisos` vacío y puede todo, que es la mitad que se olvida. */
 export const usuarioAdmin: Usuario = {
   id: 'cccccccc-3333-3333-3333-cccccccccccc',
-  nombre: 'Administración',
+  // El nombre es el de verdad: así lo siembra la migración 002 y así lo muestra
+  // la demo. Decía "Administración" y lo encontró el humo, que es exactamente
+  // para lo que está — una fixture que se despega no la agarra ningún mock.
+  nombre: 'Administrador',
   email: 'admin@tambo.local',
   es_admin: true,
   permisos: [],
@@ -216,6 +221,34 @@ export function sesionDePrueba(
     'GET /establecimientos': { cuerpo: { establecimientos: tambos } },
   };
 }
+
+// ── El historial de configuraciones ──────────────────────────────────────────
+//
+// Dos versiones: la que vino con el sistema —sin usuario, porque no la puso
+// nadie— y la que alguien cambió, con su porqué. La pregunta que contesta esta
+// tabla es bajo qué reglas se decidió cada cosa, así que las fixtures tienen que
+// tener las dos mitades: el número y la explicación.
+
+export const configDeFabrica: RespuestaConfigDefault = { config: CONFIG_DEFAULT };
+
+export const historialDeConfig: RespuestaConfiguraciones = {
+  configuraciones: [
+    {
+      id: 'cfg-2',
+      config: { ...CONFIG_DEFAULT, dias_pve: 60 },
+      vigente_desde: '2026-06-01T12:00:00.000Z',
+      usuario_id: usuarioAdmin.id,
+      motivo: 'Subimos el PVE después de la charla con el veterinario.',
+    },
+    {
+      id: 'cfg-1',
+      config: CONFIG_DEFAULT,
+      vigente_desde: '2026-01-10T12:00:00.000Z',
+      usuario_id: null,
+      motivo: 'Configuración con la que se creó el tambo.',
+    },
+  ],
+};
 
 /** El rechazo del login: un mensaje único, que no dice cuál de los dos falló. */
 export const loginRechazado: CuerpoError = {

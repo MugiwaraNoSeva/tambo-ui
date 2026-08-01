@@ -195,12 +195,14 @@ describe('el menú de un tambo', () => {
     );
   });
 
-  it('no ofrece tocar la Config, y dice por qué', async () => {
+  it('los parámetros son su propia pantalla, no un campo más del nombre', async () => {
     montarPanel(aPanelTambo(EST));
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Editar el tambo' }));
-    expect(screen.getByText(/no se tocan desde acá/i)).toBeInTheDocument();
+    // Cambiar el nombre y cambiar con qué números decide el sistema no son la
+    // misma clase de cosa, así que no comparten formulario.
+    expect(await screen.findByRole('link', { name: /Sus parámetros/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Editar el tambo' }));
     expect(screen.queryByLabelText(/gestación/i)).not.toBeInTheDocument();
   });
 

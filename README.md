@@ -21,10 +21,12 @@ derecho; con varios hay una lista, y el último elegido queda guardado.
 **El admin no ve esto.** Su inicio es `#/admin`, y son tres pantallas encadenadas:
 
 1. **los tambos** — la lista, crear uno, y ver los archivados si hace falta;
-2. **un tambo** — un menú de qué hacer con él: entrar a usarlo, su gente, o
-   editarlo y archivarlo;
+2. **un tambo** — un menú de qué hacer con él: entrar a usarlo, su gente, sus
+   parámetros, o editarle el nombre y archivarlo;
 3. **su gente** — quién entra y con qué permiso, y la persona entera: nombre,
-   contraseña, si está activa, si es administradora.
+   contraseña, si está activa, si es administradora;
+4. **sus parámetros** — los diecisiete números del dominio, y el historial de
+   bajo qué reglas se decidió cada cosa.
 
 El menú del medio existe porque las tres cosas tienen frecuencias distintas:
 entrar es de todos los días, repartir permisos es de vez en cuando, y archivar un
@@ -123,12 +125,12 @@ src/
   estilos.css        El sistema de diseño entero
 ```
 
-Trece pantallas, en **dos árboles**. Las del tambo son nueve: login, conexión (el
-selector), tablero, rodeo, ficha, carga de evento, alta, tanque y mi cuenta. Las
-del panel son cuatro —los tambos, el menú de uno, su gente, y todas las personas—
-y se dibujan **afuera** del establecimiento activo, porque no son de ningún
-tambo. "Mi cuenta" es la única que vive en los dos: la contraseña es de la
-persona.
+Catorce pantallas, en **dos árboles**. Las del tambo son nueve: login, conexión
+(el selector), tablero, rodeo, ficha, carga de evento, alta, tanque y mi cuenta.
+Las del panel son cinco —los tambos, el menú de uno, su gente, sus parámetros, y
+todas las personas— y se dibujan **afuera** del establecimiento activo, porque no
+son de ningún tambo. "Mi cuenta" es la única que vive en los dos: la contraseña
+es de la persona.
 
 Las cuatro librerías que **no** están —componentes, Tailwind, router y charts— y
 por qué, en la decisión 51. La revisión de esa decisión cuando el CSS creció está
@@ -394,15 +396,39 @@ Lo que **sí** hace archivar, y conviene saberlo porque no es "esconder":
 La pantalla lo dice con esas palabras y el botón no pide una confirmación con
 cara de irreversible, porque no lo es: se deshace con el mismo botón.
 
-### El nombre se edita, la `Config` no
+### Los parámetros son su propia pantalla, y la mitad es explicación
 
-`PATCH /establecimientos/{est}` acepta `config`, y esta UI **no la ofrece**. Son
-diecisiete números que se validan entre ellos —el mínimo de gestación contra el
-máximo, el secado contra el parto probable— y que deciden qué cargas acepta el
-tambo. Ofrecerlos al pasar, al lado del nombre, es ofrecer que alguien cambie sin
-querer con qué valida el dominio. Cuando haga falta tocarlos va a ser en una
-pantalla que se tome ese trabajo en serio; hasta entonces, el renglón que lo
-explica está donde alguien lo iría a buscar.
+Los diecisiete números del dominio no van al lado del campo "nombre": cambiarle
+el nombre a un tambo y cambiar con qué números decide el sistema no son la misma
+clase de cosa. Tienen su pantalla, colgada del menú del tambo.
+
+Lo que la hace distinta de un formulario:
+
+- **Avisa qué cambia, arriba de todo.** El historial de eventos no se toca, y el
+  parto probable de las preñadas de hoy tampoco —quedó fijado en la proyección
+  cuando se cargó el diagnóstico—. Pero las listas de la mañana, las categorías
+  de alimentación y los indicadores se calculan **al leer**, así que cambian al
+  instante para todo el rodeo: alguien puede entrar mañana y encontrar vacas
+  nuevas en "para secar" sin que se haya cargado nada.
+- **Se manda la `Config` entera y se guarda de una sola vez**, porque hay cinco
+  reglas que atan unos parámetros con otros. Guardar de a uno haría imposible un
+  cambio coherente que toca dos campos a la vez —subir el mínimo y el máximo de
+  gestación juntos—. Cada grupo lleva escrita la relación que tiene que valer, y
+  la validación local sigue siendo solo de forma: que la combinación cierre lo
+  dice `validarConfig`, y su mensaje se muestra tal cual.
+- **Los valores de fábrica vienen de la API** (`GET /config-default`). La
+  decisión 51 le prohíbe a esta UI importar valores del núcleo, así que copiarse
+  los diecisiete números sería duplicar el dominio en el peor lugar posible. El
+  botón **rellena el formulario y no guarda**: quien vuelve a fábrica igual tiene
+  que mirar lo que queda y confirmarlo.
+- **Abajo está el historial**, que es para lo que existe todo esto: cada versión
+  con su fecha, quién la puso y por qué. La primera de cada tambo no se le
+  atribuye a nadie —"vino con el sistema"—, porque inventar un usuario sería
+  mentir justo en la pantalla que existe para saber quién hizo qué.
+
+El campo "por qué se cambia" es opcional y no viaja vacío, pero es lo que hace
+que el número signifique algo dentro de un año: *"subimos el PVE a 60 después de
+la charla con el veterinario"* explica el 60. El 60 solo no explica nada.
 
 ### Lo que el panel no hace, y por qué
 

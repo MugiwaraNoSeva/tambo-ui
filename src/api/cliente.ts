@@ -32,6 +32,8 @@ import type {
   RespuestaAlta,
   RespuestaAnimal,
   RespuestaAnimales,
+  RespuestaConfigDefault,
+  RespuestaConfiguraciones,
   RespuestaEstablecimiento,
   RespuestaEstablecimientoCreado,
   RespuestaEstablecimientos,
@@ -255,6 +257,24 @@ export const api = {
    */
   editarEstablecimiento: (est: string, cuerpo: CuerpoPatchEstablecimiento) =>
     pedir<RespuestaEstablecimiento>('PATCH', E(est), cuerpo),
+
+  /**
+   * El historial de reglas del tambo: bajo cuáles se decidió cada cosa.
+   *
+   * Es de **lectura** y no de admin, así que esta operación no está en el bloque
+   * de arriba: la pregunta es del que mira el rodeo y no encuentra una vaca donde
+   * la esperaba.
+   */
+  configuraciones: (est: string) => get<RespuestaConfiguraciones>(`${E(est)}/configuraciones`),
+
+  /**
+   * Los valores de fábrica del núcleo.
+   *
+   * Vienen de la API y no de una constante de este lado porque la decisión 51
+   * prohíbe importar **valores** del núcleo: copiarlos acá sería duplicar el
+   * dominio en el peor lugar posible, el que nadie mira cuando la regla cambia.
+   */
+  configDefault: () => get<RespuestaConfigDefault>('/config-default'),
 
   // ── Y de acá en adelante, las del tambo ────────────────────────────────────
 
