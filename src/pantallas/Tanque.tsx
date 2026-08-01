@@ -53,7 +53,7 @@ export function Tanque() {
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
   return (
-    <Armazon titulo="El tanque" volverA={aTablero()}>
+    <Armazon titulo="El tanque" volverA={aTablero()} ancha>
       {/* El período se mira igual con cualquier permiso: es una lectura. Lo que
           cambia es la tarjeta de arriba, que es la que escribe. */}
       {puedeCargar ? (

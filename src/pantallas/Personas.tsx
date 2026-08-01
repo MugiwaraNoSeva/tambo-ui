@@ -45,7 +45,7 @@ export function Personas() {
   const tambos = usarPedido(traerTambos);
 
   return (
-    <Armazon titulo="Todas las personas" volverA={aPanel()}>
+    <Armazon titulo="Todas las personas" volverA={aPanel()} ancha>
       <p className="vacio">
         Todas las del sistema, entren al tambo que entren. Para repartir el acceso a un tambo, el
         camino corto es entrar por él.

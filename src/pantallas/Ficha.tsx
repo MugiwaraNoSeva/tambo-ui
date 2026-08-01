@@ -1,11 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // La ficha del animal: todo lo que el sistema sabe de una vaca.
 //
-// Son cuatro lecturas —la proyección, los KPIs, las lactancias y el log— y
-// siguen la regla del tablero (decisión 56): cada tarjeta pide la suya y se cae
-// sola. La única que es distinta es la **proyección**, porque de ella sale la
-// caravana que va en el encabezado: sin ella no hay ficha que dibujar, así que
-// esa sí bloquea la pantalla.
+// Cada tarjeta pide la suya y se cae sola (decisión 56). La **proyección** es la
+// distinta: de ella sale la caravana del encabezado, así que sin ella no hay
+// ficha que dibujar y esa sí bloquea la pantalla.
+//
+// Al entrar se piden **tres** cosas y no cinco: la proyección, el log y las
+// reglas con que se juzgó cada evento. Los números y la lactancia viven en
+// `TarjetaPlegable` y traen lo suyo recién cuando alguien las abre — en el
+// corral se entra a una ficha para cargar lo que se acaba de ver, no para leer
+// la curva. Una consecuencia que se ve en los tests: anular refresca dos
+// tarjetas y no cuatro, porque a las que nadie abrió no hay qué refrescarles.
 //
 // Nada de acá calcula nada del animal. La fecha probable de parto, la categoría
 // de alimentación y los días en leche los sabe el núcleo; los que la API sirve
@@ -78,7 +83,7 @@ export function Ficha({ id }: { id: string }) {
   const titulo = datos === null ? 'Ficha del animal' : caravanaVisible(datos.caravana);
 
   return (
-    <Armazon titulo={titulo} volverA={vuelta}>
+    <Armazon titulo={titulo} volverA={vuelta} ancha>
       {cargando && <Cargando que="Abriendo la ficha…" />}
       {!cargando && (error !== null || datos === null) && (
         <TarjetaCaida titulo="La ficha" error={error} reintentar={recargar} />

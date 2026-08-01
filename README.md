@@ -93,8 +93,16 @@ los tres usuarios. Es lo que la suite mockeada no puede probar: que las
 respuestas de verdad tengan la forma que los tipos declaran y que la pantalla que
 sale de ellas sea la que corresponde a cada rol. **No está en el CI** —depende de
 un backend levantado, y un CI que dependa de eso deja de ser una señal— y por eso
-`npm test` lo excluye por nombre. Se puede correr las veces que haga falta contra
-la misma demo: el test que escribe da de alta su propio animal.
+`npm test` lo excluye por nombre.
+
+**Corrélo contra una demo recién levantada.** Los que escriben están pensados para
+no pisarse —el que da de alta se inventa su propia caravana— pero la corrida de
+2026-08-01 encontró que **no alcanza**: correr el humo dos veces seguidas contra la
+misma demo deja rojo *"la ficha dice con qué reglas se juzgó un evento viejo"*,
+porque el test de los parámetros le suma una versión al historial de config y la
+diferencia que el otro espera leer ya no es la misma. Contra una demo limpia, los
+trece pasan. Bajar y volver a levantar la demo cuesta veinte segundos; perseguir
+ese rojo, una tarde.
 
 **No hace falta ni base ni API levantada.** La verificación pesada vive en los 476
 tests de `mu/`, `db/` y `api/`; repetirla contra un mock probaría que el mock
@@ -763,6 +771,56 @@ almanaque.
 
 El hoy del servidor **se fija al abrir el formulario** y no se relee en cada
 dibujo: una carga abierta antes de medianoche cambiaría de día sola.
+
+## El escritorio, que es el caso de la mitad de las pantallas
+
+"Celular primero" sigue valiendo y no se movió: targets de 48 px, tipografía de
+17 px, funciona con una mano. Lo que se corrigió es la otra mitad de la frase.
+**El tanque con su período, el rodeo entero, la ficha y el panel del admin no se
+miran en el corral**: se miran sentado, y ahí una columna de 720 px deja un
+monitor vacío a los costados.
+
+Esas llevan `<Armazon ancha>`. Las de **carga** no —el tablero, la carga de un
+evento, el alta, mi cuenta y la corrida— porque un formulario más ancho solo
+aleja los campos entre sí y del ojo. La corrida es de carga aunque tenga una
+lista adentro.
+
+**En el celular no cambia un píxel**: todo esto vive detrás de un
+`@media (min-width: 900px)` y abajo de ahí las dos anchuras topan contra el borde
+de la ventana mucho antes. No hay una segunda versión de ninguna pantalla: son
+dos reglas de layout sobre el mismo marcado.
+
+### Y agrandar el `max-width` no alcanzaba: esa era la trampa
+
+Una fila es un `flex` con la caravana a la izquierda y la flecha a la derecha.
+En 1100 px se estira y deja un desierto en el medio — **peor** que la columna
+angosta. El ancho sirve cuando la lista deja de ser una columna larguísima y pasa
+a ser varias: el ojo recorre menos y entra más rodeo en una pantalla.
+
+Los bloques de la ficha se acomodan igual, de a dos. **El historial no**: es una
+línea de tiempo y se lee de arriba abajo — en dos columnas, "del último al
+primero" deja de querer decir nada.
+
+## Lo que costaba antes y lo que cuesta ahora
+
+La remodelación salió de una medición y termina en la misma. Contando igual, con
+la misma tabla, sobre la operación más frecuente del sistema:
+
+| | Antes | Ahora |
+|---|---|---|
+| **Un tacto a una vaca** (desde el tablero) | 16 pedidos · ~6 toques | **7 pedidos · ~5 toques** |
+| **Veinticinco tactos** (la mañana del veterinario) | 400 pedidos · ~150 toques | **29 pedidos · ~26 toques** |
+
+El camino de una vaca sola baja por tres cosas: la ficha dejó de traer cinco
+lecturas, la carga dejó de pedir el animal, y el atajo de la fila saltea la ficha
+entera. Los toques bajan menos que los pedidos, y el que queda es el
+**desplegable del tipo de evento** de la carga suelta: son nueve tipos y no
+entran en un segmentado ni en una fila de chips. Ahí la respuesta no es un
+control más lindo sino la corrida, que es donde ese desplegable se toca **una vez
+para veinticinco animales** en vez de una vez por animal.
+
+De ahí sale la segunda fila, que es la que justifica la tanda entera: **de 16
+pedidos por vaca a 1,2, y de 6 toques a 1.**
 
 ## El sistema de diseño
 

@@ -398,7 +398,7 @@ function Pantallas({ salida }: { salida: SalidaDelTambo }) {
 
     case 'rodeo':
       return (
-        <Armazon titulo="El rodeo" volverA={aTablero()}>
+        <Armazon titulo="El rodeo" volverA={aTablero()} ancha>
           <Rodeo />
         </Armazon>
       );

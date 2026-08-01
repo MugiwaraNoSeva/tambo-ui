@@ -171,14 +171,47 @@ body {
   flex-direction: column;
 }
 
-/* Las pantallas que se miran sentado —el tanque con su período, el rodeo
-   entero, el panel del admin— y no en el corral. Todavía no la usa nadie: la
-   aplican las Partes 3 a 5. Es un `max-width` más grande y **nada más**: no hay
-   una segunda versión de ninguna pantalla, y en el celular las dos son iguales
-   porque las dos topan contra el ancho de la ventana mucho antes. */
+/* ── Las pantallas que se miran sentado ──────────────────────────────────────
+   El rodeo entero, la ficha, el tanque con su período, el panel del admin. En
+   el celular **no cambia nada**: todo esto vive detrás de un `min-width` y abajo
+   de ahí las dos anchuras topan contra el borde de la ventana mucho antes.
+
+   Y no alcanza con agrandar el `max-width`, que era la trampa: una fila es un
+   `flex` con la caravana a la izquierda y la flecha a la derecha, así que en
+   1100 px se estira y deja un desierto en el medio — peor que antes. El ancho
+   sirve cuando la lista deja de ser **una** columna larguísima y pasa a ser
+   varias: el ojo recorre menos y entra más rodeo en una pantalla.
+
+   No hay una segunda versión de ninguna pantalla: son dos reglas de layout
+   sobre el mismo marcado. */
+
 @media (min-width: 900px) {
   .app.ancha {
     max-width: var(--ancho-analisis);
+  }
+
+  .app.ancha .lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    /* Sin esto, una fila con dos renglones de etiquetas estira a todas las de su
+       hilera hasta su alto. */
+    align-items: start;
+  }
+
+  /* Los bloques de una ficha —los ciclos, el historial— también se acomodan de a
+     dos: son renglones cortos y en 1100 px una sola columna es media pantalla
+     en blanco. */
+  .app.ancha .lista-simple {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    align-items: start;
+    gap: var(--espacio-3) var(--espacio-5);
+  }
+
+  /* El historial **no**: es una línea de tiempo y se lee de arriba abajo. En dos
+     columnas, "del último al primero" deja de querer decir nada. */
+  .app.ancha .lista-simple.historial {
+    display: flex;
   }
 }
 

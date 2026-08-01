@@ -10,15 +10,30 @@ import type { ReactNode } from 'react';
 export function Armazon({
   titulo,
   volverA,
+  ancha = false,
   children,
 }: {
   titulo: string;
   /** Si viene, la flecha de volver apunta ahí. El tablero no lleva ninguna. */
   volverA?: string;
+  /**
+   * Esta pantalla **se mira sentado** y no en el corral: el rodeo entero, la
+   * ficha, el tanque con su período, el panel del admin. Ahí la columna de 720 px
+   * deja un monitor vacío a los costados, y las listas se pueden acomodar en
+   * varias columnas en vez de una sola larguísima.
+   *
+   * Las de **carga** no la llevan, y no es un olvido: un formulario más ancho
+   * solo aleja los campos entre sí y del ojo. Vale también para la corrida, que
+   * es una pantalla de carga aunque tenga una lista adentro.
+   *
+   * **En el celular no cambia nada**: el ancho extra vive detrás de un
+   * `min-width` y abajo de eso las dos topan contra el borde de la ventana.
+   */
+  ancha?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="app">
+    <div className={ancha ? 'app ancha' : 'app'}>
       <header className="encabezado">
         {volverA !== undefined && (
           // Un `<a>` y no un `<button>`: es navegación, y así se puede abrir en

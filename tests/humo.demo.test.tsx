@@ -8,16 +8,19 @@
 // tengan la forma que los tipos declaran, y que la pantalla que sale de ellas
 // sea la que corresponde a cada rol.
 //
-// **Se puede correr las veces que haga falta contra la misma demo.** El test que
-// escribe da de alta su propio animal con una caravana sacada del reloj, en vez
-// de cargarle un evento a uno de la demo: si tocara uno de la demo, la segunda
-// corrida se encontraría el evento ya cargado y el dominio lo rechazaría, con
-// razón, y el test estaría rojo por lo que hizo la corrida anterior.
+// **Corrélo contra una demo recién levantada.** Los que escriben están pensados
+// para no pisarse —el que da de alta se inventa su propia caravana con el reloj,
+// en vez de tocar un animal de la demo— pero eso no alcanza: el test de los
+// parámetros le suma una versión al historial de config, así que en una segunda
+// corrida "la ficha dice con qué reglas se juzgó un evento viejo" lee una
+// diferencia distinta de la que espera y queda rojo por lo que hizo la corrida
+// anterior. Bajar y levantar la demo cuesta veinte segundos.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
+import { aCargar, aCorrida, leerRuta } from '../src/ruteo';
 
 /**
  * Contra la demo de verdad, no contra el mismo origen. Se pone acá y no en una
@@ -122,7 +125,15 @@ describe('la demo, con los tres usuarios', () => {
     window.location.hash = '#/rodeo';
     await screen.findByRole('heading', { name: 'El rodeo' }, { timeout: 10000 });
     const filas = await screen.findAllByRole('link', { name: /^1\d\d/ }, { timeout: 10000 });
-    window.location.hash = `${filas[0]?.getAttribute('href')?.slice(1) ?? ''}/cargar`;
+
+    // La dirección se arma con la constructora y **no pegándole `/cargar`** al
+    // href de la fila. Eso andaba mientras la ficha era `#/animales/{id}` pelado;
+    // desde que lleva `?de=…`, concatenar deja el `/cargar` adentro del
+    // parámetro y la ruta sigue siendo la ficha. Es la misma regla que `ruteo.ts`
+    // le pone al código de la app, y este test la estaba salteando.
+    const suRuta = leerRuta(filas[0]?.getAttribute('href') ?? '');
+    expect(suRuta.nombre).toBe('animal');
+    window.location.hash = aCargar(suRuta.nombre === 'animal' ? suRuta.id : '');
 
     expect(await screen.findByText(/No podés cargar eventos/i)).toBeInTheDocument();
   }, 30000);
@@ -461,5 +472,39 @@ describe('la demo, con los tres usuarios', () => {
       await screen.findByRole('heading', { name: 'La Esperanza' }, { timeout: 10000 }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Entrar' })).not.toBeInTheDocument();
+  }, 30000);
+
+  it('la corrida arma su lista con el rodeo de verdad y hereda los filtros', async () => {
+    // Solo lectura a propósito: la corrida escribe por el mismo `cargarEvento`
+    // que ya prueba el test de más arriba, y una corrida que cargue eventos a
+    // animales de la demo dejaría este archivo sin poder correrse dos veces.
+    // Lo que sí hace falta verificar contra la API de verdad es que la lista se
+    // arme —los estados con los que filtra vienen de `GET /animales`— y que el
+    // contador cuente lo que quedó.
+    await entrar('escritura');
+
+    window.location.hash = aCorrida('rodeo');
+    await screen.findByRole('heading', { name: 'La lista' }, { timeout: 10000 });
+    const todas = document.querySelectorAll('.lista .caravana').length;
+    expect(todas).toBeGreaterThan(1);
+
+    // Y con un filtro puesto recorre menos: la 102 y la 103 de la demo están en
+    // ordeñe y la 101 es una vaquillona en recría, así que el recorte es real.
+    window.location.hash = aCorrida('rodeo', { prod: 'EN_LACTANCIA' });
+    // Todo adentro del mismo `waitFor`: cambiar el hash vuelve a pedir la lista,
+    // y el aviso del recorte se dibuja **afuera** del estado de carga. Contar las
+    // filas apenas aparece el aviso es contarlas mientras todavía no están.
+    await waitFor(
+      () => {
+        expect(screen.getByText(/Solo las de en ordeñe/)).toBeInTheDocument();
+        const enOrdene = document.querySelectorAll('.lista .caravana').length;
+        expect(enOrdene).toBeGreaterThan(0);
+        expect(enOrdene).toBeLessThan(todas);
+      },
+      { timeout: 10000 },
+    );
+
+    // El tipo arranca en celo desde el rodeo, y el segmentado lo dice sin abrir nada.
+    expect(screen.getByRole('radio', { name: 'Celo' })).toBeChecked();
   }, 30000);
 });

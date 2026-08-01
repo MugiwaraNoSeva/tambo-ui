@@ -230,7 +230,7 @@ export function ConfigDelTambo({ id }: { id: string }) {
 
   if (tambo.cargando && tambo.datos === null) {
     return (
-      <Armazon titulo="Los parámetros" volverA={aPanelTambo(id)}>
+      <Armazon ancha titulo="Los parámetros" volverA={aPanelTambo(id)}>
         <Cargando que="Buscando los parámetros…" />
       </Armazon>
     );
@@ -238,14 +238,14 @@ export function ConfigDelTambo({ id }: { id: string }) {
 
   if (tambo.error !== null || tambo.datos === null) {
     return (
-      <Armazon titulo="Los parámetros" volverA={aPanelTambo(id)}>
+      <Armazon ancha titulo="Los parámetros" volverA={aPanelTambo(id)}>
         <TarjetaCaida titulo="El tambo" error={tambo.error} reintentar={tambo.recargar} />
       </Armazon>
     );
   }
 
   return (
-    <Armazon titulo={tambo.datos.nombre} volverA={aPanelTambo(id)}>
+    <Armazon ancha titulo={tambo.datos.nombre} volverA={aPanelTambo(id)}>
       <Aviso tono="atencion" titulo="Qué cambia cuando los cambiás">
         El historial de eventos no se toca: lo que cargó cada uno queda como está, y el parto
         probable de las preñadas de hoy también, porque quedó fijado cuando se cargó el

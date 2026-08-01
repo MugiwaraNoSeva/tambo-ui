@@ -98,7 +98,7 @@ function ListaDeTambos() {
 
   if (tambos.cargando && tambos.datos === null) {
     return (
-      <Armazon titulo="Administración">
+      <Armazon ancha titulo="Administración">
         <Cargando que="Buscando los tambos…" />
       </Armazon>
     );
@@ -106,7 +106,7 @@ function ListaDeTambos() {
 
   if (tambos.error !== null || tambos.datos === null) {
     return (
-      <Armazon titulo="Administración">
+      <Armazon ancha titulo="Administración">
         <TarjetaCaida titulo="Los tambos" error={tambos.error} reintentar={tambos.recargar} />
       </Armazon>
     );
@@ -121,7 +121,7 @@ function ListaDeTambos() {
         ).length;
 
   return (
-    <Armazon titulo="Administración">
+    <Armazon ancha titulo="Administración">
       {lista.length === 0 && !conArchivados ? (
         <PrimerTambo alCrear={tambos.recargar} nombre={usuario.nombre} />
       ) : (
@@ -310,7 +310,7 @@ function MenuDelTambo({
   // de verdad, donde renombrar y archivar son dos gestos seguidos.
   if (tambo.cargando && tambo.datos === null) {
     return (
-      <Armazon titulo="El tambo" volverA={aPanel()}>
+      <Armazon ancha titulo="El tambo" volverA={aPanel()}>
         <Cargando que="Buscando el tambo…" />
       </Armazon>
     );
@@ -321,7 +321,7 @@ function MenuDelTambo({
   // para no decirle a un extraño qué tambos hay, y él no es un extraño.
   if (tambo.error !== null || tambo.datos === null) {
     return (
-      <Armazon titulo="El tambo" volverA={aPanel()}>
+      <Armazon ancha titulo="El tambo" volverA={aPanel()}>
         <Aviso titulo="No se pudo abrir">{tambo.error ?? 'El servidor no contestó.'}</Aviso>
         <a className="boton ancho secundario" href={aPanel()}>
           Volver al panel
@@ -338,7 +338,7 @@ function MenuDelTambo({
           .length;
 
   return (
-    <Armazon titulo={nombre} volverA={aPanel()}>
+    <Armazon ancha titulo={nombre} volverA={aPanel()}>
       {archivado && (
         <Aviso tono="atencion" titulo="Este tambo está archivado">
           Se puede mirar todo lo que tiene —el rodeo, las fichas, el historial— pero no cargar nada
@@ -536,7 +536,7 @@ function GenteDelTambo({ id }: { id: string }) {
 
   if (personas.cargando && personas.datos === null) {
     return (
-      <Armazon titulo={titulo} volverA={aPanelTambo(id)}>
+      <Armazon ancha titulo={titulo} volverA={aPanelTambo(id)}>
         <Cargando que="Buscando a la gente…" />
       </Armazon>
     );
@@ -544,7 +544,7 @@ function GenteDelTambo({ id }: { id: string }) {
 
   if (personas.error !== null || personas.datos === null) {
     return (
-      <Armazon titulo={titulo} volverA={aPanelTambo(id)}>
+      <Armazon ancha titulo={titulo} volverA={aPanelTambo(id)}>
         <TarjetaCaida titulo="Quién entra" error={personas.error} reintentar={personas.recargar} />
       </Armazon>
     );
@@ -553,7 +553,7 @@ function GenteDelTambo({ id }: { id: string }) {
   const gente = personas.datos.usuarios;
 
   return (
-    <Armazon titulo={titulo} volverA={aPanelTambo(id)}>
+    <Armazon ancha titulo={titulo} volverA={aPanelTambo(id)}>
       {rechazo !== null && <Aviso titulo="No se pudo guardar">{rechazo}</Aviso>}
 
       <Reparto
