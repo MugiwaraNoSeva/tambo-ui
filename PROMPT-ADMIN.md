@@ -312,7 +312,12 @@ estrena seis operaciones que nunca pasaron por acá.
       El prompt no preveía nada que no estuviera: `pedir()` ya manejaba el 204 y
       el proxy de `vite.config.ts` ya reenviaba `/usuarios`, las dos verificadas
       en vez de rehechas. 158 tests (10 nuevos), typecheck y build limpios.
-- [ ] **Parte 2** — El ruteo del panel y la partición del árbol · commit `________`
+- [x] **Parte 2** — El ruteo del panel y la partición del árbol · commit `717ec5a`
+      Las tres rutas, sus constructoras y `esRutaDeAdmin`, con el "cae en el
+      panel" propio del árbol de admin. **La partición de `App` se movió a la
+      Parte 3**: partir el árbol dejando del otro lado un componente vacío es
+      poner un placeholder, y la partición se lee de una sola vez junto a la
+      pantalla que dibuja. 161 tests (3 nuevos), typecheck limpio.
 - [ ] **Parte 3** — La lista de tambos y el alta · commit `________`
 - [ ] **Parte 4** — El tambo por dentro: su gente y el reparto · commit `________`
 - [ ] **Parte 5** — Las personas: alta, edición, baja y reseteo · commit `________`
