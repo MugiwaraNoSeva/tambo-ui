@@ -243,7 +243,10 @@ export const historialDeConfig: RespuestaConfiguraciones = {
     {
       id: 'cfg-1',
       config: CONFIG_DEFAULT,
-      vigente_desde: '2026-01-10T12:00:00.000Z',
+      // Anterior a todos los eventos de las fixtures: así el historial de la
+      // ficha puede decir con cuál se juzgó cada uno sin que ninguno quede en
+      // "no se sabe".
+      vigente_desde: '2025-01-10T12:00:00.000Z',
       usuario_id: null,
       motivo: 'Configuración con la que se creó el tambo.',
     },
@@ -528,6 +531,7 @@ export const eventos102: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-1',
     },
     {
       id: 'e102-2',
@@ -541,6 +545,7 @@ export const eventos102: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-1',
     },
     {
       id: 'e102-3',
@@ -554,6 +559,7 @@ export const eventos102: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-1',
     },
     {
       id: 'e102-4',
@@ -567,6 +573,7 @@ export const eventos102: RespuestaEventos = {
       ciclo_id: 'ciclo-2',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-2',
     },
   ],
 };
@@ -591,6 +598,7 @@ export const eventos105: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-1',
     },
     {
       id: 'e105-2',
@@ -604,6 +612,7 @@ export const eventos105: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: 'e105-5',
       vigente: false,
+      configuracion_id: 'cfg-1',
     },
     {
       id: 'e105-3',
@@ -617,6 +626,7 @@ export const eventos105: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-2',
     },
     {
       id: 'e105-4',
@@ -630,6 +640,7 @@ export const eventos105: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-2',
     },
     {
       // La anulación también viene con `vigente: false` —no forma parte del
@@ -646,6 +657,7 @@ export const eventos105: RespuestaEventos = {
       ciclo_id: null,
       anulado_por: null,
       vigente: false,
+      configuracion_id: 'cfg-2',
     },
   ],
 };
@@ -666,6 +678,7 @@ export const eventos106: RespuestaEventos = {
       ciclo_id: 'ciclo-1',
       anulado_por: null,
       vigente: true,
+      configuracion_id: 'cfg-2',
     },
   ],
 };
@@ -777,6 +790,10 @@ export const rutasDeLaFicha: Record<string, RespuestaFalsa> = {
   [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: { cuerpo: kpis102 },
   [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: { cuerpo: lactancias102 },
   [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos102 },
+  // El historial la pide para poder decir con qué reglas se juzgó cada evento.
+  // Va acá y no en cada test: una ruta que la pantalla pide y el mock no prevé
+  // se ve como un dato que no vino, no como un test que falla.
+  [`GET /establecimientos/${EST}/configuraciones`]: { cuerpo: historialDeConfig },
 };
 
 /** Un rechazo forzable, tal como lo devuelve la API (§5.6 + decisión 52). */

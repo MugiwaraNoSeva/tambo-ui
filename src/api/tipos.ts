@@ -377,6 +377,15 @@ export interface EventoHistorial {
   ciclo_id: string | null;
   anulado_por: string | null;
   vigente: boolean;
+  /**
+   * Con qué versión de la `Config` se juzgó este evento. Es el id y no los
+   * diecisiete números —repetirlos en cada renglón sería mandar lo mismo cuarenta
+   * veces— y se cruza con `GET …/configuraciones`.
+   *
+   * Null solo en un evento anterior a la primera versión del historial, que en la
+   * práctica no existe: es "no se sabe", y se dice así.
+   */
+  configuracion_id: string | null;
 }
 
 export interface RespuestaEventos {

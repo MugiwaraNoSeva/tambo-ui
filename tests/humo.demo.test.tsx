@@ -346,17 +346,27 @@ describe('la demo, con los tres usuarios', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Guardar los parámetros' }));
 
+    // **Se busca adentro de la tarjeta del historial y no en la pantalla entera**:
+    // el motivo que se acaba de escribir sigue un instante en el textarea, y
+    // `findByText` lo encontraba ahí y daba por bueno algo que todavía no se
+    // había guardado. La pregunta es si quedó en el log, no si está en pantalla.
+    const tarjeta = (await screen.findByRole(
+      'heading',
+      { name: 'El historial de reglas' },
+      { timeout: 10000 },
+    )).parentElement as HTMLElement;
+
     // Quedó, y quedó firmado: es la pregunta que toda esta tabla vino a contestar.
     expect(
-      await screen.findByText(new RegExp(`${marca}: subimos el PVE`), {}, { timeout: 10000 }),
+      await within(tarjeta).findByText(new RegExp(`${marca}: subimos el PVE`), {}, { timeout: 10000 }),
     ).toBeInTheDocument();
     // Adentro de **su** renglón del historial y no en cualquiera: el log se
     // acumula entre corridas, así que "La puso: Administrador" está tantas veces
     // como veces se corrió esto. Lo que se afirma es que el cambio de recién
     // quedó firmado, no que exista una firma en algún lado.
-    const suRenglon = (
-      await screen.findByText(new RegExp(`${marca}: subimos el PVE`))
-    ).closest('li') as HTMLElement;
+    const suRenglon = within(tarjeta)
+      .getByText(new RegExp(`${marca}: subimos el PVE`))
+      .closest('li') as HTMLElement;
     expect(within(suRenglon).getByText('La puso: Administrador')).toBeInTheDocument();
     expect(screen.getByLabelText('Período voluntario de espera (días)')).toHaveValue(nuevo);
 
@@ -372,6 +382,60 @@ describe('la demo, con los tres usuarios', () => {
       () => expect(screen.getByRole('button', { name: 'Guardar los parámetros' })).toBeDisabled(),
       { timeout: 10000 },
     );
+  }, 60000);
+
+  /**
+   * El ciclo completo de la decisión 92 contra la API de verdad: se carga un
+   * evento, se cambian las reglas, y la ficha dice que ese evento se juzgó con
+   * las de antes. Es lo único que ningún mock puede probar — que el join por
+   * tiempo del backend le pegue al evento correcto.
+   */
+  it('la ficha dice con qué reglas se juzgó un evento viejo', async () => {
+    const caravana = `8${String(Date.now()).slice(-4)}`;
+
+    // 1. Un animal nuevo, cargado con las reglas de ahora.
+    await entrar('escritura');
+    window.location.hash = '#/alta';
+    await userEvent.type(await screen.findByLabelText('Caravana', {}, { timeout: 10000 }), caravana);
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+    const ficha = await screen.findByRole('heading', { name: caravana }, { timeout: 10000 });
+    expect(ficha).toBeInTheDocument();
+    const suHash = window.location.hash;
+    // Todavía no hay nada que decir: se cargó con lo que está puesto.
+    expect(document.body.textContent).not.toContain('otras reglas');
+
+    // 2. El admin cambia las reglas.
+    window.localStorage.clear();
+    document.body.innerHTML = '';
+    await entrar('admin');
+    await userEvent.click(
+      await screen.findByRole('link', { name: /La Esperanza/ }, { timeout: 10000 }),
+    );
+    await userEvent.click(
+      await screen.findByRole('link', { name: /Sus parámetros/ }, { timeout: 10000 }),
+    );
+    const celo = await screen.findByLabelText('Validez del celo (días)', {}, { timeout: 10000 });
+    // Lo que regía cuando se cargó el alta, que es contra lo que la ficha va a
+    // comparar. No se asume: la corrida anterior pudo dejar otro número.
+    const regia = Number((celo as HTMLInputElement).value);
+    const nuevo = regia === 4 ? 5 : 4;
+    await userEvent.clear(celo);
+    await userEvent.type(celo, String(nuevo));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar los parámetros' }));
+    await screen.findByText(/Parámetros guardados/i, {}, { timeout: 10000 });
+
+    // 3. Y la ficha lo dice, con el número y no con un id. Se vuelve a entrar
+    // **como el tambero**: es quien mira el rodeo y no encuentra una vaca donde
+    // la esperaba, y por eso el historial de reglas es de `lectura` y no de
+    // admin. (Además, al admin el hash no le abre ningún tambo por su cuenta.)
+    window.localStorage.clear();
+    document.body.innerHTML = '';
+    await entrar('escritura');
+    window.location.hash = suHash;
+    expect(await screen.findByText(/otras reglas/, {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText(new RegExp(`validez del celo: ${regia} en vez de ${nuevo}`)),
+    ).toBeInTheDocument();
   }, 60000);
 
   it('el de lectura no tiene panel: `#/admin` le cae en su tablero', async () => {

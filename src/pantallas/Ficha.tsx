@@ -15,7 +15,14 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { ErrorApi, api } from '../api/cliente';
-import type { Ciclo, CuerpoError, EventoHistorial, RespuestaAnimal } from '../api/tipos';
+import type {
+  Ciclo,
+  CuerpoError,
+  EventoHistorial,
+  RespuestaAnimal,
+  VersionDeConfig,
+} from '../api/tipos';
+import { diferenciasDeConfig } from './ConfigDelTambo';
 import { EtiquetasDeEstado } from '../componentes/animales';
 import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
@@ -315,6 +322,35 @@ function Ciclos({ ciclos }: { ciclos: Ciclo[] }) {
 // ── El historial ─────────────────────────────────────────────────────────────
 
 /**
+ * Con qué se juzgó este evento, **solo si no es con lo de hoy**.
+ *
+ * La decisión es no escribir "reglas vigentes" en los cuarenta renglones: sería
+ * ruido que tapa los dos que importan. Lo que se muestra es la diferencia —qué
+ * número era otro— y solo en los eventos que se juzgaron con una versión que ya
+ * no rige. Los demás no dicen nada, que es lo correcto: se cargaron con lo que
+ * está puesto.
+ *
+ * Devuelve null cuando no hay nada que decir: cuando el historial de reglas no
+ * volvió, cuando el evento se juzgó con la vigente, o cuando el tambo nunca
+ * cambió sus parámetros —que es el caso de casi todos—.
+ */
+function reglasDistintas(
+  evento: EventoHistorial,
+  versiones: VersionDeConfig[] | null,
+): string | null {
+  if (versiones === null || versiones.length === 0) return null;
+  const vigente = versiones[0];
+  if (vigente === undefined) return null;
+  if (evento.configuracion_id === null || evento.configuracion_id === vigente.id) return null;
+
+  const suya = versiones.find((v) => v.id === evento.configuracion_id);
+  if (suya === undefined) return null;
+
+  const diferencias = diferenciasDeConfig(suya.config, vigente.config);
+  return diferencias.length === 0 ? null : diferencias.join('; ');
+}
+
+/**
  * El log del animal, **del último al primero**.
  *
  * La API lo sirve en el orden en que ocurrió, que es el orden del fold; acá se
@@ -339,6 +375,13 @@ function Historial({
   const { id: est, puedeCargar } = usarEstablecimiento();
   const traer = useCallback(() => api.eventos(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
+
+  // Las reglas con las que se juzgó cada evento. Es **un pedido para todo el
+  // historial** y no uno por renglón: la respuesta trae las versiones enteras y
+  // el evento trae el id de la suya. Si no vuelve, el historial se dibuja igual
+  // sin esa línea — es un dato al lado, no lo que se vino a mirar.
+  const traerReglas = useCallback(() => api.configuraciones(est), [est]);
+  const reglas = usarPedido(traerReglas);
 
   if (cargando) {
     return (
@@ -374,6 +417,7 @@ function Historial({
               animalId={animalId}
               anulable={evento.id === ultimoVigente?.id}
               alAnular={alAnular}
+              versiones={reglas.datos?.configuraciones ?? null}
             />
           ))}
         </ul>
@@ -387,15 +431,19 @@ function EventoDelLog({
   animalId,
   anulable,
   alAnular,
+  versiones,
 }: {
   evento: EventoHistorial;
   animalId: string;
   anulable: boolean;
   alAnular: () => void;
+  /** El historial de reglas del tambo, o null si ese pedido no volvió. */
+  versiones: VersionDeConfig[] | null;
 }) {
   const anulado = evento.anulado_por !== null;
   const esAnulacion = evento.tipo === 'anulacion';
   const detalle = detallePayload(evento.tipo, evento.payload);
+  const otrasReglas = reglasDistintas(evento, versiones);
 
   return (
     <li className={anulado ? 'anulado' : undefined}>
@@ -407,7 +455,13 @@ function EventoDelLog({
       {anulado && <span className="marca anulado">anulado</span>}
       {esAnulacion && <span className="marca">deshace un evento anterior</span>}
       {evento.forzado && <span className="marca forzado">cargado con "confirmar igual"</span>}
+      {otrasReglas !== null && <span className="marca forzado">otras reglas</span>}
       {detalle !== null && <span className="renglon">{detalle}</span>}
+      {otrasReglas !== null && (
+        <span className="renglon aviso-suave">
+          Cuando se cargó, el tambo tenía otros parámetros — {otrasReglas}.
+        </span>
+      )}
       {evento.observaciones !== null && evento.observaciones !== '' && (
         <span className="renglon observaciones">“{evento.observaciones}”</span>
       )}

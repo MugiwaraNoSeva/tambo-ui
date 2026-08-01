@@ -169,6 +169,42 @@ describe('el historial', () => {
     expect(parto?.textContent).toContain('1 cría: hembra, nacida viva');
   });
 
+  /**
+   * Bajo qué reglas se juzgó cada evento (decisión 92). La decisión de pantalla
+   * es **no decir nada cuando son las de hoy**: escribir "reglas vigentes" en los
+   * cuarenta renglones sería ruido que tapa los dos que importan.
+   */
+  it('marca los eventos que se cargaron con otros parámetros, y dice cuáles', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarFicha();
+
+    const eventos = [...document.querySelectorAll('.historial > li')];
+    // El control lechero de julio es posterior al cambio: se juzgó con lo de hoy
+    // y no dice nada.
+    expect(eventos[0]?.textContent).toContain('Control lechero');
+    expect(eventos[0]?.textContent).not.toContain('otras reglas');
+
+    // El alta de 2025 es anterior: se juzgó con el PVE viejo, y lo dice con el
+    // número, que es lo que sirve — no con el id de una versión.
+    const alta = eventos[eventos.length - 1];
+    expect(alta?.textContent).toContain('otras reglas');
+    expect(alta?.textContent).toContain('período voluntario de espera: 45 en vez de 60');
+  });
+
+  it('si el historial de reglas no vino, los eventos se muestran igual', async () => {
+    // Es un dato al lado, no lo que se vino a mirar.
+    montarFicha({
+      [`GET /establecimientos/${EST}/configuraciones`]: { status: 502, ilegible: true },
+    });
+    render(<App />);
+    await esperarFicha();
+
+    const eventos = [...document.querySelectorAll('.historial > li')];
+    expect(eventos).toHaveLength(4);
+    expect(document.body.textContent).not.toContain('otras reglas');
+  });
+
   it('distingue el evento anulado de la anulación que lo deshizo', async () => {
     montarFicha({
       [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos105 },

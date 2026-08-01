@@ -426,6 +426,22 @@ Lo que la hace distinta de un formulario:
   atribuye a nadie —"vino con el sistema"—, porque inventar un usuario sería
   mentir justo en la pantalla que existe para saber quién hizo qué.
 
+### Y en la ficha, con qué reglas se juzgó cada evento
+
+Es el pago de todo lo anterior, y donde lo ve el que importa: el tambero que mira
+el rodeo y no encuentra una vaca donde la esperaba. Cada evento del historial
+trae su `configuracion_id`, y la ficha lo cruza con el historial de reglas.
+
+**Lo que se muestra es la diferencia, no la versión.** Un id no le dice nada a
+nadie; *"cuando se cargó, el período voluntario de espera era 45 en vez de 60"*
+sí. Y **solo en los eventos que se juzgaron con reglas que ya no rigen**: escribir
+"reglas vigentes" en los cuarenta renglones sería ruido que tapa los dos que
+importan. Los demás no dicen nada, que es lo correcto — se cargaron con lo que
+está puesto.
+
+Si el historial de reglas no vuelve, los eventos se muestran igual sin esa línea:
+es un dato al lado, no lo que se vino a mirar.
+
 El campo "por qué se cambia" es opcional y no viaja vacío, pero es lo que hace
 que el número signifique algo dentro de un año: *"subimos el PVE a 60 después de
 la charla con el veterinario"* explica el 60. El 60 solo no explica nada.

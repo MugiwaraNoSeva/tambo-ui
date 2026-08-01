@@ -190,6 +190,28 @@ const GRUPOS: Grupo[] = [
   },
 ];
 
+/** Los diecisiete rótulos, sin los grupos: los usa quien no dibuja el formulario. */
+const ETIQUETAS: Partial<Record<keyof Config, string>> = Object.fromEntries(
+  GRUPOS.flatMap((g) => g.parametros.map((p) => [p.campo, p.etiqueta])),
+);
+
+/**
+ * Qué cambió entre dos versiones, dicho para leer.
+ *
+ * Vive acá porque acá están los rótulos, y lo usa **la ficha del animal**: es lo
+ * que convierte "este evento se juzgó con la versión 019fbb…" —que no le dice
+ * nada a nadie— en "cuando se cargó, el período voluntario de espera era 45".
+ * Comparar dos objetos y elegir palabras es presentación, no dominio.
+ */
+export function diferenciasDeConfig(vieja: Config, actual: Config): string[] {
+  return (Object.keys(ETIQUETAS) as (keyof Config)[])
+    .filter((campo) => vieja[campo] !== actual[campo])
+    .map(
+      (campo) =>
+        `${(ETIQUETAS[campo] ?? campo).toLowerCase()}: ${vieja[campo]} en vez de ${actual[campo]}`,
+    );
+}
+
 /** El formulario trabaja con texto: un input vacío no es un número. */
 type Borrador = Record<keyof Config, string>;
 
