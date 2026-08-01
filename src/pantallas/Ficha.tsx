@@ -25,7 +25,14 @@ import type {
 import { diferenciasDeConfig } from './ConfigDelTambo';
 import { EtiquetasDeEstado } from '../componentes/animales';
 import { Armazon } from '../componentes/armazon';
-import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
+import {
+  Aviso,
+  Cargando,
+  Cifra,
+  Tarjeta,
+  TarjetaCaida,
+  TarjetaPlegable,
+} from '../componentes/basicos';
 import { Campo, Rechazo } from '../componentes/formulario';
 import { CurvaLactancia } from '../componentes/CurvaLactancia';
 import { usarEstablecimiento } from '../establecimiento';
@@ -46,12 +53,16 @@ import {
   numero,
   porcentaje,
 } from '../formato';
-import { aCargar, aRodeo } from '../ruteo';
+import { aAnimal, aCargar, aRodeo, usarVuelta } from '../ruteo';
 import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 export function Ficha({ id }: { id: string }) {
   const { id: est, puedeCargar } = usarEstablecimiento();
+  // A dónde vuelve la flecha: lo que dijo quien abrió esta ficha. El rodeo es el
+  // default —la lista a la que este animal pertenece— y era lo único que había
+  // antes, lo que mandaba al rodeo también al que venía del tablero.
+  const vuelta = usarVuelta(aRodeo());
   // Una anulación cambia el estado, los KPIs, las lactancias y el log a la vez,
   // así que las cinco tarjetas se vuelven a pedir juntas. Subir el número es lo
   // que las dispara: cada `traer` lo lleva en sus dependencias.
@@ -67,7 +78,7 @@ export function Ficha({ id }: { id: string }) {
   const titulo = datos === null ? 'Ficha del animal' : caravanaVisible(datos.caravana);
 
   return (
-    <Armazon titulo={titulo} volverA={aRodeo()}>
+    <Armazon titulo={titulo} volverA={vuelta}>
       {cargando && <Cargando que="Abriendo la ficha…" />}
       {!cargando && (error !== null || datos === null) && (
         <TarjetaCaida titulo="La ficha" error={error} reintentar={recargar} />
@@ -85,13 +96,31 @@ export function Ficha({ id }: { id: string }) {
               salida existe y está a la vista: anular la baja desde el
               historial, que es el último evento vigente. */}
           {puedeCargar && datos.proyeccion.estado.vida !== 'BAJA' && (
-            <a className="boton ancho" href={aCargar(id)}>
+            // La caravana viaja: la carga ya no tiene que pedir el animal entero
+            // para escribirla en su encabezado. Y `desde` es esta misma ficha,
+            // así que después de cargar se vuelve acá — que es donde se ve el
+            // evento nuevo en el historial.
+            <a
+              className="boton ancho"
+              href={aCargar(id, { desde: aAnimal(id, vuelta), caravana: datos.caravana })}
+            >
               Cargar un evento
             </a>
           )}
 
-          <KPIs animalId={id} version={version} />
-          <Lactancias animalId={id} version={version} />
+          {/* Las dos que **no se miran al entrar**. Se entra a una ficha en el
+              corral para cargar lo que se acaba de ver, no para leer la curva
+              de lactancia: sus pedidos salen recién cuando alguien las abre, y
+              eso baja la pantalla de cinco lecturas a tres.
+
+              El historial se queda abierto: es lo segundo que se mira siempre
+              —qué pasó recién— y es el único lugar desde donde se anula. */}
+          <TarjetaPlegable titulo="Los números">
+            <KPIs animalId={id} version={version} />
+          </TarjetaPlegable>
+          <TarjetaPlegable titulo="La lactancia">
+            <Lactancias animalId={id} version={version} />
+          </TarjetaPlegable>
           <Ciclos ciclos={datos.proyeccion.ciclos} />
           <Historial animalId={id} version={version} alAnular={refrescar} />
         </>
@@ -165,26 +194,37 @@ function Dato({ rotulo, valor }: { rotulo: string; valor: string }) {
  * decisión vino a evitar. Por eso están los diez, incluso los que no aplican
  * todavía: un hueco enseña que el dato falta.
  */
+/**
+ * Un pedido que no volvió, **adentro** de una tarjeta que ya existe.
+ *
+ * `TarjetaCaida` no sirve acá porque dibuja su propia tarjeta, y estas viven
+ * adentro de una plegable. Lo que se conserva es lo que importa: se dice qué
+ * falta y se puede reintentar en el lugar, sin recargar la pantalla entera.
+ */
+function Caida({ error, reintentar }: { error: string | null; reintentar: () => void }) {
+  return (
+    <>
+      <Aviso titulo="No se pudo traer">{error ?? 'El servidor no contestó.'}</Aviso>
+      <button className="boton ancho secundario" type="button" onClick={reintentar}>
+        Reintentar
+      </button>
+    </>
+  );
+}
+
 function KPIs({ animalId, version }: { animalId: string; version: number }) {
   const { id: est } = usarEstablecimiento();
   const traer = useCallback(() => api.kpis(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
-  if (cargando) {
-    return (
-      <Tarjeta titulo="Los números">
-        <Cargando que="Calculando…" />
-      </Tarjeta>
-    );
-  }
-  if (error !== null || datos === null) {
-    return <TarjetaCaida titulo="Los números" error={error} reintentar={recargar} />;
-  }
+  if (cargando) return <Cargando que="Calculando…" />;
+  if (error !== null || datos === null) return <Caida error={error} reintentar={recargar} />;
 
   const k = datos.kpis;
 
   return (
-    <Tarjeta titulo="Los números" subtitulo={`Al ${fechaCorta(datos.fecha)}.`}>
+    <>
+      <p className="subtitulo">Al {fechaCorta(datos.fecha)}.</p>
       <div className="cifras">
         <Cifra rotulo="Días abiertos" valor={dias(k.dias_abiertos)} />
         <Cifra rotulo="Parto a 1er servicio" valor={dias(k.intervalo_parto_primer_servicio)} />
@@ -204,7 +244,7 @@ function KPIs({ animalId, version }: { animalId: string; version: number }) {
           "confirmar igual", así que sus fechas no son confiables y quedan afuera de estos números.
         </Aviso>
       )}
-    </Tarjeta>
+    </>
   );
 }
 
@@ -215,23 +255,11 @@ function Lactancias({ animalId, version }: { animalId: string; version: number }
   const traer = useCallback(() => api.lactancias(est, animalId), [est, animalId, version]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
-  if (cargando) {
-    return (
-      <Tarjeta titulo="La lactancia">
-        <Cargando que="Trayendo la curva…" />
-      </Tarjeta>
-    );
-  }
-  if (error !== null || datos === null) {
-    return <TarjetaCaida titulo="La lactancia" error={error} reintentar={recargar} />;
-  }
+  if (cargando) return <Cargando que="Trayendo la curva…" />;
+  if (error !== null || datos === null) return <Caida error={error} reintentar={recargar} />;
 
   if (datos.lactancias.length === 0) {
-    return (
-      <Tarjeta titulo="La lactancia">
-        <p className="vacio">Este animal todavía no tuvo ninguna lactancia.</p>
-      </Tarjeta>
-    );
+    return <p className="vacio">Este animal todavía no tuvo ninguna lactancia.</p>;
   }
 
   // La que interesa es la abierta; si están todas cerradas, la última. El resto
@@ -244,12 +272,15 @@ function Lactancias({ animalId, version }: { animalId: string; version: number }
 
   return (
     <>
-      <Tarjeta
-        titulo={`Lactancia ${numero(enFoco.numero)}${abierta === undefined ? '' : ' (en curso)'}`}
-        subtitulo={`Empezó el ${fechaCorta(enFoco.fecha_inicio)}${
-          enFoco.fecha_fin === null ? '' : ` y cerró el ${fechaCorta(enFoco.fecha_fin)}`
-        }.`}
-      >
+      <h3>
+        Lactancia {numero(enFoco.numero)}
+        {abierta === undefined ? '' : ' (en curso)'}
+      </h3>
+      <p className="subtitulo">
+        Empezó el {fechaCorta(enFoco.fecha_inicio)}
+        {enFoco.fecha_fin === null ? '' : ` y cerró el ${fechaCorta(enFoco.fecha_fin)}`}.
+      </p>
+      <>
         {enFoco.datos_incompletos && (
           <Aviso tono="atencion" titulo="Datos incompletos">
             La abrió un parto cargado con "confirmar igual": la fecha de inicio no es confiable, y
@@ -269,10 +300,11 @@ function Lactancias({ animalId, version }: { animalId: string; version: number }
         </div>
 
         {enFoco.crias.length > 0 && <p className="renglon">Parto: {crias(enFoco.crias)}</p>}
-      </Tarjeta>
+      </>
 
       {anteriores.length > 0 && (
-        <Tarjeta titulo="Las lactancias anteriores">
+        <>
+          <h3>Las anteriores</h3>
           <ul className="reparto">
             {anteriores.map((l) => (
               <li key={l.numero}>
@@ -283,7 +315,7 @@ function Lactancias({ animalId, version }: { animalId: string; version: number }
               </li>
             ))}
           </ul>
-        </Tarjeta>
+        </>
       )}
     </>
   );

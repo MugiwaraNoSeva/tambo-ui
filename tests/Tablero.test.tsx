@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
+import { aAnimal, aCargar, aTablero } from '../src/ruteo';
 import { montarApi, type Manejador } from './servidor';
 import {
   EST,
@@ -20,6 +21,7 @@ import {
   rodeo,
   rutasDelTablero,
   sesionDePrueba,
+  usuarioLectura,
   tanqueSinHoy,
 } from './fixtures';
 
@@ -51,11 +53,55 @@ describe('las dos listas de trabajo', () => {
     montarTablero();
     render(<App />);
 
-    const revisar = await screen.findByRole('link', { name: /104/ });
-    expect(revisar).toHaveAttribute('href', `#/animales/${V104}`);
+    // `/^104/` y no `/104/`: al lado de la fila hay ahora un atajo de carga que
+    // lleva la caravana en su nombre accesible ("Cargar un evento a 104"), y sin
+    // anclar matchean los dos.
+    const revisar = await screen.findByRole('link', { name: /^104/ });
+    // La dirección lleva de dónde se vino, para que la flecha de la ficha
+    // vuelva al tablero y no al rodeo. Se arma con la constructora y no a mano:
+    // así el test dice qué se espera y no cómo se codifica.
+    expect(revisar).toHaveAttribute('href', aAnimal(V104, aTablero()));
 
-    const secar = screen.getByRole('link', { name: /103/ });
-    expect(secar).toHaveAttribute('href', `#/animales/${V103}`);
+    const secar = screen.getByRole('link', { name: /^103/ });
+    expect(secar).toHaveAttribute('href', aAnimal(V103, aTablero()));
+  });
+
+  it('cada fila tiene su atajo, que va derecho a la carga', async () => {
+    montarTablero();
+    render(<App />);
+
+    // El atajo lleva de dónde se vino **y la caravana**: con eso la pantalla de
+    // carga no tiene que pedir el animal entero para escribirla en su
+    // encabezado, y al terminar vuelve acá y no a la ficha.
+    const atajo = await screen.findByRole('link', { name: 'Cargar un evento a 104' });
+    expect(atajo).toHaveAttribute(
+      'href',
+      aCargar(V104, { desde: aTablero(), caravana: '104' }),
+    );
+
+    // Y la fila sigue llevando a la ficha: la caravana entera sigue siendo el
+    // target grande y la acción principal no se movió.
+    expect(screen.getByRole('link', { name: /^104/ })).toHaveAttribute(
+      'href',
+      aAnimal(V104, aTablero()),
+    );
+  });
+
+  it('el de lectura no ve el atajo: no puede cargar', async () => {
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    window.location.hash = '';
+    montarApi({
+      ...sesionDePrueba(usuarioLectura),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      ...rutasDelTablero,
+    });
+    render(<App />);
+
+    // La fila sí: el rodeo se mira entero con cualquier permiso.
+    expect(await screen.findByRole('link', { name: /^104/ })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Cargar un evento a 104' }),
+    ).not.toBeInTheDocument();
   });
 
   it('dicen cuántas hay en el título, que es lo que se mira primero', async () => {
@@ -74,7 +120,7 @@ describe('las dos listas de trabajo', () => {
 
     expect(await screen.findByText(/ninguna para revisar/i)).toBeInTheDocument();
     expect(screen.getByText(/ninguna para secar/i)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /104/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^104/ })).not.toBeInTheDocument();
   });
 });
 
@@ -188,7 +234,7 @@ describe('cuando una lectura no vuelve', () => {
     expect(await screen.findByText('Se cayó la base.')).toBeInTheDocument();
     // …y las otras dos siguieron su camino (decisión 56).
     await esperarTanque();
-    expect(screen.getByRole('link', { name: /104/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^104/ })).toBeInTheDocument();
     expect(cifra('Litros del día')).toBe('72 L');
 
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));

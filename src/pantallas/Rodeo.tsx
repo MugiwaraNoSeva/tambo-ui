@@ -32,7 +32,7 @@ import {
   categoria as etiquetaCategoria,
   fechaCorta,
 } from '../formato';
-import { aCorrida } from '../ruteo';
+import { aCorrida, aRodeo } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
 /** El valor de un desplegable sin elegir. No es un estado: es "no filtres". */
@@ -177,6 +177,7 @@ export function Rodeo() {
                 animalId={a.animal_id}
                 caravana={a.caravana}
                 detalle={<DetalleDeFila animal={a} />}
+                desde={aRodeo()}
               />
             ))}
           </ul>

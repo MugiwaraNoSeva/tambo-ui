@@ -62,9 +62,59 @@ function suscribir(avisar: () => void): () => void {
 
 const hashActual = (): string => window.location.hash;
 
+// ── El camino y sus parámetros ───────────────────────────────────────────────
+//
+// El hash lleva dos cosas: **qué pantalla** (el camino) y **un par de datos que
+// esa pantalla necesita para no tener que ir a buscarlos** (los parámetros). Los
+// dos que hay son `de` —a dónde vuelve la flecha— y `c` —la caravana—, y los dos
+// existen por el mismo motivo: viajan en la dirección para que sobrevivan a una
+// recarga y a un enlace compartido, que es lo que ya hace todo lo demás del
+// ruteo por hash. La alternativa era una pila de navegación que alguien tendría
+// que mantener sincronizada con el "atrás" del browser, y esa se descartó.
+
+/** Parte `#/animales/abc?de=%23%2Frodeo` en su camino y sus parámetros. */
+function partir(hash: string): { partes: string[]; parametros: URLSearchParams } {
+  const sinNumeral = hash.replace(/^#\/?/, '');
+  const corte = sinNumeral.indexOf('?');
+  const camino = corte === -1 ? sinNumeral : sinNumeral.slice(0, corte);
+  return {
+    partes: camino.split('/').filter((p) => p !== ''),
+    parametros: new URLSearchParams(corte === -1 ? '' : sinNumeral.slice(corte + 1)),
+  };
+}
+
+/** Un parámetro del hash, o `undefined` si no vino o vino vacío. */
+export function parametro(hash: string, nombre: string): string | undefined {
+  const valor = partir(hash).parametros.get(nombre);
+  return valor === null || valor === '' ? undefined : valor;
+}
+
+/**
+ * A dónde vuelve la flecha de esta pantalla.
+ *
+ * **Solo se acepta un hash de esta misma app.** Es un `href` y llega de la barra
+ * de direcciones, así que sin este filtro un `?de=https://…` convertiría la
+ * flecha de volver en un enlace a cualquier lado. Lo que no pase, cae en el
+ * default de la pantalla, que es a dónde volvía antes de que esto existiera.
+ */
+export function vueltaDe(hash: string, pordefecto: string): string {
+  const de = parametro(hash, 'de');
+  return de !== undefined && de.startsWith('#/') ? de : pordefecto;
+}
+
+/** Le cuelga sus parámetros a una dirección, salteando los que no vinieron. */
+function con(base: string, parametros: Record<string, string | null | undefined>): string {
+  const cola = new URLSearchParams();
+  for (const [nombre, valor] of Object.entries(parametros)) {
+    if (valor !== undefined && valor !== null && valor !== '') cola.set(nombre, valor);
+  }
+  const escrita = cola.toString();
+  return escrita === '' ? base : `${base}?${escrita}`;
+}
+
 /** De `#/animales/abc/cargar` a `{nombre: 'cargar', id: 'abc'}`. */
 export function leerRuta(hash: string): Ruta {
-  const partes = hash.replace(/^#\/?/, '').split('/').filter((p) => p !== '');
+  const { partes } = partir(hash);
   const [primera, segunda, tercera, cuarta] = partes;
 
   if (primera === 'rodeo') return { nombre: 'rodeo' };
@@ -102,17 +152,48 @@ export function leerRuta(hash: string): Ruta {
   return { nombre: 'tablero' };
 }
 
+/** El hash de ahora, por el mismo camino por el que React ve cualquier estado de afuera. */
+export function usarHash(): string {
+  return useSyncExternalStore(suscribir, hashActual, () => '');
+}
+
 export function usarRuta(): Ruta {
-  const hash = useSyncExternalStore(suscribir, hashActual, () => '');
-  return leerRuta(hash);
+  return leerRuta(usarHash());
+}
+
+/**
+ * A dónde vuelve la flecha: lo que diga el `de` de la dirección, o el default
+ * de la pantalla. Es lo que hace que la ficha abierta desde el tablero vuelva al
+ * tablero y la abierta desde una corrida vuelva a la corrida, sin que ninguna
+ * pantalla tenga que acordarse de dónde venía.
+ */
+export function usarVuelta(pordefecto: string): string {
+  return vueltaDe(usarHash(), pordefecto);
+}
+
+/** La caravana que el llamador ya sabía, para no ir a pedirla de nuevo. */
+export function usarCaravanaDelHash(): string | undefined {
+  return parametro(usarHash(), 'c');
 }
 
 // Las direcciones se arman con estas funciones y no a mano, por el mismo motivo
 // por el que las rutas de la API se arman en el cliente: un solo lugar.
 export const aTablero = () => '#/';
 export const aRodeo = () => '#/rodeo';
-export const aAnimal = (id: string) => `#/animales/${id}`;
-export const aCargar = (id: string) => `#/animales/${id}/cargar`;
+/** `desde` es a dónde tiene que volver la flecha de la ficha: el hash de quien la abrió. */
+export const aAnimal = (id: string, desde?: string) => con(`#/animales/${id}`, { de: desde });
+
+/**
+ * La carga de un evento, con lo que quien la abre **ya sabe**: de dónde se vino
+ * y qué caravana es. La caravana viaja para que la pantalla no tenga que pedir
+ * el animal entero solo para escribirla en el encabezado — y si no viene, la
+ * pantalla la va a buscar igual, así que un enlace pelado sigue andando.
+ */
+export const aCargar = (
+  id: string,
+  extra: { desde?: string; caravana?: string | null } = {},
+) => con(`#/animales/${id}/cargar`, { de: extra.desde, c: extra.caravana });
+
 export const aCorrida = (origen: OrigenDeCorrida) => `#/corrida/${origen}`;
 export const aAlta = () => '#/alta';
 export const aTanque = () => '#/tanque';

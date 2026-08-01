@@ -21,7 +21,7 @@ import { FilaAnimal } from '../componentes/animales';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { usarEstablecimiento } from '../establecimiento';
 import { CATEGORIA, ORDEN_CATEGORIAS, dias, fechaCorta, litros, numero, porcentaje } from '../formato';
-import { aAlta, aCorrida, aRodeo, aTanque, type OrigenDeCorrida } from '../ruteo';
+import { aAlta, aCorrida, aRodeo, aTablero, aTanque, type OrigenDeCorrida } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
 export function Tablero() {
@@ -136,7 +136,12 @@ function ListaDeTrabajo({
           )}
           <ul className="lista">
             {animales.map((a) => (
-              <FilaAnimal key={a.animal_id} animalId={a.animal_id} caravana={a.caravana} />
+              <FilaAnimal
+                key={a.animal_id}
+                animalId={a.animal_id}
+                caravana={a.caravana}
+                desde={aTablero()}
+              />
             ))}
           </ul>
         </>

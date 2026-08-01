@@ -1,7 +1,7 @@
 // Las piezas que se repiten en todas las pantallas. Nada acá sabe de vacas: son
 // la caja, el aviso, el "esperá", la cifra con su rótulo y la caja que se cayó.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { SIN_DATO } from '../formato';
 
 export function Tarjeta({
@@ -18,6 +18,57 @@ export function Tarjeta({
       {titulo !== undefined && <h2>{titulo}</h2>}
       {subtitulo !== undefined && <p className="subtitulo">{subtitulo}</p>}
       {children}
+    </section>
+  );
+}
+
+/**
+ * Una tarjeta que **no pide sus datos hasta que alguien la abre**.
+ *
+ * Existe por una cuenta concreta: abrir una ficha costaba cinco lecturas —la
+ * proyección, los KPIs, las lactancias, el historial y el historial de reglas—
+ * y en el corral se entra a una ficha para cargar lo que se acaba de ver, no
+ * para mirar la curva de lactancia. Lo que no se mira al entrar se pide al
+ * abrirlo, y lo que se ahorra es la mitad de los pedidos de la pantalla.
+ *
+ * El contenido **se monta recién al abrir**, y eso es lo que dispara su
+ * `usarPedido`: no hay una bandera que alguien tenga que acordarse de mirar.
+ * Cerrarla lo desmonta, así que volver a abrirla vuelve a pedir — es una
+ * lectura, la proyección la calcula el servidor y acá no hay caché optimista
+ * (misma razón que en `usarPedido`).
+ *
+ * El título sigue siendo un `<h2>` con un botón adentro, que es la forma que ya
+ * conocen los lectores de pantalla: el encabezado da la estructura y
+ * `aria-expanded` dice si está abierta. Reemplazarlo por un `<div>` con clic
+ * habría sacado la tarjeta del índice de la página.
+ */
+export function TarjetaPlegable({
+  titulo,
+  subtitulo,
+  children,
+}: {
+  titulo: string;
+  subtitulo?: string;
+  children: ReactNode;
+}) {
+  const [abierta, setAbierta] = useState(false);
+
+  return (
+    <section className="tarjeta">
+      <h2 className="plegable">
+        <button type="button" aria-expanded={abierta} onClick={() => setAbierta(!abierta)}>
+          <span>{titulo}</span>
+          <span className="flecha" aria-hidden="true">
+            {abierta ? '⌄' : '›'}
+          </span>
+        </button>
+      </h2>
+      {abierta && (
+        <>
+          {subtitulo !== undefined && <p className="subtitulo">{subtitulo}</p>}
+          {children}
+        </>
+      )}
     </section>
   );
 }

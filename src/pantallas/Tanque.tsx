@@ -21,7 +21,7 @@ import { ErrorApi, api } from '../api/cliente';
 import type { CuerpoError, CuerpoTanque } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Cifra, SoloLectura, Tarjeta } from '../componentes/basicos';
-import { Campo, Rechazo } from '../componentes/formulario';
+import { Campo, CampoFecha, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { fechaCorta, litros as enLitros, numero } from '../formato';
 import { hoyDelServidor } from '../reloj';
@@ -178,9 +178,9 @@ function CargaDelDia({ hoy, alCargar }: { hoy: string; alCargar: () => void }) {
   return (
     <Tarjeta titulo="Cargar el tanque" subtitulo="Por default, los litros de hoy.">
       <form onSubmit={mandar}>
-        <Campo etiqueta="Fecha">
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
-        </Campo>
+        {/* Con "ayer" a un toque, que en el tanque es el caso más frecuente
+            después de hoy: el ordeñe de anoche se carga a la mañana. */}
+        <CampoFecha etiqueta="Fecha" valor={fecha} alCambiar={setFecha} hoy={hoy} />
         <Campo etiqueta="Litros">
           <input
             type="number"

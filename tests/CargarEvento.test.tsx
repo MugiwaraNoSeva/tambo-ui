@@ -10,6 +10,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
+import { aCargar, aTablero } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
 import {
   EST,
@@ -19,6 +20,7 @@ import {
   establecimiento,
   rechazoForzable,
   rechazoNoForzable,
+  rutasDelTablero,
   sesionDePrueba,
 } from './fixtures';
 
@@ -224,5 +226,95 @@ describe('el flujo del rechazo', () => {
 
     expect(await screen.findByText(/no se pudo hablar con el servidor/i)).toBeInTheDocument();
     expect(screen.getByText('SIN_RESPUESTA')).toBeInTheDocument();
+  });
+});
+
+// ── Lo que la Parte 3 le sacó de encima a esta pantalla ──────────────────────
+
+/** La misma carga, pero llegando como llega de verdad: desde una lista o la ficha. */
+function montarCargaDesde(hash: string, cambios: Record<string, Manejador> = {}): ApiFalsa {
+  window.localStorage.setItem('tambo.establecimiento', EST);
+  window.location.hash = hash;
+  anotarFechaDeLaRespuesta({ fecha: HOY });
+  return montarApi({
+    ...sesionDePrueba(),
+    [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+    [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
+    [RUTA_POST]: { status: 201, cuerpo: { evento_id: 'nuevo', proyeccion: animal102.proyeccion } },
+    ...cambios,
+  });
+}
+
+describe('lo que ya sabía quien la abrió', () => {
+  it('con la caravana en la dirección, no pide el animal', async () => {
+    // Antes esta pantalla traía la proyección entera —el estado, los ciclos, la
+    // genealogía— para escribir un número en el encabezado.
+    const falsa = montarCargaDesde(aCargar(V102, { desde: aTablero(), caravana: '102' }));
+    render(<App />);
+    await esperarFormulario();
+
+    expect(screen.getByRole('heading', { name: 'Cargar — 102' })).toBeInTheDocument();
+    const delAnimal = falsa.pedidos.filter((p) => p.ruta.endsWith(`/animales/${V102}`));
+    expect(delAnimal).toHaveLength(0);
+  });
+
+  it('sin caravana la va a buscar: un enlace pelado sigue andando', async () => {
+    const falsa = montarCargaDesde(`#/animales/${V102}/cargar`);
+    render(<App />);
+    await esperarFormulario();
+
+    expect(screen.getByRole('heading', { name: 'Cargar — 102' })).toBeInTheDocument();
+    expect(falsa.pedidos.filter((p) => p.ruta.endsWith(`/animales/${V102}`))).toHaveLength(1);
+  });
+
+  it('vuelve a donde se vino, que no siempre es la ficha', async () => {
+    // Quien entró por el atajo de una lista de trabajo vuelve a la lista, ya sin
+    // el animal que acaba de cargar — y no a la ficha, que sería un desvío.
+    montarCargaDesde(aCargar(V102, { desde: aTablero(), caravana: '102' }), {
+      ...rutasDelTablero,
+    });
+    render(<App />);
+    await esperarFormulario();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el evento' }));
+
+    await waitFor(() => expect(window.location.hash).toBe(aTablero()));
+  });
+
+  it('la flecha de volver apunta a lo mismo', async () => {
+    montarCargaDesde(aCargar(V102, { desde: aTablero(), caravana: '102' }));
+    render(<App />);
+    await esperarFormulario();
+
+    expect(screen.getByRole('link', { name: 'Volver' })).toHaveAttribute('href', aTablero());
+  });
+});
+
+describe('la fecha, a un toque', () => {
+  it('"Ayer" la cambia sin abrir el calendario', async () => {
+    const falsa = montarCargaDesde(aCargar(V102, { caravana: '102' }));
+    render(<App />);
+    await esperarFormulario();
+
+    // Arranca en hoy, y eso se dice con `aria-pressed` y no solo con color.
+    expect(screen.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ayer' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el evento' }));
+
+    await waitFor(() => expect(mandado(falsa)['fecha_evento']).toBe('2026-07-28'));
+  });
+
+  it('una fecha de hace tres días no deja ninguno de los dos puesto', async () => {
+    montarCargaDesde(aCargar(V102, { caravana: '102' }));
+    render(<App />);
+    await esperarFormulario();
+
+    // Es la diferencia con un segmentado, que obligaría a que uno esté elegido.
+    await userEvent.clear(screen.getByLabelText('Cuándo'));
+    await userEvent.type(screen.getByLabelText('Cuándo'), '2026-07-26');
+
+    expect(screen.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Ayer' })).toHaveAttribute('aria-pressed', 'false');
   });
 });

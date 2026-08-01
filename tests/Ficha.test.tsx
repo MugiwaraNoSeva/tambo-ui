@@ -1,6 +1,11 @@
-// La ficha del animal. Se prueba que muestre lo que las cuatro respuestas
-// traen —incluidos los `null`, que son el caso interesante (decisión 37)— y que
-// el historial distinga un evento anulado de la anulación que lo deshizo.
+// La ficha del animal. Se prueba que muestre lo que las respuestas traen
+// —incluidos los `null`, que son el caso interesante (decisión 37)— y que el
+// historial distinga un evento anulado de la anulación que lo deshizo.
+//
+// Desde la Parte 3 **los números y la lactancia no se piden al entrar**: viven
+// en tarjetas que traen lo suyo recién cuando alguien las abre. Por eso los
+// tests que hablan de ellas empiezan abriéndolas, y hay uno que afirma
+// justamente que sin abrirlas esos dos pedidos no salen.
 
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -43,7 +48,21 @@ const dato = (rotulo: string): string => {
   return caja?.querySelector('dd')?.textContent ?? '';
 };
 
-const esperarFicha = () => screen.findByText('Días abiertos');
+/**
+ * Lo que sí llega solo: el estado del animal, que es lo que bloquea la pantalla
+ * porque de ahí sale la caravana del encabezado.
+ */
+const esperarFicha = () => screen.findByText('Nacimiento');
+
+/** El historial sí se pide al entrar: es lo segundo que se mira siempre. */
+// Con la cuenta adentro: mientras carga, la tarjeta ya se llama "El historial"
+// a secas, así que sin el `(n)` esto resolvería antes de que llegue el log.
+const esperarHistorial = () => screen.findByRole('heading', { name: /^El historial \(\d+\)/ });
+
+/** Abre una tarjeta plegable, que es lo que dispara su pedido. */
+const abrir = async (titulo: string): Promise<void> => {
+  await userEvent.click(await screen.findByRole('button', { name: titulo }));
+};
 
 describe('el estado del animal', () => {
   it('pone la caravana en el encabezado y los dos ejes con palabras', async () => {
@@ -74,8 +93,9 @@ describe('los números', () => {
   it('muestra los KPIs y nunca convierte un null en 0 (decisión 37)', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await abrir('Los números');
 
+    expect(await screen.findByText('Días abiertos')).toBeInTheDocument();
     expect(cifra('Días abiertos')).toBe('197 días');
     expect(cifra('Servicios por preñez')).toBe('1,0');
     expect(cifra('Hembras nacidas vivas')).toBe('1');
@@ -92,6 +112,7 @@ describe('los números', () => {
       [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: { cuerpo: kpis106 },
     });
     render(<App />);
+    await abrir('Los números');
 
     expect(await screen.findByText(/hay ciclos que no cuentan/i)).toBeInTheDocument();
     expect(screen.getByText(/1 ciclo tiene/)).toBeInTheDocument();
@@ -102,10 +123,10 @@ describe('la lactancia y su curva', () => {
   it('dibuja un punto por control y marca el pico con su número', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await abrir('La lactancia');
 
     expect(
-      screen.getByRole('heading', { name: 'Lactancia 3 (en curso)' }),
+      await screen.findByRole('heading', { name: 'Lactancia 3 (en curso)' }),
     ).toBeInTheDocument();
     expect(document.querySelectorAll('.curva .punto')).toHaveLength(6);
     expect(document.querySelectorAll('.curva .punto.pico')).toHaveLength(1);
@@ -116,9 +137,9 @@ describe('la lactancia y su curva', () => {
   it('cuenta la curva en palabras, que es lo único que se lee sin verla', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await abrir('La lactancia');
 
-    expect(screen.getByRole('img')).toHaveAccessibleName(
+    expect(await screen.findByRole('img')).toHaveAccessibleName(
       'Curva de lactancia con 6 controles, del día 30 al 180 en leche, con el pico de 28,0 L al día 60.',
     );
   });
@@ -126,8 +147,9 @@ describe('la lactancia y su curva', () => {
   it('muestra el pico y la acumulada afuera del dibujo', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await abrir('La lactancia');
 
+    expect(await screen.findByText('Pico')).toBeInTheDocument();
     expect(cifra('Pico')).toBe('28,0 L');
     expect(cifra('Al día en leche')).toBe('60');
     expect(cifra('Acumulada')).toBe('4666 L');
@@ -141,6 +163,7 @@ describe('la lactancia y su curva', () => {
       },
     });
     render(<App />);
+    await abrir('La lactancia');
 
     expect(await screen.findByText(/todavía no hay controles lecheros/i)).toBeInTheDocument();
     expect(document.querySelector('.curva')).toBeNull();
@@ -153,7 +176,7 @@ describe('el historial', () => {
   it('va del último al primero y describe lo que el evento trae adentro', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await esperarHistorial();
 
     const eventos = [...document.querySelectorAll('.historial > li')];
     expect(eventos[0]?.textContent).toContain('12/07/2026 — Control lechero');
@@ -177,7 +200,7 @@ describe('el historial', () => {
   it('marca los eventos que se cargaron con otros parámetros, y dice cuáles', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await esperarHistorial();
 
     const eventos = [...document.querySelectorAll('.historial > li')];
     // El control lechero de julio es posterior al cambio: se juzgó con lo de hoy
@@ -198,7 +221,7 @@ describe('el historial', () => {
       [`GET /establecimientos/${EST}/configuraciones`]: { status: 502, ilegible: true },
     });
     render(<App />);
-    await esperarFicha();
+    await esperarHistorial();
 
     const eventos = [...document.querySelectorAll('.historial > li')];
     expect(eventos).toHaveLength(4);
@@ -210,7 +233,7 @@ describe('el historial', () => {
       [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos105 },
     });
     render(<App />);
-    await esperarFicha();
+    await esperarHistorial();
 
     const eventos = [...document.querySelectorAll('.historial > li')];
     // Arriba de todo, la anulación: no está anulada, deshace.
@@ -230,7 +253,7 @@ describe('el historial', () => {
       [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos106 },
     });
     render(<App />);
-    await esperarFicha();
+    await esperarHistorial();
 
     expect(screen.getByText('cargado con "confirmar igual"')).toBeInTheDocument();
     expect(screen.getByText(/1 cría: hembra, nacida muerta/)).toBeInTheDocument();
@@ -241,7 +264,7 @@ describe('los ciclos', () => {
   it('van del último al primero con su resultado en palabras', async () => {
     montarFicha();
     render(<App />);
-    await esperarFicha();
+    await esperarHistorial();
 
     const ciclos = [...document.querySelectorAll('.tarjeta')].find((t) =>
       t.querySelector('h2')?.textContent?.includes('Los ciclos'),
@@ -267,7 +290,7 @@ describe('cuando una lectura de la ficha no vuelve', () => {
     expect(screen.getByRole('heading', { name: 'Ficha del animal' })).toBeInTheDocument();
   });
 
-  it('las otras tres se caen solas y se reintentan sin recargar la ficha', async () => {
+  it('cada tarjeta se cae sola y se reintenta sin recargar la ficha', async () => {
     let intentos = 0;
     montarFicha({
       [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: () => {
@@ -278,14 +301,35 @@ describe('cuando una lectura de la ficha no vuelve', () => {
       },
     });
     render(<App />);
+    await abrir('Los números');
 
     expect(await screen.findByText('Se cayó la base.')).toBeInTheDocument();
-    // El historial y la curva llegaron igual (decisión 56).
+    // El historial llegó igual (decisión 56): que una tarjeta se caiga no se
+    // lleva puesta la pantalla, y ahora tampoco a la que ni se pidió.
     expect(await screen.findByText(/toro Urubó/)).toBeInTheDocument();
-    expect(document.querySelectorAll('.curva .punto')).toHaveLength(6);
 
+    // Se reintenta adentro de la plegable, sin cerrarla ni recargar la ficha.
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-    expect(await esperarFicha()).toBeInTheDocument();
+    expect(await screen.findByText('Días abiertos')).toBeInTheDocument();
+  });
+
+  it('la lactancia no se pide hasta que alguien la abre', async () => {
+    // La cuenta de esta parte: entrar a una ficha costaba cinco lecturas y en el
+    // corral se entra a cargar lo que se acaba de ver, no a leer la curva.
+    const falsa = montarFicha();
+    render(<App />);
+    await esperarHistorial();
+
+    const pedidas = (cola: string) =>
+      falsa.pedidos.filter((p) => p.ruta.endsWith(cola)).length;
+    expect(pedidas('/kpis')).toBe(0);
+    expect(pedidas('/lactancias')).toBe(0);
+
+    await abrir('La lactancia');
+    await screen.findByRole('heading', { name: 'Lactancia 3 (en curso)' });
+    expect(pedidas('/lactancias')).toBe(1);
+    // Y abrir una no trae la otra.
+    expect(pedidas('/kpis')).toBe(0);
   });
 });
 

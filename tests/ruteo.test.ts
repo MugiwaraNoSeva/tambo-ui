@@ -8,6 +8,8 @@ import {
   aPanelUsuarios,
   esRutaDeAdmin,
   leerRuta,
+  parametro,
+  vueltaDe,
 } from '../src/ruteo';
 
 describe('leerRuta', () => {
@@ -47,6 +49,45 @@ describe('leerRuta', () => {
     expect(leerRuta('#/corrida')).toEqual({ nombre: 'tablero' });
     expect(leerRuta('#/corrida/para-revizar')).toEqual({ nombre: 'tablero' });
     expect(leerRuta('#/corrida/todas')).toEqual({ nombre: 'tablero' });
+  });
+});
+
+describe('los parámetros del hash', () => {
+  it('no cambian qué pantalla es: el camino manda', () => {
+    expect(leerRuta(aAnimal('abc', '#/rodeo'))).toEqual({ nombre: 'animal', id: 'abc' });
+    expect(leerRuta(aCargar('abc', { desde: '#/', caravana: '104' }))).toEqual({
+      nombre: 'cargar',
+      id: 'abc',
+    });
+  });
+
+  it('la vuelta sale del `de`, y sin él cae en el default de la pantalla', () => {
+    expect(vueltaDe(aAnimal('abc', '#/rodeo'), '#/otra')).toBe('#/rodeo');
+    expect(vueltaDe(aAnimal('abc'), '#/otra')).toBe('#/otra');
+    expect(vueltaDe('#/animales/abc?de=', '#/otra')).toBe('#/otra');
+  });
+
+  it('la vuelta solo acepta un hash de esta app', () => {
+    // Es un `href` y llega de la barra de direcciones: sin este filtro, un `de`
+    // con una URL de afuera convertiría la flecha de volver en un enlace a
+    // cualquier lado.
+    expect(vueltaDe('#/animales/abc?de=https%3A%2F%2Fmalo.example', '#/rodeo')).toBe('#/rodeo');
+    expect(vueltaDe('#/animales/abc?de=%2F%2Fmalo.example', '#/rodeo')).toBe('#/rodeo');
+    expect(vueltaDe('#/animales/abc?de=javascript%3Aalert(1)', '#/rodeo')).toBe('#/rodeo');
+  });
+
+  it('la caravana viaja para que la carga no tenga que ir a pedirla', () => {
+    expect(parametro(aCargar('abc', { caravana: '104' }), 'c')).toBe('104');
+    // Sin caravana no se escribe el parámetro: la pantalla la va a buscar.
+    expect(parametro(aCargar('abc'), 'c')).toBeUndefined();
+    expect(parametro(aCargar('abc', { caravana: null }), 'c')).toBeUndefined();
+  });
+
+  it('una caravana con caracteres raros vuelve entera', () => {
+    const con = aCargar('abc', { caravana: 'A 1/2&3' });
+    expect(parametro(con, 'c')).toBe('A 1/2&3');
+    // Y no se lleva puesto el camino: sigue siendo la carga de `abc`.
+    expect(leerRuta(con)).toEqual({ nombre: 'cargar', id: 'abc' });
   });
 });
 

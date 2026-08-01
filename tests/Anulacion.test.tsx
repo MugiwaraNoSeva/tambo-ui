@@ -107,10 +107,16 @@ describe('anular', () => {
     await userEvent.type(screen.getByLabelText('Por qué se anula'), 'Estaba mal.');
     await userEvent.click(screen.getByRole('button', { name: 'Anular' }));
 
-    // Estado, KPIs, lactancias y log: una anulación los mueve a los cuatro, y
-    // la proyección la calcula el servidor (no hay caché optimista).
+    // Estado y log: una anulación los mueve a los dos, y la proyección la
+    // calcula el servidor (no hay caché optimista).
+    //
+    // **Dos y no cuatro desde la Parte 3**: los números y la lactancia también
+    // cambian con una anulación, pero viven en tarjetas que no se pidieron
+    // todavía. Refrescar lo que nadie abrió sería pagar dos viajes para tirar el
+    // resultado; cuando alguien las abra van a traer lo de después de anular,
+    // que es justamente lo que corresponde.
     await waitFor(() =>
-      expect(falsa.pedidos.filter((p) => p.metodo === 'GET').length).toBe(antes + 4),
+      expect(falsa.pedidos.filter((p) => p.metodo === 'GET').length).toBe(antes + 2),
     );
   });
 

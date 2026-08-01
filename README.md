@@ -604,6 +604,103 @@ manga, así que funciona — pero el contador dice "quedan 197" en vez de "queda
 30". Se arregla en la tanda del rodeo, cuando esos tres desplegables sean chips y
 haya un filtro que valga la pena hacer viajar.
 
+## El camino corto de una vaca sola
+
+La corrida arregla la mañana de veinticinco tactos. Esto arregla la otra mitad:
+**cargarle un evento a una vaca**, que sigue siendo lo que más se hace.
+
+De **16 pedidos y unos 6 toques** a **7 y 4**, y sin sacar ninguna pantalla.
+
+### Lo que no se mira al entrar, no se pide
+
+Abrir una ficha costaba cinco lecturas: la proyección, los KPIs, las lactancias,
+el historial y el historial de reglas. En el corral se entra a una ficha **para
+cargar lo que se acaba de ver**, no para leer la curva de lactancia.
+
+Los números y la lactancia pasaron a `TarjetaPlegable`: su contenido se monta
+recién al abrirlas, y montarlo es lo que dispara su `usarPedido` — no hay una
+bandera que alguien tenga que acordarse de mirar. La ficha quedó en **tres**
+lecturas.
+
+El historial **se queda abierto**, y no es una excepción arbitraria: es lo
+segundo que se mira siempre —qué pasó recién— y es el único lugar desde donde se
+anula. Con él se queda el historial de reglas, que es lo que hace que el
+historial diga la verdad sobre bajo qué parámetros se juzgó cada evento
+(decisión 92). Ese pedido se podría ahorrar de otra forma —es el mismo para todo
+el tambo y hoy viaja una vez por ficha— pero la respuesta es **cachearlo por
+establecimiento**, no esconderlo detrás de un clic. Queda anotado.
+
+Una consecuencia que se ve en los tests: **anular ya no refresca cuatro
+tarjetas, refresca dos.** Los números y la lactancia también cambian con una
+anulación, pero refrescar lo que nadie abrió es pagar dos viajes para tirar el
+resultado; cuando alguien las abra van a traer lo de después de anular.
+
+### La carga ya no pide el animal para escribir su nombre
+
+`CargarEvento` traía la proyección entera —el estado, los ciclos, la genealogía—
+**para poner la caravana en el encabezado**. Quien la abre ya la sabe, así que
+ahora viaja en la dirección.
+
+Si no viene —una dirección tipeada, un favorito viejo— la pantalla la va a
+buscar como antes. El camino normal no paga ese viaje y el raro sigue andando.
+
+### La flecha vuelve a donde viniste
+
+La ficha volvía **siempre al rodeo**, aunque se hubiera entrado desde el tablero
+o desde una corrida. Ahora el origen viaja en la dirección, como `?de=`.
+
+Dos condiciones que salen de cómo está armada esta app, y explican por qué no es
+una pila de navegación:
+
+- **viaja en la dirección**, así sobrevive a una recarga y a un enlace
+  compartido, que es lo que ya hace todo lo demás del ruteo por hash;
+- **no hay una pila** que alguien tenga que mantener sincronizada con el "atrás"
+  del browser, que es de donde salen los bugs de este tipo de arreglo.
+
+**Solo se acepta un hash de esta misma app.** Es un `href` y llega de la barra de
+direcciones: sin ese filtro, un `?de=https://…` convertiría la flecha de volver
+en un enlace a cualquier lado. Lo que no pase, cae en el default de la pantalla.
+
+Lo mismo vale al terminar de cargar: **se vuelve a donde se vino**. Quien entró
+por el atajo de una lista de trabajo vuelve a la lista, ya sin el animal que
+acaba de cargar; desde la ficha, `desde` es la ficha misma, así que ahí no cambia
+nada y el evento nuevo se ve en el historial.
+
+### El atajo de carga en cada fila
+
+Cargarle algo a una vaca obligaba a pasar por su ficha. Ahora la fila tiene dos
+destinos: **la fila entera sigue llevando a la ficha** —con la caravana de target
+grande, que no se movió— y al lado hay un cuadrado de 48 px que va derecho a la
+carga.
+
+Son dos `<a>` hermanos y no uno adentro del otro, que en HTML no existe. El atajo
+lleva la caravana y el origen, así que la carga a la que llega no pide nada y
+vuelve a la lista al terminar. Al de lectura no se le muestra, con el criterio de
+siempre.
+
+### "Ayer", a un toque
+
+El `<input type="date">` cuesta tres toques en el celular —abrir el calendario
+nativo, elegir, confirmar— y el 95% de lo que se carga pasó hoy o ayer: el ordeñe
+de anoche, el celo que se vio al caer la tarde y se anota a la mañana.
+
+`CampoFecha` pone los dos atajos abajo del campo, y el calendario queda para el
+resto. **No son `Chips` ni `Segmentado`** aunque se parezcan: un chip se puede
+soltar y acá siempre hay una fecha; un segmentado obliga a que una opción esté
+elegida, y acá puede no estarlo ninguna —cuando la fecha es de hace tres días, ni
+"Hoy" ni "Ayer" están puestos, y eso es correcto—.
+
+"Ayer" se cuenta hacia atrás sobre el string del servidor, **sin `new Date`**:
+`new Date('2026-03-01')` es medianoche UTC y en Montevideo se lee 28 de febrero,
+así que restarle un día por ahí devolvería el 27. `diaAnterior` vive en
+`reloj.ts` con la regla gregoriana entera —la que distingue 1900 de 2000— y sus
+tests. Tampoco se importa el `sumarDias` del núcleo: la decisión 51 prohíbe
+importar **valores** de `tambo-reglas`, y esto no es dominio sino aritmética de
+almanaque.
+
+El hoy del servidor **se fija al abrir el formulario** y no se relee en cada
+dibujo: una carga abierta antes de medianoche cambiaría de día sola.
+
 ## El sistema de diseño
 
 Todo vive en `src/estilos.css`, y desde la remodelación son **tres escalas de

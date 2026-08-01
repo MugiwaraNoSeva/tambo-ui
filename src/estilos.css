@@ -247,6 +247,46 @@ body {
   font-size: var(--texto-m);
 }
 
+/* ── La tarjeta que se abre a pedido ─────────────────────────────────────────
+   El título sigue siendo el `h2` de cualquier tarjeta; lo que cambia es que
+   adentro tiene un botón que ocupa todo el ancho, para que abrirla no obligue a
+   apuntarle a un texto. La flecha es decoración: quien no la ve se entera por
+   `aria-expanded`. */
+
+h2.plegable {
+  margin: 0;
+}
+
+h2.plegable > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+  width: 100%;
+  min-height: var(--toque);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--texto-l);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+h2.plegable .flecha {
+  color: var(--tinta-suave);
+  font-size: var(--texto-xl);
+  line-height: 1;
+}
+
+/* Abierta, el título necesita separarse de lo que trajo. */
+h2.plegable > button[aria-expanded='true'] {
+  margin-bottom: var(--espacio-2);
+}
+
 /* Rótulo de bloque dentro de una tarjeta: separa sin abrir una tarjeta nueva,
    que en el celular sería un scroll más. */
 .tarjeta h3 {
@@ -299,6 +339,47 @@ body {
 }
 
 .fila:active {
+  background: var(--verde-tenue);
+}
+
+/* ── La fila con su atajo de carga ───────────────────────────────────────────
+   Dos enlaces hermanos y no uno adentro del otro, que en HTML no existe: la
+   fila lleva a la ficha —sigue siendo la acción principal y la caravana entera
+   sigue siendo su target— y el atajo va derecho a cargar un evento.
+
+   El atajo es cuadrado y de 48 px para que el dedo lo acierte sin apuntar, y
+   está separado por su propio borde: los dos destinos tienen que verse
+   distintos, o el que quiere abrir la ficha va a caer en la carga. */
+
+.con-atajo {
+  display: flex;
+  gap: var(--espacio-2);
+  align-items: stretch;
+}
+
+.con-atajo > .fila {
+  flex: 1;
+  min-width: 0;
+}
+
+.atajo {
+  flex: 0 0 auto;
+  width: var(--toque);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--verde);
+  border-radius: var(--radio);
+  background: var(--papel);
+  color: var(--verde-texto);
+  font-size: var(--texto-xl);
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.atajo:active {
   background: var(--verde-tenue);
 }
 
@@ -884,6 +965,12 @@ button.fila:disabled {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--espacio-3);
+}
+
+/* Los atajos de fecha van pegados abajo del calendario, no al lado: al lado se
+   leen como parte del campo y acá son otra forma de contestar lo mismo. */
+.atajos-de-fecha {
+  margin-top: 6px;
 }
 
 /* ── Avisos ──────────────────────────────────────────────────────────────── */

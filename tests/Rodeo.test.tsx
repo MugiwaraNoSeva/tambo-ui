@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
+import { aAnimal, aRodeo } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
 import {
   EST,
@@ -41,9 +42,10 @@ describe('la lista del rodeo', () => {
 
     expect(await screen.findByRole('heading', { name: '7 de 7' })).toBeInTheDocument();
     expect(caravanas()).toEqual(['101', '102', '103', '104', '105', '106', '150']);
+    // La dirección lleva de dónde se vino: la ficha abierta desde acá vuelve acá.
     expect(screen.getByRole('link', { name: /^102/ })).toHaveAttribute(
       'href',
-      `#/animales/${V102}`,
+      aAnimal(V102, aRodeo()),
     );
   });
 

@@ -3,8 +3,9 @@
 
 import type { ReactNode } from 'react';
 import type { EstadoProductivo, EstadoReproductivo, EstadoVida } from '../api/tipos';
+import { usarEstablecimiento } from '../establecimiento';
 import { PRODUCTIVO, REPRODUCTIVO, VIDA, caravanaVisible } from '../formato';
-import { aAnimal } from '../ruteo';
+import { aAnimal, aCargar } from '../ruteo';
 
 /**
  * Una fila de animal que lleva a su ficha.
@@ -20,21 +21,46 @@ export function FilaAnimal({
   animalId,
   caravana,
   detalle,
+  desde,
 }: {
   animalId: string;
   caravana: string | null;
   /** Lo que se muestra al lado del número: estados, categoría, lo que la pantalla sepa. */
   detalle?: ReactNode;
+  /**
+   * El hash de la pantalla que dibuja esta fila. Viaja para que la flecha de
+   * volver de la ficha traiga de vuelta acá y no al rodeo siempre.
+   */
+  desde?: string;
 }) {
+  const { puedeCargar } = usarEstablecimiento();
+  const visible = caravanaVisible(caravana);
+
   return (
-    <li>
-      <a className="fila" href={aAnimal(animalId)}>
-        <span className="caravana">{caravanaVisible(caravana)}</span>
+    // Dos enlaces hermanos y no uno adentro del otro, que no existe en HTML: la
+    // fila lleva a la ficha —que sigue siendo la acción principal, con la
+    // caravana entera de target— y el atajo va derecho a la carga.
+    <li className={puedeCargar ? 'con-atajo' : undefined}>
+      <a className="fila" href={aAnimal(animalId, desde)}>
+        <span className="caravana">{visible}</span>
         {detalle !== undefined && <span className="detalle">{detalle}</span>}
         <span className="flecha" aria-hidden="true">
           ›
         </span>
       </a>
+      {/* Al de lectura no se le ofrece, con el mismo criterio de siempre: mejor
+          que no esté a que esté y termine en un 403. Y lleva la caravana en la
+          dirección, que es lo que le ahorra a la carga ir a pedir el animal
+          entero solo para escribirla en el encabezado. */}
+      {puedeCargar && (
+        <a
+          className="atajo"
+          href={aCargar(animalId, { desde, caravana })}
+          aria-label={`Cargar un evento a ${visible}`}
+        >
+          <span aria-hidden="true">＋</span>
+        </a>
+      )}
     </li>
   );
 }

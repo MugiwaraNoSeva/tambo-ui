@@ -33,7 +33,7 @@ import { ErrorApi, api } from '../api/cliente';
 import type { AnimalDeLista, CuerpoError, CuerpoEvento } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Cifra, SoloLectura, Tarjeta, TarjetaCaida } from '../componentes/basicos';
-import { Campo, Rechazo, Segmentado, type Opcion } from '../componentes/formulario';
+import { Campo, CampoFecha, Rechazo, Segmentado, type Opcion } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { TIPO_EVENTO, caravanaVisible, numero } from '../formato';
 import { hoyDelServidor } from '../reloj';
@@ -180,8 +180,10 @@ function LaCorrida({ animales, origen }: { animales: AnimalDeLista[]; origen: Or
   const [tipo, setTipo] = useState<TipoEnSerie>(ORIGEN[origen].tipo);
   // Una sola fecha para toda la corrida. El veterinario que pasa el miércoles
   // carga el miércoles entero: preguntarla por animal es veinticinco veces la
-  // misma respuesta. Sale del servidor y nunca del reloj del celular (52).
-  const [fecha, setFecha] = useState(hoyDelServidor);
+  // misma respuesta. Sale del servidor y nunca del reloj del celular (52), y se
+  // fija al abrir para que una corrida larga no cambie de día sola.
+  const [hoy] = useState(hoyDelServidor);
+  const [fecha, setFecha] = useState(hoy);
   const [busqueda, setBusqueda] = useState('');
 
   /**
@@ -300,9 +302,13 @@ function LaCorrida({ animales, origen }: { animales: AnimalDeLista[]; origen: Or
           elegida={tipo}
           alElegir={setTipo}
         />
-        <Campo etiqueta="Cuándo" ayuda="Vale para toda la corrida. Por default, hoy.">
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
-        </Campo>
+        <CampoFecha
+          etiqueta="Cuándo"
+          ayuda="Vale para toda la corrida. Por default, hoy."
+          valor={fecha}
+          alCambiar={setFecha}
+          hoy={hoy}
+        />
       </Tarjeta>
 
       <Tarjeta titulo="Cómo viene">

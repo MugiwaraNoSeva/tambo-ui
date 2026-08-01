@@ -51,3 +51,55 @@ export const hayFechaDelServidor = (): boolean => ultimaFecha !== null;
 export function olvidarFechaDelServidor(): void {
   ultimaFecha = null;
 }
+
+// ── Ayer ─────────────────────────────────────────────────────────────────────
+//
+// Existe porque "ayer" es la segunda fecha más cargada del sistema —el ordeñe de
+// anoche, el celo que se vio al caer la tarde y se anota a la mañana— y con el
+// `<input type="date">` cuesta tres toques: abrir el calendario nativo, elegir y
+// confirmar. Con esto cuesta uno.
+//
+// **Sin `new Date`, que en este archivo está prohibido** (decisiones 47 y 52):
+// `new Date('2026-03-01')` es medianoche UTC y en Montevideo se lee 28 de
+// febrero, así que restarle un día por ahí devolvería el 27. El corte del día lo
+// hace el servidor en la zona del tambo y acá solo se cuenta hacia atrás sobre
+// el string que él mandó.
+//
+// Tampoco se importa el `sumarDias` del núcleo, que hace exactamente esto: la
+// decisión 51 le prohíbe a esta UI importar **valores** de `tambo-reglas`, y por
+// eso `src/api/nucleo.ts` es solo declaraciones. Además esto no es dominio —es
+// aritmética de calendario, la misma que hay en cualquier almanaque— así que
+// duplicarlo no duplica ninguna regla del tambo.
+
+const DIAS_DEL_MES = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+
+/** La regla gregoriana entera, no el `% 4` que falla en 1900 y en 2100. */
+const bisiesto = (anio: number): boolean =>
+  (anio % 4 === 0 && anio % 100 !== 0) || anio % 400 === 0;
+
+const dosDigitos = (n: number): string => String(n).padStart(2, '0');
+
+/**
+ * El día anterior a un `YYYY-MM-DD`, como otro `YYYY-MM-DD`.
+ *
+ * Lo que no se entiende vuelve tal cual: esta función no valida fechas —de eso
+ * se encarga el `input type="date"` y, al final, la API— y devolver algo
+ * inventado sería peor que devolver lo que entró.
+ */
+export function diaAnterior(dia: string): string {
+  if (!ES_FECHA.test(dia)) return dia;
+
+  const anio = Number(dia.slice(0, 4));
+  const mes = Number(dia.slice(5, 7));
+  const numero = Number(dia.slice(8, 10));
+
+  // El caso común: no se cruza ningún borde y el mes ni se mira.
+  if (numero > 1) return `${dia.slice(0, 8)}${dosDigitos(numero - 1)}`;
+
+  const mesAntes = mes === 1 ? 12 : mes - 1;
+  const anioAntes = mes === 1 ? anio - 1 : anio;
+  const ultimo =
+    mesAntes === 2 && bisiesto(anioAntes) ? 29 : (DIAS_DEL_MES[mesAntes - 1] ?? 30);
+
+  return `${String(anioAntes).padStart(4, '0')}-${dosDigitos(mesAntes)}-${dosDigitos(ultimo)}`;
+}

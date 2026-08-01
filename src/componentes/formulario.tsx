@@ -14,6 +14,7 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import type { CuerpoError } from '../api/tipos';
+import { diaAnterior } from '../reloj';
 import { Aviso } from './basicos';
 
 /** Una opción de un chip o de un segmentado: el valor que viaja y lo que se lee. */
@@ -151,6 +152,72 @@ export function Segmentado<T extends string>({
         ))}
       </div>
     </fieldset>
+  );
+}
+
+/**
+ * La fecha de una carga, con "hoy" y "ayer" a un toque.
+ *
+ * El `<input type="date">` solo cuesta **tres** toques en el celular —abrir el
+ * calendario nativo, elegir, confirmar— y el 95% de lo que se carga pasó hoy o
+ * ayer: el ordeñe de anoche, el celo que se vio al caer la tarde y se anota a la
+ * mañana. Los dos atajos cubren ese 95% con un toque y el calendario queda para
+ * el resto, que sigue estando.
+ *
+ * No son `Chips` ni `Segmentado` aunque se les parezcan, y la diferencia importa:
+ * un chip se puede soltar y acá siempre hay una fecha; un segmentado obliga a que
+ * una de las opciones esté elegida, y acá **puede no estarlo ninguna** —cuando la
+ * fecha es de hace tres días, ni "Hoy" ni "Ayer" están puestos y eso es correcto—.
+ *
+ * El día de hoy sale del servidor y nunca del celular (decisión 52), y "ayer" se
+ * cuenta hacia atrás sobre ese string, sin `new Date`.
+ */
+export function CampoFecha({
+  etiqueta,
+  ayuda,
+  valor,
+  alCambiar,
+  hoy,
+}: {
+  etiqueta: string;
+  ayuda?: string;
+  valor: string;
+  alCambiar: (fecha: string) => void;
+  /** El hoy del servidor. Se recibe y no se lee acá para que la pantalla lo fije una vez. */
+  hoy: string;
+}) {
+  const ayer = diaAnterior(hoy);
+  const atajos: readonly { rotulo: string; fecha: string }[] = [
+    { rotulo: 'Hoy', fecha: hoy },
+    { rotulo: 'Ayer', fecha: ayer },
+  ];
+
+  return (
+    <div className="campo">
+      <label>
+        <span>{etiqueta}</span>
+        <input
+          type="date"
+          value={valor}
+          onChange={(e) => alCambiar(e.target.value)}
+          required
+        />
+      </label>
+      <div className="chips atajos-de-fecha" role="group" aria-label={`${etiqueta}: atajos`}>
+        {atajos.map(({ rotulo, fecha }) => (
+          <button
+            key={rotulo}
+            type="button"
+            className="chip"
+            aria-pressed={valor === fecha}
+            onClick={() => alCambiar(fecha)}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+      {ayuda !== undefined && <span className="ayuda">{ayuda}</span>}
+    </div>
   );
 }
 

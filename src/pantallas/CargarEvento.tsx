@@ -20,7 +20,7 @@ import type { Cria, CuerpoError, CuerpoEvento, MotivoBaja, TipoEvento } from '..
 import { MOTIVOS_BAJA } from '../api/tipos';
 import { Armazon } from '../componentes/armazon';
 import { Cargando, SoloLectura, Tarjeta, TarjetaCaida } from '../componentes/basicos';
-import { Campo, Casilla, Rechazo } from '../componentes/formulario';
+import { Campo, CampoFecha, Casilla, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import {
   MOTIVO_BAJA,
@@ -30,7 +30,7 @@ import {
   caravanaVisible,
 } from '../formato';
 import { hoyDelServidor } from '../reloj';
-import { aAnimal, ir } from '../ruteo';
+import { aAnimal, ir, usarCaravanaDelHash, usarVuelta } from '../ruteo';
 import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
@@ -60,19 +60,36 @@ const CRIA_NUEVA: Cria = { sexo: 'hembra', resultado: 'viva' };
  */
 export function CargarEvento({ id }: { id: string }) {
   const { puedeCargar } = usarEstablecimiento();
+  // Los dos datos que quien abrió esta pantalla **ya sabía**, y que por eso
+  // viajan en la dirección en vez de pedirse otra vez.
+  const caravana = usarCaravanaDelHash();
+  const vuelta = usarVuelta(aAnimal(id));
 
   if (!puedeCargar) {
     return (
-      <Armazon titulo="Cargar un evento" volverA={aAnimal(id)}>
+      <Armazon titulo="Cargar un evento" volverA={vuelta}>
         <SoloLectura>No podés cargar eventos en este tambo.</SoloLectura>
       </Armazon>
     );
   }
 
-  return <Carga id={id} />;
+  // El camino normal: la caravana vino en el hash y **no hay ningún pedido**.
+  // Antes esta pantalla traía el animal entero —la proyección, sus ciclos, su
+  // estado— para escribir un número en el encabezado.
+  if (caravana !== undefined) {
+    return (
+      <Armazon titulo={`Cargar — ${caravana}`} volverA={vuelta}>
+        <Formulario animalId={id} vuelta={vuelta} />
+      </Armazon>
+    );
+  }
+
+  // Y el camino de un enlace pelado —una dirección tipeada, un favorito viejo—,
+  // que sigue andando: si nadie dijo la caravana, se va a buscar.
+  return <CargaSinCaravana id={id} vuelta={vuelta} />;
 }
 
-function Carga({ id }: { id: string }) {
+function CargaSinCaravana({ id, vuelta }: { id: string; vuelta: string }) {
   const { id: est } = usarEstablecimiento();
   const traer = useCallback(() => api.animal(est, id), [est, id]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
@@ -80,21 +97,27 @@ function Carga({ id }: { id: string }) {
   const titulo = datos === null ? 'Cargar un evento' : `Cargar — ${caravanaVisible(datos.caravana)}`;
 
   return (
-    <Armazon titulo={titulo} volverA={aAnimal(id)}>
+    <Armazon titulo={titulo} volverA={vuelta}>
       {cargando && <Cargando que="Abriendo la carga…" />}
       {!cargando && (error !== null || datos === null) && (
         <TarjetaCaida titulo="El animal" error={error} reintentar={recargar} />
       )}
-      {!cargando && datos !== null && error === null && <Formulario animalId={id} />}
+      {!cargando && datos !== null && error === null && (
+        <Formulario animalId={id} vuelta={vuelta} />
+      )}
     </Armazon>
   );
 }
 
-function Formulario({ animalId }: { animalId: string }) {
+function Formulario({ animalId, vuelta }: { animalId: string; vuelta: string }) {
   const { id: est } = usarEstablecimiento();
 
   const [tipo, setTipo] = useState<TipoEvento>('celo');
-  const [fecha, setFecha] = useState(hoyDelServidor);
+  // El hoy del servidor se fija **una vez** al abrir el formulario, y de ahí
+  // salen tanto el default como el atajo de "ayer": si se releyera en cada
+  // dibujo, una carga abierta antes de medianoche cambiaría de día sola.
+  const [hoy] = useState(hoyDelServidor);
+  const [fecha, setFecha] = useState(hoy);
   const [observaciones, setObservaciones] = useState('');
 
   // Inseminación
@@ -157,7 +180,11 @@ function Formulario({ animalId }: { animalId: string }) {
     };
     try {
       await api.cargarEvento(est, animalId, cuerpo);
-      ir(aAnimal(animalId));
+      // Se vuelve **a donde se vino**, que ahora no es siempre la ficha: quien
+      // entró por el atajo de una lista de trabajo vuelve a esa lista, ya sin el
+      // animal que acaba de cargar. Desde la ficha, `desde` es la ficha misma,
+      // así que ahí no cambia nada y el evento nuevo se ve en el historial.
+      ir(vuelta);
     } catch (causa) {
       setRechazo(
         causa instanceof ErrorApi
@@ -187,12 +214,13 @@ function Formulario({ animalId }: { animalId: string }) {
           </select>
         </Campo>
 
-        <Campo
+        <CampoFecha
           etiqueta="Cuándo"
           ayuda="Por default, hoy. Si el hecho fue otro día, cambialo."
-        >
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
-        </Campo>
+          valor={fecha}
+          alCambiar={setFecha}
+          hoy={hoy}
+        />
       </Tarjeta>
 
       {tipo === 'inseminacion' && (
