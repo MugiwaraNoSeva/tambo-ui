@@ -428,5 +428,34 @@ Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué
       el resultado. 20 tests nuevos, entre ellos los bordes de `diaAnterior` (1900
       contra 2000, que es donde falla el `% 4`). Typecheck limpio y build en verde.
       **Sigue pendiente lo visual**, por lo mismo que en las Partes 1 y 2.
-- [ ] Parte 4 — El tablero que prioriza y el rodeo que se filtra a un toque
+- [x] Parte 4 — `34599d9` — Los cuatro puntos hechos, **más la deuda que la Parte 2
+      había dejado anotada**: la corrida hereda los filtros del rodeo, así que el
+      contador dice "quedan 30" y no "quedan 197". La cuenta se sacó a `filtros.ts`
+      y la usan las dos pantallas: escrita dos veces, el día que se agregue un
+      filtro habría dos listas que se despegan y un contador que miente.
+      **Lo que apareció al hacerlo, y no estaba en el prompt:**
+      (1) *resaltar el número cambia cómo se lee el rótulo.* Lo natural era ponerlo
+      adelante y grande, y eso convierte el encabezado en "3 Para revisar" para
+      quien usa un lector de pantalla. Se estiliza el paréntesis y no se mueve
+      nada: sigue diciendo "Para revisar (3)". Tiene su test.
+      (2) *un filtro que viaja en la dirección se puede tipear mal.* Un
+      `?repro=PRENIADA` tomado en serio no matchea ninguna fila y deja una corrida
+      vacía **sin decir por qué**. `deParametros` descarta lo que no reconoce: la
+      corrida recorre de más —que se ve— en vez de recorrer de menos, que no se ve.
+      (3) *las de baja no pueden viajar a una corrida.* A un animal de baja no se
+      le carga nada, así que una corrida con ellas adentro termina en un rechazo
+      por fila; el `conBajas` del rodeo se queda en el rodeo.
+      (4) *la corrida filtrada tiene que decir qué recorta.* Treinta filas cuando
+      el rodeo tiene doscientas, sin explicación, se lee como que faltan animales.
+      **Sobre la jerarquía del tablero**: se destaca la lista de trabajo **con**
+      animales y no la vacía, que es lo que hace que una mañana tranquila se vea
+      distinta de una con cuatro vacas esperando antes de leer una palabra. Tres
+      señales y ninguna es solo el color (borde, número en ámbar, y la ausencia
+      del destaque). La composición del rodeo y el tanque no se tocaron: quedan
+      secundarios por contraste, que era el objetivo.
+      262 tests. Los dos que usaban `selectOptions` ahora tocan chips —el
+      desplegable ya no existe—, y 9 nuevos. Typecheck limpio y build en verde.
+      **Sigue pendiente lo visual**, y en esta parte pesa más que en las otras tres:
+      es la única cuyo entregable **es** jerarquía visual, y está verificada por la
+      clase que se aplica y no por haberla mirado.
 - [ ] Parte 5 — El escritorio, y la verificación contra la demo de verdad
