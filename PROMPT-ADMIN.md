@@ -318,10 +318,32 @@ estrena seis operaciones que nunca pasaron por acá.
       Parte 3**: partir el árbol dejando del otro lado un componente vacío es
       poner un placeholder, y la partición se lee de una sola vez junto a la
       pantalla que dibuja. 161 tests (3 nuevos), typecheck limpio.
-- [ ] **Parte 3** — La lista de tambos y el alta · commit `________`
-- [ ] **Parte 4** — El tambo por dentro: su gente y el reparto · commit `________`
-- [ ] **Parte 5** — Las personas: alta, edición, baja y reseteo · commit `________`
-- [ ] **Parte 6** — Entrar al tambo y volver al panel · commit `________`
+- [x] **Partes 3 a 6** — El panel entero · commit `4c74759`
+      **Las cuatro se hicieron juntas, y la decisión es de sequenciación**: la
+      lista, el tambo por dentro, las personas y entrar/volver son una sola
+      pantalla encadenada, y separarlas dejaba en cada commit un enlace que no
+      llevaba a ningún lado o una fila que no se podía tocar. Entregadas de una,
+      todo funciona de punta a punta.
+
+      Tres cosas que el prompt no preveía:
+
+      · **`Pantallas` no tenía rama para las rutas de admin.** Un `#/admin` de
+        quien no es admin caía en un `switch` sin ninguna rama que matcheara y
+        dejaba la pantalla en blanco. Lo encontró el test de la puerta. Cae en el
+        inicio, como cualquier hash que no se entienda.
+      · **El tambo abierto por el admin no se guarda en `localStorage`**, al
+        revés de lo que decía la Parte 6. Nadie lo leería —su inicio es el panel,
+        decidido arriba— y una preferencia que se escribe y no se lee es un valor
+        que envejece hasta que alguien le cree.
+      · **"Mi cuenta" pasó a vivir en los dos árboles** (`volverA` opcional): en
+        una base recién instalada no hay tambo al que entrar, y esa es la única
+        pantalla donde el admin puede cambiar la contraseña que el despliegue le
+        manda a cambiar antes que nada.
+
+      187 tests (26 nuevos, 29 en `Panel.test.tsx`), typecheck y build limpios.
+      Se movieron a `Panel.test.tsx` los tres del admin que vivían en
+      `Conexion.test.tsx`, y los dos de `Permisos.test.tsx` ahora entran por el
+      panel, que es la única puerta que le queda.
 - [ ] **Parte 7** — La demo de verdad y la documentación (y se borra este archivo) · commit `________`
 
 Debajo de cada casilla, al marcarla: qué quedó hecho, qué encontraste que el prompt no preveía, y
