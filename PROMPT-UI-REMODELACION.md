@@ -458,4 +458,38 @@ Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué
       **Sigue pendiente lo visual**, y en esta parte pesa más que en las otras tres:
       es la única cuyo entregable **es** jerarquía visual, y está verificada por la
       clase que se aplica y no por haberla mirado.
-- [ ] Parte 5 — El escritorio, y la verificación contra la demo de verdad
+- [x] Parte 5 — `1a10ee5` — El ancho aplicado a las cuatro pantallas de análisis
+      (rodeo, ficha, tanque y las cinco del panel) y a ninguna de carga, y la app
+      entera verificada contra la demo de verdad con los tres usuarios: **13 de 13**.
+      **La medición de cierre, contando igual que el estudio:**
+      un tacto a una vaca, de **16 pedidos y ~6 toques a 7 y ~5**; veinticinco
+      tactos, de **400 pedidos y ~150 toques a 29 y ~26** — o sea de 16 pedidos por
+      vaca a 1,2 y de 6 toques a 1. Los toques de una vaca sola bajan menos que los
+      pedidos, y el que queda es el **desplegable del tipo de evento** de la carga
+      suelta: son nueve tipos y no entran en un segmentado ni en una fila de chips.
+      Ahí la respuesta no es un control más lindo sino la corrida, donde ese
+      desplegable se toca una vez para veinticinco animales.
+      **Lo que el prompt no preveía:** agrandar el `max-width` **no alcanzaba**, y
+      era la trampa entera de esta parte. Una fila es un `flex` con la caravana a
+      la izquierda y la flecha a la derecha: en 1100 px se estira y deja un
+      desierto en el medio, **peor** que la columna angosta. El ancho sirve cuando
+      la lista deja de ser una columna larguísima y pasa a ser varias. El historial
+      queda afuera de esa regla a propósito: es una línea de tiempo y en dos
+      columnas "del último al primero" deja de querer decir nada.
+      **Los dos hallazgos del humo, que es para lo que existe:** (1) el propio test
+      armaba la dirección de la carga pegándole `/cargar` al `href` de la fila —
+      andaba mientras la ficha era un hash pelado, y desde el `?de=` de la Parte 3
+      el `/cargar` queda adentro del parámetro y la ruta sigue siendo la ficha. Es
+      la regla que `ruteo.ts` le pone al código de la app y el test la salteaba.
+      (2) **El humo no se puede correr dos veces contra la misma demo**, y el README
+      venía diciendo que sí: el test de los parámetros le suma una versión al
+      historial de config, así que en la segunda corrida el de "con qué reglas se
+      juzgó" lee una diferencia distinta de la que espera. Contra una demo recién
+      levantada, los trece pasan. Corregido en el README y en el encabezado del
+      archivo — es un defecto de documentación, no de código, y de los que cuestan
+      una tarde a quien lo encuentra sin saberlo.
+      262 tests mockeados + 13 de humo, typecheck limpio y build en verde.
+      **Lo único que queda sin verificar en toda la tanda es la comparación
+      visual**: la extensión de Chrome no está conectada en esta máquina. Pesa
+      sobre todo en la Parte 4, que es la única cuyo entregable *es* jerarquía
+      visual. `npm run dev` y `localhost:5173` alcanzan para mirarlo.
