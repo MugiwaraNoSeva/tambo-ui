@@ -360,7 +360,42 @@ Marcá al terminar cada parte: `- [x] Parte N — <hash> — <una línea de qué
       sin problema (`npm run dev`, `localhost:5173`); si alguien puede mirarlo, lo que
       hay que confirmar son las cifras del tablero y la flecha de volver, que son los
       dos deltas de 1,7 px.
-- [ ] Parte 2 — La carga en serie: el modo lista
+- [x] Parte 2 — `a7420fd` — `Corrida.tsx`, con las siete decisiones del prompt
+      implementadas tal cual: lista congelada, rechazo que aparta sin frenar,
+      apartados atendidos al final, pedidos de a uno por cadena de promesas, una
+      sola fecha, sin observaciones por animal, y el id de cliente estable a través
+      del "Confirmar igual". **Cero cambios en el backend**, como pedía la decisión
+      1: las tres entradas usan `GET /alertas` y `GET /animales`, que ya estaban.
+      **Dos cosas que el prompt no preveía y valen para las partes que siguen:**
+      (1) *una corrida de tactos tiene dos resultados.* El prompt decía "se elige el
+      tipo de evento una vez", y es cierto para el celo o el secado, pero en una
+      corrida de tactos la mayoría son positivos y de vez en cuando cae una vacía.
+      No hizo falta un concepto nuevo: como el tipo se elige con el `Segmentado` de
+      la Parte 1, cambiarlo a mitad de corrida cuesta **un** toque, así que el caso
+      minoritario son dos toques y vuelta. Queda escrito como uso normal y no como
+      excepción. (2) *`nuevoUuid()` devuelve `string | undefined`* —y no es un
+      descuido suyo: sin `getRandomValues` prefiere no dar id antes que inventar uno
+      con poca entropía que choque y haga rechazar una carga buena. La corrida
+      respeta el hueco igual que la carga suelta.
+      **Lo que se apartó del prompt, y por qué:** decía que la sesión caída tenía que
+      decir "cuántas entraron y cuántas no". Se implementó el corte de la cola —que
+      es lo que evita veinte 401 en fila— pero **no el conteo**, porque no hay nada
+      que contar: lo que entró está guardado y el único evento perdido es el que se
+      comió el 401, del que ya avisa el mensaje del login. Sostener el número
+      obligaba a pasarlo por `CaidaDeSesion` hasta una pantalla que se está
+      desmontando, para decir algo que no cambia ninguna decisión de quien lo lee.
+      **Lo que queda a medias a propósito:** la corrida desde el rodeo recorre el
+      rodeo **entero** y no se lleva los filtros de arriba. Funciona —adentro se
+      busca por caravana, que es como se encuentra a la que está en la manga— pero
+      el contador dice "quedan 197" en vez de "quedan 30". Se cierra en la Parte 4,
+      cuando esos tres desplegables sean chips y haya un filtro que valga la pena
+      hacer viajar por la ruta.
+      233 tests (los 217 de antes **sin tocar uno solo**, 14 de la corrida y 2 del
+      ruteo), typecheck limpio y build en verde. El de la cola es el que más cuesta
+      y el que más paga: envuelve el `fetch` para demorar los POST y medir el pico
+      en vuelo, porque con un mock instantáneo serie y paralelo se ven igual.
+      **Sigue pendiente lo visual**, como en la Parte 1: la extensión de Chrome no
+      está conectada en esta máquina.
 - [ ] Parte 3 — El camino corto, y volver a donde estabas
 - [ ] Parte 4 — El tablero que prioriza y el rodeo que se filtra a un toque
 - [ ] Parte 5 — El escritorio, y la verificación contra la demo de verdad
