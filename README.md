@@ -12,14 +12,21 @@ contraseña. Los usuarios los crea un administrador; acá no hay registro ni
 "olvidé mi contraseña", porque del otro lado no hay correo que mandar y quien la
 pierde se la resetea el admin.
 
-Lo único de administración que vive en esta UI es **cambiar la contraseña
-propia**, en "Mi cuenta". Crear usuarios y repartir permisos se hace con `curl`
-contra la API: es trabajo de admin, se hace una vez cada tanto, y ponerlo en la
-pantalla del corral sería alcance que nadie pidió.
-
 Qué tambo se ve lo dice `GET /establecimientos`, que devuelve **los míos**: los
 que tengo con permiso, y todos si soy administrador. Con uno solo se entra
 derecho; con varios hay una lista, y el último elegido queda guardado.
+
+## Y el administrador tiene su panel
+
+**El admin no ve esto.** Su inicio es `#/admin`: la lista de tambos, y adentro de
+cada uno la gente que entra y con qué permiso. Desde ahí crea tambos, crea
+personas, reparte y saca permisos — y entra al tambo a usarlo como cualquiera de
+su gente, porque puede todo en todos.
+
+Hasta la tanda del panel esto se hacía con `curl` y este README decía por qué:
+*"administrar es trabajo que se hace una vez cada tanto y no le corresponde a la
+pantalla del corral"*. Era cierto y se revisó; el porqué del cambio, y las cuatro
+decisiones que salieron de él, están más abajo en **El panel del admin**.
 
 ## Correrla contra la demo
 
@@ -97,7 +104,7 @@ contrato: el test sigue en verde y miente.
 src/
   api/               El contrato de §9 escrito una vez: tipos y cliente HTTP
   componentes/       Lo que se repite: tarjetas, avisos, cifras, formularios, la curva
-  pantallas/         Una por ruta
+  pantallas/         Una por ruta (Panel y Personas son las del admin)
   sesion.ts          El token: dónde vive y el aviso de que se cayó
   usuario.tsx        Quién está usando la app, y cómo se sale
   establecimiento.tsx El tambo activo y si puedo cargar en él
@@ -108,8 +115,11 @@ src/
   estilos.css        El sistema de diseño entero
 ```
 
-Nueve pantallas: login, conexión (el selector de tambo), tablero, rodeo, ficha,
-carga de evento, alta, tanque y mi cuenta.
+Doce pantallas, en **dos árboles**. Las del tambo son nueve: login, conexión (el
+selector), tablero, rodeo, ficha, carga de evento, alta, tanque y mi cuenta. Las
+del panel son tres —la lista de tambos, un tambo con su gente, y las personas— y
+se dibujan **afuera** del establecimiento activo, porque no son de ningún tambo.
+"Mi cuenta" es la única que vive en los dos: la contraseña es de la persona.
 
 Las cuatro librerías que **no** están —componentes, Tailwind, router y charts— y
 por qué, en la decisión 51. La revisión de esa decisión cuando el CSS creció está
@@ -266,6 +276,121 @@ un formulario entero cuyo único final posible es un 403 al enviar.
 esconde nada creyendo que eso lo defiende ni se duplica la regla en ninguna parte
 más que en ese único lugar.
 
+## El panel del admin
+
+### Administrar sí le corresponde a esta UI, y antes se dijo que no
+
+La decisión anterior está unos párrafos más arriba en el historial de este mismo
+archivo: crear usuarios y repartir permisos se hacía con `curl` porque *"es
+trabajo que se hace una vez cada tanto y no le corresponde a la pantalla del
+corral"*. El argumento era bueno para lo que miraba —el tambero con el celular
+embarrado— y equivocado para lo que no: **el admin también es una persona con un
+teléfono**, y lo que le quedaba era escribir uuids en una terminal.
+
+Lo que la volteó fue el despliegue. `DESPLIEGUE.md` describe el primer arranque
+real —una base vacía, un solo usuario— y sus pasos 2, 3 y 4 eran tres `curl` con
+uuids copiados a mano de la salida del anterior. O sea que la única forma de
+dejar el sistema usable era la que la UI había decidido no tener. Un producto que
+no se puede poner en marcha desde su propia interfaz no tiene una decisión de
+alcance: tiene un agujero.
+
+Lo que **no** cambió: la pantalla del corral sigue sin saber nada de esto. El
+panel es otro árbol, el tambero no lo ve, y ninguna pantalla de tambo tiene un
+botón de administración.
+
+### El panel se dibuja afuera del establecimiento activo
+
+Las rutas del tambo (`#/rodeo`, `#/animales/…`) viven adentro de
+`ProveedorEstablecimiento`, que les da el nombre, la `Config` y el permiso. Las
+del panel **no tienen tambo**: la lista no pertenece a ninguno, y la gente de uno
+se mira sin estar conectado a él. Por eso `App` parte el árbol una sola vez, en
+`usuario.es_admin`, y no cuelga el panel de una pantalla del tambo.
+
+El costo es que hay dos lugares donde se lee la ruta, y la trampa apareció en el
+primer test que la buscó: `#/admin` tocado por alguien que **no** es admin
+llegaba al `switch` del árbol del tambo, no matcheaba ninguna rama y dejaba la
+pantalla en blanco. Cae en el inicio, como cualquier hash que no se entienda.
+
+### El panel es el inicio del admin, y eso arregla un defecto
+
+El selector entra derecho cuando hay **un solo** tambo: es el 90% de los tamberos
+y una lista de un elemento es una pantalla de peaje. Para el admin eso habría
+sido fatal —una base recién instalada tiene exactamente un tambo, así que habría
+entrado derecho a él y no habría visto el panel nunca—, y no se arregla con un
+`if` adentro del selector: se arregla no pasando por ahí. El atajo es del que
+tiene un tambo; el admin, por definición, es el que los ve todos.
+
+De la misma regla salen dos consecuencias que conviene saber:
+
+- **el hash no abre un tambo por su cuenta.** Un enlace profundo a la ficha de un
+  animal deja al admin en el panel hasta que elija en cuál de los tambos mirarla.
+  Es lo mismo que ya le pasa al tambero que todavía no eligió: el selector le
+  tapa cualquier hash;
+- **el tambo abierto no se guarda** en `localStorage`, a diferencia del que elige
+  el tambero. Ahí es una preferencia que la próxima visita lee; acá nadie la
+  leería, y una preferencia que se escribe y no se lee es un valor que envejece
+  hasta que alguien le cree. El precio es que recargar la página con un tambo
+  abierto devuelve al panel, que es exactamente lo que la regla promete.
+
+### Los administradores entran a todos los tambos sin figurar en ninguno
+
+Es la trampa de la pantalla "quién entra a este tambo". La lista sale de
+`GET /usuarios` filtrada por `permisos`, y un admin viene con `permisos: []` **a
+propósito** (no necesita que le den permiso sobre ninguno), así que ese filtro no
+lo devuelve nunca. Una pantalla que conteste quién entra y omita a las personas
+que entran a todas partes está mintiendo, y es la clase de mentira que se
+descubre el día que alguien pregunta quién tocó qué.
+
+Van en su propia tarjeta y no mezclados con el reparto, porque acá no hay nada
+que repartir: su acceso no sale de este tambo y no se les puede sacar desde esta
+pantalla. Lo mismo vale para el otro lado: los admins no aparecen entre los
+candidatos a "dar acceso", porque darles permiso no cambiaría nada.
+
+La otra mitad es el **desactivado**, que es el caso simétrico: figura en el
+reparto con su permiso intacto y **no entra**. Se muestra con esa palabra —no se
+esconde, que dejaría al admin sin poder volver a entrarlo, y no se muestra como a
+los demás, que diría que entra alguien que no entra—.
+
+### Entrar al tambo es entrar como uno mismo
+
+El admin entra y usa la app entera: carga eventos, da de alta, anula y carga el
+tanque, porque un admin puede todo. **No hay un modo "ver como" ni suplantación
+de nadie**: `puedeCargarEn()` ya devuelve `true` para él y no se toca. Una UI que
+le mienta al admin sobre lo que puede hacer es peor que no tener panel.
+
+Entrar reusa la misma puerta que el tambero (`Conectado`), que es la que verifica
+contra la API, arma la `Config`, calcula el permiso y maneja el rechazo. Lo único
+que los distingue es cómo se sale, y el rótulo viaja al lado de la función: un
+botón que diga "Cambiar de tambo" y lleve al panel es peor que ninguno.
+
+Un detalle que se ve solo desde este lado: para el admin, un tambo que no existe
+contesta **404 y no 403**. El 403 parejo está para no decirle a un extraño qué
+tambos hay, y él no es un extraño.
+
+### Lo que el panel no hace, y por qué
+
+- **No borra a nadie.** No existe `DELETE /usuarios`: el log firma con
+  `usuario_id` y una fila borrada rompería la historia. Lo que hay es desactivar,
+  que además es lo que saca a alguien **ahora**.
+- **Resetear la contraseña no cierra las sesiones abiertas**, y eso está escrito
+  al lado del botón. Es lo que todo el mundo asume al revés, y asumirlo al revés
+  significa creer que echaste a alguien que sigue adentro con su token vivo.
+- **La contraseña inicial se muestra una vez**, después de crear a la persona.
+  Del otro lado no hay correo que mandar: si la pantalla no la dice, el admin la
+  escribió en un formulario y ya no la sabe nadie.
+- **No ofrece desactivarse ni sacarse el rol a uno mismo.** La API lo rechaza con
+  422 (`AUTOBLOQUEO`), y un botón cuyo único final posible es un rechazo es una
+  promesa que la pantalla no puede cumplir. La salida —nombrar a otro y que ese
+  otro te desactive— se dice con palabras. `ULTIMO_ADMIN` sí se muestra cuando
+  llega: esa cuenta la lleva el servidor y la UI no debería llevarla.
+- **No edita el nombre ni la `Config` del tambo.** No existe
+  `PATCH /establecimientos/{est}`, así que la `Config` se fija al crear y no la
+  cambia nadie, ni por acá ni por `curl`. Ofrecer el formulario sería prometer lo
+  que la API no puede cumplir.
+- **No pagina ni busca.** `GET /usuarios` devuelve a todos, por nombre y sin
+  paginar, y el sistema tiene un puñado de personas. Cuando sean cientos, se
+  revisa.
+
 ## Cómo se despliega
 
 Como **Static Site de Render**, con `render.yaml` versionado acá al lado. Es
@@ -313,20 +438,22 @@ arregla nada y esconde los 404 de verdad. No se agrega.
 
 En una base recién instalada **no existe ningún establecimiento** y el único
 usuario es el admin. Cuando entra, `GET /establecimientos` le devuelve la lista
-vacía — y hasta acá el selector le decía *"Todavía no te dieron acceso a ningún
-tambo. Pedíselo a un administrador"*. **Él es el administrador.** Es literalmente
-la primera pantalla que alguien ve en producción y le daba una instrucción
-imposible.
+vacía — y en su momento el selector le decía *"Todavía no te dieron acceso a
+ningún tambo. Pedíselo a un administrador"*. **Él es el administrador.** Es
+literalmente la primera pantalla que alguien ve en producción y le daba una
+instrucción imposible.
 
 Nunca apareció porque la demo siembra el tambo antes de que nadie entre y los
-tests parten de una sesión con establecimientos. Ahora el vacío son **dos**
-casos: con `usuario.es_admin` en la mano, al admin se le dice lo que **sí** puede
-hacer —crear el tambo, las personas y sus permisos, en ese orden— y que eso va
-contra la API porque esta UI no tiene pantallas de administración.
+tests parten de una sesión con establecimientos. La primera respuesta fue
+imprimirle los tres `curl` que sí podía correr; **la de ahora es que el admin no
+llega a esa pantalla**: tiene su panel, y ahí el vacío es el formulario que crea
+el primer tambo. `Conexion.tsx` volvió a ser lo que era, la pantalla del tambero,
+con un solo caso de vacío en vez de dos.
 
-Que no las tenga **es una decisión, no un olvido**: administrar es trabajo que se
-hace una vez cada tanto y no le corresponde a la pantalla del corral. El mensaje
-lo dice con esas palabras, para que no se lea como una funcionalidad que falta.
+De paso se cerró el otro agujero del mismo arranque: la única pantalla que
+cambiaba la contraseña propia colgaba de un tambo, así que en una base vacía el
+admin no tenía dónde cambiar la que el despliegue le manda a cambiar antes que
+nada. "Mi cuenta" ahora vive en los dos árboles.
 
 ## Dónde está el resto
 

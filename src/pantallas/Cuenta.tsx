@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Mi cuenta: quién soy y cambiar mi contraseña.
 //
-// Es lo único de administración que vive en la UI, y está acá porque es del
-// tambero y no del admin: crear usuarios y repartir permisos se hace una vez
-// cada tanto, del otro lado, y no le corresponde a la pantalla del corral.
+// Es la única pantalla que vive en los **dos** árboles —el del tambo y el del
+// panel—, y por eso `volverA` es un parámetro: la contraseña es de la persona y
+// no de ningún establecimiento. Administrar a los demás es otra cosa y está en
+// `Panel.tsx`; lo de acá lo hace cada uno con lo suyo.
 //
 // El cambio **exige la contraseña actual** aunque ya haya sesión abierta: el
 // token puede estar en un celular que quedó sobre la mesa del tambo. Errarle es
