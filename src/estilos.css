@@ -1160,3 +1160,74 @@ form > .boton {
   color: var(--tinta-suave);
   padding: var(--espacio-2) 0;
 }
+
+/* ── El puntero, que hasta acá no tenía ninguna señal ────────────────────────
+   Desde que el rodeo, la ficha, el tanque y el panel se miran sentado, esta app
+   dejó de ser solo del corral — y con mouse una `.fila` no daba **ninguna**
+   pista de que se podía tocar hasta que se la tocaba, porque `:active` solo
+   dispara apretando. Era la única señal que había.
+
+   Va entero detrás de `@media (hover: hover)` y eso no es prolijidad: en un
+   celular, un `:hover` sin ese guardia queda **pegado** después de un toque —el
+   browser lo deja puesto hasta que se toque otra cosa— y la fila que se acaba de
+   dejar se ve resaltada como si estuviera elegida. Se descartó resolverlo
+   sacando el fondo en `:active`: el toque también tiene que dar su señal.
+
+   Los cinco son los que llevan a algún lado o eligen algo. Lo que no se toca no
+   lleva estado de puntero, para que "esto resalta" siga queriendo decir "esto
+   hace algo". */
+
+@media (hover: hover) {
+  .fila:hover,
+  .atajo:hover,
+  .barra a:hover {
+    background: var(--verde-tenue);
+  }
+
+  /* El chip mueve el borde y no el fondo: el fondo tenue ya significa "puesto"
+     (`aria-pressed`), y pasar por arriba de uno suelto no puede parecer que lo
+     dejó puesto. */
+  .chip:hover {
+    border-color: var(--verde-borde);
+  }
+
+  .boton:hover:not(:disabled) {
+    background: var(--verde-claro);
+    border-color: var(--verde-claro);
+    color: var(--sobre-verde);
+  }
+
+  /* El de peligro se queda rojo. Sin esta regla la de arriba —que gana por
+     especificidad— lo pondría verde justo cuando el color es lo único que dice
+     que lo que va a pasar es distinto. */
+  .boton.peligro:hover:not(:disabled) {
+    opacity: 0.88;
+    background: var(--rojo);
+    border-color: var(--rojo);
+  }
+}
+
+/* ── El foco, en el sistema y no en el default del browser ───────────────────
+   Hasta acá la única regla de foco del archivo era la del segmentado, y está
+   porque ahí el input que recibe el foco es el que está escondido. Todo el resto
+   se quedaba con el anillo por defecto del navegador: existe —nunca se escribió
+   un `outline: none` y no se va a escribir—, pero es distinto en cada uno, no
+   sabe nada de estas variables y de noche puede quedar en un gris que no se ve
+   contra el fondo oscuro.
+
+   Va con `:where()` para que la regla valga **cero** de especificidad: así
+   cualquier selector de este archivo la puede corregir sin pelearse con ella, y
+   la excepción del encabezado de abajo gana con un solo descendiente. */
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--verde);
+  outline-offset: 2px;
+}
+
+/* Adentro del encabezado el verde va sobre el verde y el anillo desaparece. El
+   offset se mete para adentro porque el encabezado llega al borde de la pantalla
+   y con la muesca del celular un anillo por afuera se corta. */
+.encabezado :where(a, button):focus-visible {
+  outline-color: var(--sobre-verde);
+  outline-offset: -3px;
+}
