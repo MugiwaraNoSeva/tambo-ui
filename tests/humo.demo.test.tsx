@@ -87,8 +87,15 @@ describe('la demo, con los tres usuarios', () => {
 
     expect(await screen.findByText('Preñez del rodeo', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /dar de alta/i })).toBeInTheDocument();
+    // Los tres lugares abajo y "Mi cuenta" arriba: la barra vive en los lugares.
+    expect(screen.getByRole('navigation', { name: 'Secciones' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mi cuenta' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
+
+    // Y salir se hace una vez por turno, así que vive adentro de "Mi cuenta".
+    await userEvent.click(screen.getByRole('link', { name: 'Mi cuenta' }));
+    expect(
+      await screen.findByRole('button', { name: 'Salir' }, { timeout: 10000 }),
+    ).toBeInTheDocument();
   }, 30000);
 
   it('el de lectura entra, ve el tambo y ninguna puerta de carga', async () => {
@@ -104,8 +111,12 @@ describe('la demo, con los tres usuarios', () => {
 
     expect(await screen.findByText('Preñez del rodeo', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /dar de alta/i })).toBeInTheDocument();
-    // Y la salida lo devuelve al panel, que es de donde vino.
-    expect(screen.getByRole('button', { name: 'Volver al panel' })).toBeInTheDocument();
+    // Y la salida lo devuelve al panel, que es de donde vino. Vive donde viven
+    // todas las salidas desde que hay barra: adentro de "Mi cuenta".
+    await userEvent.click(screen.getByRole('link', { name: 'Mi cuenta' }));
+    expect(
+      await screen.findByRole('button', { name: 'Volver al panel' }, { timeout: 10000 }),
+    ).toBeInTheDocument();
   }, 30000);
 
   it('la contraseña equivocada da el mensaje único de la API', async () => {
@@ -160,13 +171,30 @@ describe('la demo, con los tres usuarios', () => {
     await userEvent.click(
       await screen.findByRole('link', { name: /cargar un evento/i }, { timeout: 10000 }),
     );
-    await screen.findByLabelText('Tipo de evento', {}, { timeout: 10000 });
-    await userEvent.click(screen.getByRole('button', { name: 'Cargar el evento' }));
+    // El menú de los nueve tipos, y de ahí el formulario del celo: dos toques
+    // donde antes había un desplegable de tres.
+    await userEvent.click(
+      await screen.findByRole('link', { name: /^Celo/ }, { timeout: 10000 }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Cargar el celo' }, { timeout: 10000 }),
+    );
 
     // Vuelve a la ficha con el evento en el historial: lo guardó, y lo firmó con
     // el token —el cuerpo no lleva `usuario`, que la API rechazaría con 400—.
     expect(await screen.findByText(/El historial/, {}, { timeout: 10000 })).toBeInTheDocument();
-    expect(await screen.findByText(/Celo/, {}, { timeout: 10000 })).toBeInTheDocument();
+    // Adentro del historial y no en cualquier lado: arriba de la línea de tiempo
+    // hay un chip que también dice "Celos y tactos", y buscar por texto suelto
+    // encontraría ese en vez del evento que se acaba de cargar.
+    await waitFor(
+      () =>
+        expect(
+          [...document.querySelectorAll('.historial > li')].some((e) =>
+            e.textContent?.includes('Celo'),
+          ),
+        ).toBe(true),
+      { timeout: 10000 },
+    );
     expect(await screen.findByRole('button', { name: /anular este evento/i })).toBeInTheDocument();
   }, 30000);
 
@@ -464,7 +492,7 @@ describe('la demo, con los tres usuarios', () => {
 
     // "Recargar" es montar la app de cero con lo que quedó en `localStorage`.
     // Es el camino del paso 2: hay token y se pregunta `/auth/yo`.
-    screen.getByRole('button', { name: 'Salir' });
+    screen.getByRole('navigation', { name: 'Secciones' });
     document.body.innerHTML = '';
     render(<App />);
 

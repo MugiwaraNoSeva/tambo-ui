@@ -133,9 +133,10 @@ src/
   estilos.css        El sistema de diseño entero
 ```
 
-Quince pantallas, en **dos árboles**. Las del tambo son diez: login, conexión
-(el selector), tablero, rodeo, ficha, carga de evento, **corrida**, alta, tanque
-y mi cuenta.
+Dieciséis pantallas, en **dos árboles**. Las del tambo son once: login, conexión
+(el selector), tablero, rodeo, ficha, **partos y lactancias**, carga de evento
+—que por dentro son el menú de los nueve tipos y el formulario de uno—,
+**corrida**, alta, tanque y mi cuenta.
 Las del panel son cinco —los tambos, el menú de uno, su gente, sus parámetros, y
 todas las personas— y se dibujan **afuera** del establecimiento activo, porque no
 son de ningún tambo. "Mi cuenta" es la única que vive en los dos: la contraseña
@@ -693,6 +694,10 @@ recién al abrirlas, y montarlo es lo que dispara su `usarPedido` — no hay una
 bandera que alguien tenga que acordarse de mirar. La ficha quedó en **tres**
 lecturas.
 
+(La lactancia fue un paso más allá en la tanda de la navegación: se mudó entera a
+su propia pantalla, así que la ficha no la pide ni al abrir un plegable. La cuenta
+de tres lecturas no cambió; lo que cambió es cuántas de esas seis cifras se ven.)
+
 El historial **se queda abierto**, y no es una excepción arbitraria: es lo
 segundo que se mira siempre —qué pasó recién— y es el único lugar desde donde se
 anula. Con él se queda el historial de reglas, que es lo que hace que el
@@ -704,7 +709,7 @@ establecimiento**, no esconderlo detrás de un clic. Queda anotado.
 Una consecuencia que se ve en los tests: **anular ya no refresca cuatro
 tarjetas, refresca dos.** Los números y la lactancia también cambian con una
 anulación, pero refrescar lo que nadie abrió es pagar dos viajes para tirar el
-resultado; cuando alguien las abra van a traer lo de después de anular.
+resultado; cuando alguien los abra van a traer lo de después de anular.
 
 ### La carga ya no pide el animal para escribir su nombre
 
@@ -772,6 +777,207 @@ almanaque.
 El hoy del servidor **se fija al abrir el formulario** y no se relee en cada
 dibujo: una carga abierta antes de medianoche cambiaría de día sola.
 
+## Los lugares y las tareas
+
+El camino corto de una vaca arregló **una** operación. Esto arregla cómo se anda
+entre todas: hasta acá la navegación era hub-and-spoke pura —todo colgaba del
+tablero y se volvía con la flecha de arriba a la izquierda, que es la peor
+esquina del teléfono para una mano— y para ir del rodeo al tanque había que
+pasar por el tablero.
+
+### La barra vive en los lugares, no en las tareas
+
+Es la regla que ordena todo lo demás, y se decide **una sola vez**, en el
+armazón:
+
+- **llevan barra y no llevan flecha:** el tablero, el rodeo y el tanque;
+- **llevan flecha y no llevan barra:** la ficha, los partos, la carga, el alta,
+  la corrida, mi cuenta, y el panel del admin entero.
+
+Con eso nunca hay que decidir qué significa "atrás" en cada pantalla: en un lugar
+se cambia de sección y en una tarea se sale de la tarea. Y un pulgar sucio no
+puede abandonar una corrida de veinticinco tactos de un toque mal dado, que es el
+defecto concreto que una barra puesta en todas partes habría traído.
+
+**El panel del admin no la lleva**, y tampoco es un olvido: ahí la jerarquía es
+el punto y está argumentada más arriba por frecuencia —entrar es de todos los
+días, repartir permisos de vez en cuando, archivar un tambo una vez en la vida—.
+Una barra plana pondría las tres al mismo nivel.
+
+Dos cosas más que no hace, y las dos por el mismo motivo:
+
+- **no tiene íconos.** No hay pictograma que diga "tanque" sin que haya que
+  aprenderlo, no hay una dependencia de la que sacar un set (decisión 51), y a un
+  brazo de distancia con la pantalla sucia una palabra se lee mejor que un dibujo
+  de 20 px con su rótulo de 11 abajo. Cada pestaña lleva su palabra y nada más;
+- **no se acuerda de en qué pestaña estabas.** Eso sería la pila de navegación
+  que este README ya descartó dos veces. Cada pestaña es una dirección y se entra
+  a ella como a cualquier otra.
+
+Es `position: sticky` y no `fixed`, que es la decisión que se paga sola: así
+queda adentro del `.app` y respeta sus dos anchos —la de carga y la ancha— sin
+que haya que compensarla con un `padding-bottom` en `.contenido` que alguien
+tendría que mantener igual al alto de la barra.
+
+Lo activo se dice con **tres señales y ninguna es solo el color** —la barra de
+arriba, el peso y la tinta— más `aria-current="page"`, que es la que sirve para
+quien no ve la pantalla.
+
+### Y la salida se fue arriba, que es el criterio inverso
+
+Al pie del tablero vivían tres botones: "Cambiar de tambo" (o "Volver al panel"),
+"Mi cuenta" y "Salir". Pesaban exactamente lo mismo que "Dar de alta", que es una
+acción de todos los días.
+
+El criterio nuevo es **el inverso del de la barra, y a propósito**: lo que se
+hace todo el día va abajo, en la zona del pulgar; lo que se hace **una vez por
+turno** va arriba y lejos, donde el dedo no llega solo. "Mi cuenta" queda a la
+derecha del encabezado en las tres pantallas de lugar, y las otras dos se mudan
+adentro de esa pantalla, donde además se pueden decir juntas —que es lo que hay
+que entender: cambiar de tambo no cierra la sesión y salir sí—.
+
+**Que salir sea incómodo es la idea.** La `salida` que viaja desde `App` sigue
+siendo la misma abstracción con su rótulo y su función: cambió dónde se
+renderiza, no cómo funciona. Lo único que se movió de archivo es su tipo, que
+ahora vive en `establecimiento.tsx` porque lo leen dos.
+
+Del cuerpo del tablero se fueron también "Ver el rodeo entero" y "Ver el tanque":
+ahora están en la barra, y un segundo camino al mismo lado abajo de tres tarjetas
+es peor que ninguno. Queda "Dar de alta" sola. Lo que **no** se movió es "Cargar
+el tanque de hoy": no es navegación, es la puerta de carga, y sigue estando donde
+se descubre que falta.
+
+### Cambiar de pantalla vuelve arriba, y ahora se anuncia
+
+`ir()` escribe el hash y nada más. Como el fragmento no matchea ningún `id`, el
+browser dejaba el scroll donde estaba: bajabas cuarenta filas del rodeo, tocabas
+una vaca, y la ficha aparecía scrolleada por la mitad. Y el foco no se movía, así
+que para un lector de pantalla el cambio pasaba en silencio.
+
+El armazón sube y mueve el foco al `<h1>`. Cuelga del **camino** y no del hash
+entero: un `?cat=SECA` que cambia es la misma pantalla con otro dato, y saltar al
+techo ahí sería castigar cada toque de un filtro.
+
+Es *ir arriba* y no *reponer* el scroll anterior, que sería otra vez la pila.
+
+### El reparto de dietas es una puerta, y el hash es su semilla
+
+El reparto contaba seis categorías y no llevaba a ninguna. Todo lo demás ya
+estaba: la fila trae su `categoria`, `filtrar()` la compara, y `aParametros` /
+`deParametros` la serializan y la validan. Faltaba la entrada, porque el rodeo
+arrancaba de `SIN_FILTROS` en vez del hash.
+
+**El hash es la semilla, no la fuente de verdad permanente.** El rodeo lo lee al
+montarse y de ahí en más manda su estado local. Si cada chip reescribiera la
+dirección, cada toque empujaría una entrada al historial del browser, y en el
+celular "atrás" es un gesto del sistema: tocar cinco chips y querer salir serían
+cinco gestos. El costo, dicho en voz alta, es que la barra de direcciones deja de
+decir la verdad apenas se toca un chip.
+
+Un `?cat=BASURA` no rompe: `deParametros` descarta lo que no reconoce y el rodeo
+sale **sin filtrar**, que se ve, en vez de salir vacío, que no se ve. Es la misma
+regla que ya protegía a la corrida.
+
+Los renglones del reparto pasaron de 36 px a 44 y estrenaron la flecha `›`: seis
+renglones con un número a la derecha y sin flecha se leen como una tabla, y una
+tabla no se toca.
+
+### La carga suelta: un menú de nueve y un formulario de uno
+
+Este README anotaba el desplegable del tipo de evento como el único toque
+pendiente de la remodelación, y concluía que la respuesta era la corrida. **Lo
+sigue siendo para el caso masivo**: veinticinco tactos se cargan ahí, eligiendo
+el tipo una vez. Esto es lo otro, la carga suelta de una vaca.
+
+`#/animales/:id/cargar` pasó a ser un menú de los nueve tipos, agrupado por
+**Reproducción**, **Producción** y **Salida**, y adentro de reproducción en el
+orden del ciclo —celo, servicio, diagnóstico, parto— y no en el alfabético: así
+se lee como el recorrido de una vaca. Cada entrada dice qué es en un renglón,
+porque sin él "Tacto positivo" y "Tacto negativo" son dos puertas iguales y hay
+que abrirlas para saber cuál es cuál. `#/animales/:id/cargar/:tipo` es el
+formulario de ese tipo, con solo sus campos.
+
+Son **dos toques** hasta el formulario contra los tres del desplegable —abrir,
+elegir, confirmar—, y conviene anotar lo que se descubrió armando el prototipo:
+**cinco de los nueve tipos no llevan payload** —celo, tacto positivo, tacto
+negativo, aborto y secado—, así que más de la mitad de las veces el menú lleva a
+una pantalla con un campo. La ganancia no es el formulario propio: es no abrir un
+desplegable de nueve. Los cinco comparten un componente, porque cinco pantallas
+idénticas con el título cambiado serían cinco lugares donde arreglar lo mismo.
+
+Dos decisiones chicas que se ven de cerca:
+
+- **el segmento del tipo es el `TipoEvento` tal cual lo escribe la API**
+  (`tacto_positivo`, no `tacto-positivo`). Un segundo vocabulario para las mismas
+  nueve cosas es una tabla de traducción que se puede despegar del contrato, y
+  esta dirección no se lee en voz alta ni se tipea a mano;
+- **un `:tipo` que no se reconoce cae en el menú**, con el mismo criterio con que
+  `deParametros` descarta un filtro desconocido. Un cartel de "eso no existe"
+  para una dirección mal tipeada no le sirve a nadie, y de acá se sale eligiendo.
+  `ruteo.ts` lo entrega crudo: ahí no se sabe qué es un `TipoEvento` y no tiene
+  por qué saberse.
+
+La flecha del formulario vuelve **al menú** —el paso que se deshace es "elegí mal
+el tipo"— y el origen sigue viajando adentro de ese enlace, así que al terminar
+de cargar se vuelve a donde se vino de verdad.
+
+### Partos y lactancias, donde entra lo que ya llegaba
+
+`LactanciaConNumeros` era un tipo exportado que nadie consumía entero.
+`api.lactancias` traía por lactancia las crías, el pico, el promedio de
+controles, el RCS máximo, la acumulada y la estandarizada a 305 días; la ficha
+dibujaba la curva de **una sola** y un renglón con la acumulada de cada anterior.
+El resto llegaba y se tiraba.
+
+Ahora es una pantalla con una tarjeta por lactancia. Es pantalla y no tarjeta más
+larga porque son seis cifras y una curva **por lactancia**, así que una vaca de
+cinco partos no entra en ninguna tarjeta; y porque esto se mira sentado, así que
+lleva `ancha`.
+
+El pedido sigue siendo **diferido** igual que antes: lo hace la pantalla al
+montarse en vez del plegable al abrirse. La ficha sigue pagando tres lecturas y
+ahora no pide `/lactancias` nunca — la ruta salió a propósito del mock compartido
+de la suite, así que si alguien la vuelve a pedir desde ahí el test falla en vez
+de contestar.
+
+En su lugar la ficha tiene un renglón que dice **cuántas hay** del otro lado, y
+el número sale de `ultimo_numero_lactancia`, que ya venía en la proyección: sin
+él, "Partos y lactancias" no distingue una vaca con tres de una con ninguna y hay
+que entrar para enterarse.
+
+La caravana viaja en la dirección como en la carga, con una diferencia: si no
+viene, esta pantalla **no la va a buscar**. Allá el encabezado dice a quién se le
+está por cargar algo y equivocarse sería caro; acá es el título de una lectura y
+no vale un viaje.
+
+### El historial se filtra, y dice cuándo se cargó cada cosa
+
+Dos cosas chicas sobre la línea de tiempo que es lo segundo que se mira siempre.
+
+**Cuatro chips y no once tipos.** Lo que se le pregunta a un historial es "cuándo
+parió" o "cuántas veces la inseminaron", y para eso el celo y los dos tactos son
+una sola pregunta: cómo viene el ciclo. Once chips serían tres renglones de
+pantalla arriba de lo que se vino a leer. Los tipos que no están en ningún grupo
+—el alta, el aborto, el secado, la baja, la anulación— no desaparecen: son los
+que se ven cuando no hay ningún chip puesto, que es como abre la ficha. Acá sí es
+el componente `Chips` y no el marcado de los atajos de fecha, porque son filtros
+que se sueltan. El chip **filtra y nada más**: no reordena, no agrupa y no
+pagina.
+
+El filtrado es en el cliente sobre el log que ya está cargado, así que no cuesta
+un pedido; la cuenta del título es la de lo que se está mostrando —un "(12)"
+arriba de tres renglones se lee como que faltan nueve—; y qué se puede anular se
+sigue calculando sobre **todos** los eventos, que no puede depender de qué chip
+está puesto.
+
+**Y `fecha_registro` dejó de estar de adorno.** Llegaba en cada evento y ninguna
+pantalla la miraba: la ficha contaba cuándo *pasó* y nunca cuándo se *anotó*. El
+atajo "Ayer" existe justamente porque se anotan tarde, así que el dato ya estaba
+pago. Aparece **solo cuando las dos fechas difieren**, con la misma forma que la
+marca de "otras reglas" —habla cuando hay algo que decir y se calla en los demás
+casos— y contesta una pregunta concreta: por qué esta vaca no estaba en la lista
+de esa mañana.
+
 ## El escritorio, que es el caso de la mitad de las pantallas
 
 "Celular primero" sigue valiendo y no se movió: targets de 48 px, tipografía de
@@ -813,14 +1019,21 @@ la misma tabla, sobre la operación más frecuente del sistema:
 
 El camino de una vaca sola baja por tres cosas: la ficha dejó de traer cinco
 lecturas, la carga dejó de pedir el animal, y el atajo de la fila saltea la ficha
-entera. Los toques bajan menos que los pedidos, y el que queda es el
+entera. Los toques bajan menos que los pedidos, y el que quedaba era el
 **desplegable del tipo de evento** de la carga suelta: son nueve tipos y no
-entran en un segmentado ni en una fila de chips. Ahí la respuesta no es un
-control más lindo sino la corrida, que es donde ese desplegable se toca **una vez
-para veinticinco animales** en vez de una vez por animal.
+entran en un segmentado ni en una fila de chips.
 
-De ahí sale la segunda fila, que es la que justifica la tanda entera: **de 16
-pedidos por vaca a 1,2, y de 6 toques a 1.**
+De ahí salía la segunda fila, que es la que justifica la remodelación entera:
+**de 16 pedidos por vaca a 1,2, y de 6 toques a 1.**
+
+Ese desplegable ya no está: la tanda de la navegación lo partió en un menú y un
+formulario por tipo, y son **dos toques donde había tres**. Es una mejora chica y
+conviene decirlo con ese tamaño — la que de verdad cambió el número de la segunda
+fila fue la corrida, que es donde el tipo se elige una vez para veinticinco
+animales en vez de una vez por animal. Lo que la tanda nueva movió no fue el
+costo de una carga sino el de **andar entre pantallas**: ir del rodeo al tanque
+costaba dos toques y un scroll por el tablero, y ahora cuesta uno desde cualquier
+lado.
 
 ## El sistema de diseño
 
@@ -899,21 +1112,40 @@ y cada aviso sobre su fondo tenue— van de **5,9:1 a 14,8:1**, todos por encima
 del 4,5:1 que pide AA para texto normal. El más ajustado es el blanco sobre el
 verde del botón, que es el mismo par que ya existía en claro.
 
-### Y Tailwind sigue afuera, por segunda vez
+### Y Tailwind sigue afuera, por cuarta vez — con el disparador cumplido
 
-La decisión 51 lo descartó y la 61 lo revisó a las 619 líneas. Esta es la tercera
-mirada, con el archivo en 933 y catorce pantallas, y la respuesta no cambió:
-**cero dependencias de runtime es la bandera del proyecto** —es lo mismo que
-sostiene el uuid propio, el ruteo en treinta líneas y `scrypt` a mano del otro
-lado— y lo que Tailwind resuelve, que es la consistencia entre decenas de
-pantallas mantenidas por un equipo, acá lo resuelven tres escalas de variables
-que entran en una pantalla.
+La decisión 51 lo descartó, la 61 lo revisó a las 619 líneas y la remodelación a
+las 933. En esa tercera mirada el disparador dejó de decir "cuando crezca" y pasó
+a tener un número: **se vuelve a mirar si `estilos.css` pasa de 1.200 líneas, o
+si aparece la tercera pantalla que necesita un componente que no está en
+`componentes/`.**
 
-Lo que sí cambió es el disparador, que antes decía "cuando crezca" y ahora tiene
-un número: **se vuelve a mirar si `estilos.css` pasa de 1.200 líneas, o si
-aparece la tercera pantalla que necesita un componente que no está en
-`componentes/`.** Un disparador que se cumple y nadie mira vuelve inútiles a
-todos los demás, que es exactamente lo que dijo la 61.
+**El disparador se cumplió**: la tanda de la navegación dejó el archivo en 1.367.
+Un disparador que se cumple y nadie mira vuelve inútiles a todos los demás, así
+que se miró, y esto es lo que se encontró:
+
+- de esas 1.367 líneas, **899 son código y el resto son comentarios en prosa** —
+  este archivo se lee tanto como se ejecuta—;
+- son **154 bloques de reglas** para dieciséis pantallas, o sea unas nueve por
+  pantalla, y la mayoría no son de una pantalla sino del sistema: la fila, el
+  chip, la tarjeta, la cifra;
+- de lo que sumó esta tanda, la mitad no es layout nuevo sino **el foco y el
+  puntero**, que son dos cosas que Tailwind tampoco resolvería solo: hay que
+  elegir el color del anillo y decidir que el `:hover` va detrás de
+  `@media (hover: hover)` igual.
+
+La respuesta no cambió, y el motivo tampoco: **cero dependencias de runtime es la
+bandera del proyecto** —es lo mismo que sostiene el uuid propio, el ruteo en
+treinta líneas y `scrypt` a mano del otro lado— y lo que Tailwind resuelve, que
+es la consistencia entre decenas de pantallas mantenidas por un equipo, acá lo
+resuelven tres escalas de variables que entran en una pantalla.
+
+Lo que sí cambia es el disparador, que era de líneas y ahora es de forma, porque
+las líneas ya demostraron medir el largo de los comentarios: **se vuelve a mirar
+si aparece la tercera pantalla que necesita un componente que no está en
+`componentes/`, o si dos pantallas empiezan a pelearse por la misma clase con
+`!important` o con selectores encadenados.** Lo primero es que el sistema de
+diseño no alcanza; lo segundo, que dejó de haber uno.
 
 ### Dos controles nuevos: el chip y el segmentado
 
