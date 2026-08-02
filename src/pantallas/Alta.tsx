@@ -26,7 +26,7 @@ import { Campo, Casilla, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { PRODUCTIVO, REPRODUCTIVO, caravanaVisible, fechaCorta } from '../formato';
 import { hoyDelServidor } from '../reloj';
-import { aAnimal, aTablero, ir } from '../ruteo';
+import { aAnimal, aTablero, ir, usarVuelta } from '../ruteo';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 const SIN_ELEGIR = '';
@@ -39,19 +39,22 @@ const SIN_ELEGIR = '';
  */
 export function Alta() {
   const { puedeCargar } = usarEstablecimiento();
+  // De dónde se vino. El tablero es el default —es de donde se entra hoy— y lo
+  // que se hace con esto está abajo, en `mandar`.
+  const vuelta = usarVuelta(aTablero());
 
   if (!puedeCargar) {
     return (
-      <Armazon titulo="Dar de alta" volverA={aTablero()}>
+      <Armazon titulo="Dar de alta" volverA={vuelta}>
         <SoloLectura>No podés dar de alta animales en este tambo.</SoloLectura>
       </Armazon>
     );
   }
 
-  return <FormularioDeAlta />;
+  return <FormularioDeAlta vuelta={vuelta} />;
 }
 
-function FormularioDeAlta() {
+function FormularioDeAlta({ vuelta }: { vuelta: string }) {
   const { id: est } = usarEstablecimiento();
 
   const [caravana, setCaravana] = useState('');
@@ -111,7 +114,11 @@ function FormularioDeAlta() {
     };
     try {
       const alta = await api.alta(est, cuerpo);
-      ir(aAnimal(alta.animal_id));
+      // El origen del alta se le pasa a la ficha nueva. Sin esto la flecha de esa
+      // ficha caía en su default, que es el rodeo: dabas de alta desde el tablero
+      // y para volver al tablero tenías que pasar por una lista de doscientas.
+      // Es el mismo `desde` que ya usan la fila del rodeo y el atajo de carga.
+      ir(aAnimal(alta.animal_id, vuelta));
     } catch (causa) {
       setRechazo(
         causa instanceof ErrorApi
@@ -124,7 +131,7 @@ function FormularioDeAlta() {
   }
 
   return (
-    <Armazon titulo="Dar de alta" volverA={aTablero()}>
+    <Armazon titulo="Dar de alta" volverA={vuelta}>
       <form
         onSubmit={(e: FormEvent) => {
           e.preventDefault();

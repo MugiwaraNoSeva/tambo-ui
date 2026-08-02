@@ -7,6 +7,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
+import { aRodeo, aTablero } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
 import { EST, HOY, V102, animal102, animales, establecimiento, eventos102, sesionDePrueba } from './fixtures';
 
@@ -56,14 +57,32 @@ describe('el alta mínima', () => {
     expect(mandado(falsa)['payload']).toBeUndefined();
   });
 
-  it('lleva a la ficha del animal recién creado', async () => {
+  it('lleva a la ficha del animal recién creado, con el origen puesto', async () => {
     montarAlta();
     render(<App />);
 
     await userEvent.type(await screen.findByLabelText('Caravana'), '201');
     await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/animales/${NUEVO}`));
+    // Con el `de=` del tablero, que es de donde se entra al alta. Sin él la ficha
+    // nueva caía en su default —el rodeo— y volver al tablero costaba pasar por
+    // una lista de doscientas.
+    await waitFor(() =>
+      expect(window.location.hash).toBe(`#/animales/${NUEVO}?de=${encodeURIComponent(aTablero())}`),
+    );
+  });
+
+  it('y el origen que conserva es con el que se abrió el alta, no el default', async () => {
+    montarAlta();
+    window.location.hash = `#/alta?de=${encodeURIComponent(aRodeo())}`;
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText('Caravana'), '201');
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+
+    await waitFor(() =>
+      expect(window.location.hash).toBe(`#/animales/${NUEVO}?de=${encodeURIComponent(aRodeo())}`),
+    );
   });
 
   it('una caravana en uso muestra el mensaje de la API tal cual', async () => {
