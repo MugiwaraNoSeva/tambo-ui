@@ -152,9 +152,27 @@ export function leerRuta(hash: string): Ruta {
   return { nombre: 'tablero' };
 }
 
+/**
+ * El camino del hash, **sin** sus parámetros: de `#/rodeo?cat=SECA` sale
+ * `rodeo`.
+ *
+ * Es lo que distingue "cambié de pantalla" de "cambié un dato de esta pantalla",
+ * y esa diferencia la necesita el armazón: al cambiar de pantalla hay que volver
+ * arriba y anunciarlo, y al cambiar un parámetro no — sería saltar al techo cada
+ * vez que se toca un filtro.
+ */
+export function caminoDe(hash: string): string {
+  return partir(hash).partes.join('/');
+}
+
 /** El hash de ahora, por el mismo camino por el que React ve cualquier estado de afuera. */
 export function usarHash(): string {
   return useSyncExternalStore(suscribir, hashActual, () => '');
+}
+
+/** El camino de ahora. Lo mira el armazón para saber cuándo se cambió de pantalla. */
+export function usarCamino(): string {
+  return caminoDe(usarHash());
 }
 
 export function usarRuta(): Ruta {

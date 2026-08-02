@@ -5,7 +5,8 @@
 // tres encabezados que se despegan. Acá adentro no hay nada que sepa de vacas:
 // un título, una vuelta opcional y lo que le pongan adentro.
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { usarCamino } from '../ruteo';
 
 export function Armazon({
   titulo,
@@ -32,6 +33,30 @@ export function Armazon({
   ancha?: boolean;
   children: ReactNode;
 }) {
+  // ── Cambiar de pantalla vuelve arriba, y se anuncia ────────────────────────
+  //
+  // `ir()` escribe el hash y nada más. Como el fragmento no matchea ningún `id`,
+  // el browser deja el scroll donde estaba y lo recorta contra el alto de la
+  // pantalla nueva: bajás cuarenta filas del rodeo, tocás una vaca, y la ficha
+  // aparece scrolleada por la mitad. Tampoco se movía el foco, así que un lector
+  // de pantalla no tenía cómo enterarse de que la pantalla cambió — el `<h1>`
+  // nuevo se dibujaba y el cursor virtual seguía donde estaba.
+  //
+  // Esto es **ir arriba**, no reponer el scroll anterior: reponerlo sería la pila
+  // de navegación que este repo descarta, y que además nadie tendría que
+  // mantener sincronizada con el "atrás" del browser.
+  //
+  // Cuelga del **camino** y no del hash entero: un `?cat=SECA` que cambia es la
+  // misma pantalla con otro dato, y saltar al techo ahí sería castigar cada
+  // toque de un filtro.
+  const camino = usarCamino();
+  const encabezado = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    encabezado.current?.focus();
+  }, [camino]);
+
   return (
     <div className={ancha ? 'app ancha' : 'app'}>
       <header className="encabezado">
@@ -42,7 +67,13 @@ export function Armazon({
             ←
           </a>
         )}
-        <h1>{titulo}</h1>
+        {/* `tabIndex={-1}` lo hace enfocable **por código y no con Tab**: el
+            título no es un control y no tiene que entrar en el recorrido del
+            teclado. Es solo para que el foco tenga dónde aterrizar al cambiar de
+            pantalla, que es lo que hace que se anuncie. */}
+        <h1 ref={encabezado} tabIndex={-1}>
+          {titulo}
+        </h1>
       </header>
       <main className="contenido">{children}</main>
     </div>

@@ -20,6 +20,7 @@ import {
   EST,
   HOY,
   TOKEN,
+  animales,
   establecimiento,
   loginRechazado,
   rutasDelTablero,
@@ -225,6 +226,31 @@ describe('el tambo elegido', () => {
     // El nombre, y no el uuid, en la barra de arriba de todas las pantallas.
     expect(await screen.findByRole('heading', { name: 'El Ombú' })).toBeInTheDocument();
     expect(screen.queryByText(EST)).not.toBeInTheDocument();
+  });
+});
+
+describe('cambiar de pantalla', () => {
+  // La otra mitad de esto —volver arriba— no se puede afirmar acá: jsdom no
+  // scrollea, así que `window.scrollTo` está stubeado en la preparación y
+  // pedirle al test que lo espíe probaría que lo llamamos, no que sirvió. Lo que
+  // sí se puede probar es lo que le importa a quien no ve la pantalla: que el
+  // foco aterrice en el encabezado nuevo, que es lo que hace que el cambio se
+  // anuncie en vez de pasar en silencio.
+  it('al navegar, el foco queda en el encabezado de la pantalla nueva', async () => {
+    montarApi({
+      ...sesionDePrueba(),
+      [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
+      ...rutasDelTablero,
+      [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
+    });
+    window.localStorage.setItem('tambo.establecimiento', EST);
+    render(<App />);
+
+    await screen.findByRole('heading', { name: 'La Esperanza' });
+    window.location.hash = '#/rodeo';
+
+    const titulo = await screen.findByRole('heading', { name: 'El rodeo' });
+    await waitFor(() => expect(titulo).toHaveFocus());
   });
 });
 
