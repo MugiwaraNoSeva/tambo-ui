@@ -8,7 +8,7 @@
 // justamente que sin abrirlas esos dos pedidos no salen.
 
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
@@ -294,6 +294,95 @@ describe('el historial', () => {
 
     expect(screen.getByText('cargado con "confirmar igual"')).toBeInTheDocument();
     expect(screen.getByText(/1 cría: hembra, nacida muerta/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Los chips del historial. Son cuatro grupos y no once tipos: lo que se busca en
+ * un historial es "cuándo parió" o "cuántas veces la inseminaron", y para eso el
+ * celo y los dos tactos son una sola pregunta.
+ *
+ * Acá sí es el componente `Chips` y no el marcado de los atajos de fecha: son
+ * filtros que se sueltan, y soltarlo devuelve la línea de tiempo entera.
+ */
+describe('filtrar el historial por tipo', () => {
+  const tipo = (rotulo: string): HTMLElement =>
+    within(screen.getByRole('group', { name: 'Filtrar el historial por tipo' })).getByRole(
+      'button',
+      { name: rotulo },
+    );
+
+  const renglones = (): string[] =>
+    [...document.querySelectorAll('.historial > li')].map((e) => e.textContent ?? '');
+
+  it('cada chip deja solo los eventos de ese tipo, y el título dice cuántos', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarHistorial();
+    expect(renglones()).toHaveLength(4);
+
+    await userEvent.click(tipo('Partos'));
+
+    expect(renglones()).toHaveLength(1);
+    expect(renglones()[0]).toContain('— Parto');
+    // La cuenta del título es la de lo que se está mostrando: un "(4)" arriba de
+    // un renglón se leería como que faltan tres.
+    expect(screen.getByRole('heading', { name: 'El historial (1)' })).toBeInTheDocument();
+  });
+
+  it('"Celos y tactos" junta los tres tipos del ciclo', async () => {
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos105 },
+    });
+    render(<App />);
+    await esperarHistorial();
+
+    await userEvent.click(tipo('Celos y tactos'));
+
+    // Los dos celos de la 105 —el anulado y el que lo corrigió—, y ni el alta ni
+    // la inseminación ni la anulación.
+    expect(renglones()).toHaveLength(2);
+    expect(renglones().every((r) => r.includes('Celo'))).toBe(true);
+  });
+
+  it('soltar el chip devuelve la línea de tiempo entera', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarHistorial();
+
+    await userEvent.click(tipo('Partos'));
+    expect(renglones()).toHaveLength(1);
+
+    await userEvent.click(tipo('Partos'));
+
+    expect(renglones()).toHaveLength(4);
+    expect(tipo('Partos')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('con cero resultados lo dice, en vez de dejar una lista en blanco', async () => {
+    // La 102 no tiene ningún celo ni tacto. Una lista vacía se leería como que la
+    // tarjeta no cargó, y de acá se sale soltando el chip — que es lo que se dice.
+    montarFicha();
+    render(<App />);
+    await esperarHistorial();
+
+    await userEvent.click(tipo('Celos y tactos'));
+
+    expect(renglones()).toHaveLength(0);
+    expect(screen.getByText(/ningún evento de ese tipo/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'El historial (0)' })).toBeInTheDocument();
+  });
+
+  it('no pide nada: filtra sobre el log que ya está cargado', async () => {
+    const falsa = montarFicha();
+    render(<App />);
+    await esperarHistorial();
+    const antes = falsa.pedidos.length;
+
+    await userEvent.click(tipo('Partos'));
+    await userEvent.click(tipo('Inseminaciones'));
+
+    expect(falsa.pedidos.length).toBe(antes);
   });
 });
 

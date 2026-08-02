@@ -25,6 +25,7 @@ import type {
   CuerpoError,
   EventoHistorial,
   RespuestaAnimal,
+  TipoEvento,
   VersionDeConfig,
 } from '../api/tipos';
 import { diferenciasDeConfig } from './ConfigDelTambo';
@@ -38,7 +39,7 @@ import {
   TarjetaCaida,
   TarjetaPlegable,
 } from '../componentes/basicos';
-import { Campo, Rechazo } from '../componentes/formulario';
+import { Campo, Chips, Rechazo, type Opcion } from '../componentes/formulario';
 import { CurvaLactancia } from '../componentes/CurvaLactancia';
 import { usarEstablecimiento } from '../establecimiento';
 import {
@@ -387,6 +388,31 @@ function reglasDistintas(
   return diferencias.length === 0 ? null : diferencias.join('; ');
 }
 
+// ── El historial, filtrable por tipo ─────────────────────────────────────────
+//
+// Cuatro grupos y no once tipos: lo que se busca en un historial es "cuándo
+// parió" o "cuántas veces la inseminaron", y para eso los tres tipos de tacto y
+// el celo son una sola pregunta —cómo viene el ciclo—. Once chips serían tres
+// renglones de pantalla arriba de la línea de tiempo que se vino a leer.
+//
+// Los que no están en ningún grupo —el alta, el aborto, el secado, la baja y la
+// anulación— **no desaparecen**: son los que se ven cuando no hay ningún chip
+// puesto, que es como abre la ficha. Un chip filtra y soltarlo devuelve la línea
+// de tiempo entera; por eso acá sí se usa el componente `Chips` y no el marcado
+// de los atajos de fecha.
+type GrupoDeEventos = 'parto' | 'inseminacion' | 'celo' | 'control';
+
+const GRUPOS: Record<GrupoDeEventos, { rotulo: string; tipos: readonly TipoEvento[] }> = {
+  parto: { rotulo: 'Partos', tipos: ['parto'] },
+  inseminacion: { rotulo: 'Inseminaciones', tipos: ['inseminacion'] },
+  celo: { rotulo: 'Celos y tactos', tipos: ['celo', 'tacto_positivo', 'tacto_negativo'] },
+  control: { rotulo: 'Controles', tipos: ['control_lechero'] },
+};
+
+const OPCIONES_DE_TIPO: readonly Opcion<GrupoDeEventos>[] = (
+  Object.keys(GRUPOS) as GrupoDeEventos[]
+).map((valor) => ({ valor, rotulo: GRUPOS[valor].rotulo }));
+
 /**
  * El log del animal, **del último al primero**.
  *
@@ -420,6 +446,11 @@ function Historial({
   const traerReglas = useCallback(() => api.configuraciones(est), [est]);
   const reglas = usarPedido(traerReglas);
 
+  // El filtrado es **en el cliente** sobre los eventos que ya están cargados:
+  // `GET /animales/:id/eventos` devuelve el log entero con su `tipo`, así que un
+  // pedido por chip sería un viaje para pedir lo que ya está en memoria.
+  const [grupo, setGrupo] = useState<GrupoDeEventos | null>(null);
+
   if (cargando) {
     return (
       <Tarjeta titulo="El historial">
@@ -437,17 +468,49 @@ function Historial({
   // mensaje que explica el orden. Ofrecerlo en todos sería invitar a un rechazo
   // que ya se sabe que va a venir. Y anular es cargar un evento más, así que el
   // de lectura no lo ve: el historial se mira igual, entero y con sus marcas.
+  //
+  // Se calcula sobre **todos** los eventos y no sobre los que se están viendo:
+  // qué se puede anular no puede depender de qué chip está puesto.
   const ultimoVigente = puedeCargar
     ? [...datos.eventos].reverse().find((e) => e.vigente)
     : undefined;
 
+  const mostrados =
+    grupo === null
+      ? datos.eventos
+      : datos.eventos.filter((e) => GRUPOS[grupo].tipos.includes(e.tipo));
+
   return (
-    <Tarjeta titulo={`El historial (${numero(datos.eventos.length)})`}>
-      {datos.eventos.length === 0 ? (
-        <p className="vacio">Sin eventos cargados.</p>
-      ) : (
+    // La cuenta del título es la de lo que se está mostrando y no la del log
+    // entero: un "(12)" arriba de tres renglones se lee como que faltan nueve.
+    <Tarjeta titulo={`El historial (${numero(mostrados.length)})`}>
+      {/* El chip filtra y nada más: **no reordena, no agrupa y no pagina**. El
+          historial es una línea de tiempo, se lee de arriba abajo y es lo
+          segundo que se mira siempre. */}
+      {datos.eventos.length > 0 && (
+        <Chips
+          etiqueta="Filtrar el historial por tipo"
+          opciones={OPCIONES_DE_TIPO}
+          elegida={grupo}
+          alElegir={setGrupo}
+        />
+      )}
+
+      {datos.eventos.length === 0 && <p className="vacio">Sin eventos cargados.</p>}
+
+      {/* Cero resultados se dice con una frase y no con una lista en blanco, que
+          se leería como que la tarjeta no cargó. Y se distingue del vacío de
+          arriba: "no hay ninguno" y "no hay ninguno de ese tipo" son cosas
+          distintas, y de la segunda se sale soltando el chip. */}
+      {datos.eventos.length > 0 && mostrados.length === 0 && (
+        <p className="vacio">
+          Ningún evento de ese tipo. Soltá el chip para ver el historial entero.
+        </p>
+      )}
+
+      {mostrados.length > 0 && (
         <ul className="lista-simple historial">
-          {[...datos.eventos].reverse().map((evento) => (
+          {[...mostrados].reverse().map((evento) => (
             <EventoDelLog
               key={evento.id}
               evento={evento}
