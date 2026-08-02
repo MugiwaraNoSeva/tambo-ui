@@ -5,7 +5,13 @@
     <!-- `viewport-fit=cover` + los `safe-area-inset` del CSS: sin esto la barra
          de acciones queda debajo del gesto de inicio en los celulares con muesca. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#1b4332" />
+    <!-- Dos y no uno: de noche el encabezado pasa a `--verde: #2d6a4f` y con un
+         solo `theme-color` la barra del navegador se quedaba con el verde de día,
+         que es el único pedazo de pantalla que no acompañaba al tema. Los dos
+         valores son los de `--verde` en cada tema (`src/estilos.css`); si cambian
+         allá, cambian acá — el CSS no puede pintar esa barra desde adentro. -->
+    <meta name="theme-color" content="#1b4332" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#2d6a4f" media="(prefers-color-scheme: dark)" />
     <title>Tambo</title>
   </head>
   <body>
