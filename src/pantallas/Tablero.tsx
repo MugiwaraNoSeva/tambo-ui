@@ -20,6 +20,7 @@ import type { AnimalDeLista } from '../api/tipos';
 import { FilaAnimal } from '../componentes/animales';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { usarEstablecimiento } from '../establecimiento';
+import { SIN_FILTROS, aParametros } from '../filtros';
 import { CATEGORIA, ORDEN_CATEGORIAS, dias, fechaCorta, litros, numero, porcentaje } from '../formato';
 import { aAlta, aCorrida, aRodeo, aTablero, aTanque, type OrigenDeCorrida } from '../ruteo';
 import { usarPedido } from '../usarPedido';
@@ -208,12 +209,24 @@ function ElRodeoHoy() {
         <Cifra rotulo="Mortalidad" valor={porcentaje(r.tasa_mortalidad)} />
       </div>
 
+      {/* Cada categoría lleva a **su** lista, que es el mismo rodeo con ese chip
+          puesto y no una pantalla nueva: el filtro ya existía y lo único que
+          faltaba era la puerta de entrada. Quien planta la ración lee el número
+          y toca para ver cuáles son.
+
+          La flecha no es decoración: seis renglones con un número a la derecha
+          y sin ella se leen como una tabla, y una tabla no se toca. */}
       <h3>El reparto de dietas</h3>
-      <ul className="reparto">
+      <ul className="reparto tocable">
         {ORDEN_CATEGORIAS.map((categoria) => (
           <li key={categoria}>
-            <span>{CATEGORIA[categoria]}</span>
-            <span className="cuenta">{numero(r.categorias[categoria])}</span>
+            <a href={aRodeo(aParametros({ ...SIN_FILTROS, categoria }))}>
+              <span>{CATEGORIA[categoria]}</span>
+              <span className="cuenta">{numero(r.categorias[categoria])}</span>
+              <span className="flecha" aria-hidden="true">
+                ›
+              </span>
+            </a>
           </li>
         ))}
       </ul>

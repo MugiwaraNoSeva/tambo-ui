@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
-import { aAnimal, aCargar, aTablero } from '../src/ruteo';
+import { aAnimal, aCargar, aRodeo, aTablero } from '../src/ruteo';
 import { montarApi, type Manejador } from './servidor';
 import {
   EST,
@@ -200,7 +200,13 @@ describe('la composición del rodeo', () => {
     render(<App />);
 
     await esperarRodeo();
-    const dietas = [...document.querySelectorAll('.reparto li')].map((li) => li.textContent);
+    // La categoría y su cuenta, sin la flecha: lo que se afirma acá es el orden
+    // —el del ciclo productivo y no el alfabético— y a dónde lleva cada renglón
+    // se prueba abajo.
+    const dietas = [...document.querySelectorAll('.reparto li')].map(
+      (li) =>
+        `${li.querySelector('span')?.textContent ?? ''}${li.querySelector('.cuenta')?.textContent ?? ''}`,
+    );
     expect(dietas).toEqual([
       'Recría3',
       'Lactancia temprana1',
@@ -208,6 +214,27 @@ describe('la composición del rodeo', () => {
       'Lactancia tardía1',
       'Preparto0',
       'Vaca seca1',
+    ]);
+  });
+
+  it('y cada renglón lleva al rodeo filtrado por esa categoría', async () => {
+    // El filtro ya existía —el chip, la cuenta y el parámetro `cat`— y lo único
+    // que faltaba era la puerta. Quien planta la ración lee el número y toca
+    // para ver cuáles son.
+    montarTablero();
+    render(<App />);
+
+    await esperarRodeo();
+    const destinos = [...document.querySelectorAll('.reparto.tocable a')].map((a) =>
+      a.getAttribute('href'),
+    );
+    expect(destinos).toEqual([
+      aRodeo({ cat: 'RECRIA' }),
+      aRodeo({ cat: 'LACTANCIA_TEMPRANA' }),
+      aRodeo({ cat: 'LACTANCIA_MEDIA' }),
+      aRodeo({ cat: 'LACTANCIA_TARDIA' }),
+      aRodeo({ cat: 'PREPARTO' }),
+      aRodeo({ cat: 'SECA' }),
     ]);
   });
 });

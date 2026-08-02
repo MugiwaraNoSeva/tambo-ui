@@ -34,6 +34,7 @@ import { usarEstablecimiento } from '../establecimiento';
 import {
   SIN_FILTROS,
   aParametros,
+  deParametros,
   enPalabras,
   filtrar,
   hayFiltro,
@@ -71,7 +72,22 @@ export function Rodeo() {
   const traer = useCallback(() => api.animales(id, conBajas), [id, conBajas]);
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
-  const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
+  // ── El hash es la semilla ──────────────────────────────────────────────────
+  //
+  // Se lee **una vez, al montar** —por eso el inicializador es perezoso— y de ahí
+  // en más manda el estado local. Es lo que hace que el reparto de dietas del
+  // tablero pueda llevar a "el rodeo, filtrado por lactancia temprana" sin que
+  // haya una segunda pantalla que mantener.
+  //
+  // Que después no se reescriba está decidido: si cada chip empujara una entrada
+  // al historial del browser, salir de una pantalla donde se tocaron cinco chips
+  // costaría cinco gestos de "atrás", que en el celular es un gesto del sistema y
+  // no un botón que se pueda ignorar. Lo que se paga es que la barra de
+  // direcciones deja de decir la verdad apenas se toca un chip.
+  //
+  // Un `?cat=BASURA` no rompe nada: `deParametros` descarta lo que no reconoce y
+  // el rodeo sale sin filtrar, que se ve, en vez de salir vacío, que no.
+  const [filtros, setFiltros] = useState<Filtros>(() => deParametros(window.location.hash));
   const cambiar = <C extends keyof Filtros>(cual: C, valor: Filtros[C]) =>
     setFiltros((antes) => ({ ...antes, [cual]: valor }));
 
@@ -182,7 +198,10 @@ export function Rodeo() {
                 animalId={a.animal_id}
                 caravana={a.caravana}
                 detalle={<DetalleDeFila animal={a} />}
-                desde={aRodeo()}
+                // Con los filtros puestos: `aRodeo()` pelado hacía que volver
+                // desde una ficha aterrizara en el rodeo entero, y quien había
+                // filtrado hasta encontrar la vaca tenía que volver a filtrar.
+                desde={aRodeo(aParametros(filtros))}
               />
             ))}
           </ul>

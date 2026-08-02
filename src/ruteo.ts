@@ -197,7 +197,23 @@ export function usarCaravanaDelHash(): string | undefined {
 // Las direcciones se arman con estas funciones y no a mano, por el mismo motivo
 // por el que las rutas de la API se arman en el cliente: un solo lugar.
 export const aTablero = () => '#/';
-export const aRodeo = () => '#/rodeo';
+
+/**
+ * El rodeo, con los filtros que quiera quien lo abre.
+ *
+ * Los serializa `aParametros` de `filtros.ts` —el mismo que ya los manda a la
+ * corrida— y no un objeto armado a mano acá: los nombres cortos (`cat`, `repro`)
+ * viven en un solo lugar, que es el que también los sabe leer.
+ *
+ * **El hash es la semilla y no la fuente de verdad**: el rodeo lo lee al montarse
+ * y de ahí en más manda su estado local. Si cada chip reescribiera la dirección,
+ * cada toque empujaría una entrada al historial del browser, y en el celular
+ * "atrás" es un gesto del sistema: tocar cinco chips y querer salir serían cinco
+ * gestos. El costo, dicho en voz alta, es que la barra de direcciones deja de
+ * decir la verdad apenas se toca un chip.
+ */
+export const aRodeo = (filtros: Record<string, string | undefined> = {}) =>
+  con('#/rodeo', filtros);
 /** `desde` es a dónde tiene que volver la flecha de la ficha: el hash de quien la abrió. */
 export const aAnimal = (id: string, desde?: string) => con(`#/animales/${id}`, { de: desde });
 

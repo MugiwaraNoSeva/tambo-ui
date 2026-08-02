@@ -648,6 +648,43 @@ button.fila:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── El reparto que se toca ──────────────────────────────────────────────────
+   Cada categoría lleva a su lista —el mismo rodeo con ese chip puesto— y eso le
+   cambia el mínimo al renglón: como `<li>` de solo lectura le alcanzaban los
+   ~36 px que da `padding: 7px 0`, y un renglón que se toca no puede quedar
+   abajo de 44. Son unos 50 px más de tarjeta y se pagan una vez.
+
+   El `padding` se le pasa al `<a>` para que el área tocable sea el renglón
+   entero y no solo las letras: apuntarle al texto con el pulgar sucio es
+   exactamente lo que no se puede pedir. */
+
+.reparto.tocable li {
+  padding: 0;
+}
+
+.reparto.tocable a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+  min-height: var(--toque-chico);
+  padding: var(--espacio-2) 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.reparto.tocable .cuenta {
+  margin-left: auto;
+}
+
+.reparto.tocable .flecha {
+  color: var(--tinta-suave);
+}
+
+.reparto.tocable a:active {
+  background: var(--verde-tenue);
+}
+
 /* ── La ficha ────────────────────────────────────────────────────────────── */
 
 .cabecera-animal {
@@ -1188,6 +1225,7 @@ form > .boton {
 @media (hover: hover) {
   .fila:hover,
   .atajo:hover,
+  .reparto.tocable a:hover,
   .barra a:hover {
     background: var(--verde-tenue);
   }

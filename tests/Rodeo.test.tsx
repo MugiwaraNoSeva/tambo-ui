@@ -11,6 +11,7 @@ import { montarApi, type ApiFalsa, type Manejador } from './servidor';
 import {
   EST,
   V102,
+  V106,
   animales,
   animalesConBajas,
   establecimiento,
@@ -149,6 +150,55 @@ describe('buscar y filtrar', () => {
 
     expect(screen.getByText(/ningún animal con esos filtros/i)).toBeInTheDocument();
     expect(contador()).toBe('0 de 7');
+  });
+});
+
+/**
+ * El hash como **semilla**: entra el filtro con el que se abrió el rodeo, y de
+ * ahí en más manda el estado local. Es la puerta que le faltaba al reparto de
+ * dietas del tablero, que ya sabía contar por categoría y no llevaba a ninguna.
+ */
+describe('los filtros que trae la dirección', () => {
+  it('llega con el chip puesto y la lista ya filtrada', async () => {
+    montarRodeo();
+    window.location.hash = '#/rodeo?cat=LACTANCIA_TEMPRANA';
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: '1 de 7' })).toBeInTheDocument();
+    expect(caravanas()).toEqual(['106']);
+    expect(chip('Categoría de alimentación', 'Lactancia temprana')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Y se dice en palabras, igual que si lo hubiera tocado alguien.
+    expect(screen.getByText(/Filtrando por lactancia temprana\./)).toBeInTheDocument();
+  });
+
+  it('un valor que no se reconoce no rompe: el rodeo sale entero', async () => {
+    // `?cat=BASURA` tomado en serio no matchearía ninguna fila y dejaría el rodeo
+    // vacío sin decir por qué. Descartado, sale de más —que se ve— en vez de
+    // salir de menos, que no se ve.
+    montarRodeo();
+    window.location.hash = '#/rodeo?cat=BASURA';
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: '7 de 7' })).toBeInTheDocument();
+    expect(screen.queryByText(/Filtrando por/)).not.toBeInTheDocument();
+  });
+
+  it('la ficha abierta con un filtro puesto vuelve al rodeo con ese filtro', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: '7 de 7' });
+
+    await userEvent.click(chip('Categoría de alimentación', 'Lactancia temprana'));
+
+    // Sin esto, volver desde la ficha aterrizaba en el rodeo entero y había que
+    // filtrar de nuevo para seguir donde se estaba.
+    expect(screen.getByRole('link', { name: /^106/ })).toHaveAttribute(
+      'href',
+      aAnimal(V106, aRodeo({ cat: 'LACTANCIA_TEMPRANA' })),
+    );
   });
 });
 
