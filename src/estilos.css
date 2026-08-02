@@ -1050,6 +1050,14 @@ button.fila:disabled {
   margin-top: 6px;
 }
 
+/* Salvo los del período del tanque, que mandan sobre **dos** calendarios y por
+   eso van arriba: debajo se leerían como atajos del "Hasta", que es el que les
+   queda al lado. El margen se da vuelta con ellos. */
+.atajos-de-fecha.arriba {
+  margin-top: 0;
+  margin-bottom: var(--espacio-4);
+}
+
 /* ── Avisos ──────────────────────────────────────────────────────────────── */
 
 .aviso {

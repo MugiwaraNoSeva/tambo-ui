@@ -103,3 +103,17 @@ export function diaAnterior(dia: string): string {
 
   return `${String(anioAntes).padStart(4, '0')}-${dosDigitos(mesAntes)}-${dosDigitos(ultimo)}`;
 }
+
+/**
+ * `n` días antes de un `YYYY-MM-DD`. Lo usan los atajos del período del tanque,
+ * donde "los últimos 7 días" es un borde que hay que calcular y no un día suelto.
+ *
+ * Se cuenta hacia atrás de a uno y no con una cuenta cerrada, porque la que sabe
+ * de meses y de bisiestos es `diaAnterior` y escribirla dos veces sería tener dos
+ * febreros. Treinta vueltas de un bucle sobre tres `Number` no se miden.
+ */
+export function diasAntes(dia: string, n: number): string {
+  let cursor = dia;
+  for (let i = 0; i < n; i += 1) cursor = diaAnterior(cursor);
+  return cursor;
+}

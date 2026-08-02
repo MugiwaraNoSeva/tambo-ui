@@ -6,7 +6,7 @@
 // medianoche UTC, que en Montevideo es el 28 de febrero — decisiones 47 y 52).
 
 import { describe, expect, it } from 'vitest';
-import { diaAnterior } from '../src/reloj';
+import { diaAnterior, diasAntes } from '../src/reloj';
 
 describe('diaAnterior', () => {
   it('el caso común: un día para atrás dentro del mismo mes', () => {
@@ -48,5 +48,28 @@ describe('diaAnterior', () => {
     expect(diaAnterior('')).toBe('');
     expect(diaAnterior('ayer')).toBe('ayer');
     expect(diaAnterior('2026-07')).toBe('2026-07');
+  });
+});
+
+// Los bordes de los atajos del período del tanque. Se cuenta hacia atrás con
+// `diaAnterior`, así que hereda sus bordes; lo que se prueba acá es que contarlo
+// muchas veces siga cayendo donde tiene que caer.
+describe('diasAntes', () => {
+  it('cero días es el mismo día', () => {
+    expect(diasAntes('2026-07-29', 0)).toBe('2026-07-29');
+  });
+
+  it('los bordes de los tres atajos del tanque, sobre el 29/07/2026', () => {
+    // "Últimos 7 días" cuenta hoy adentro: son seis para atrás, no siete.
+    expect(diasAntes('2026-07-29', 6)).toBe('2026-07-23');
+    expect(diasAntes('2026-07-29', 29)).toBe('2026-06-30');
+  });
+
+  it('cruza meses, años y febrero sin acumular error', () => {
+    expect(diasAntes('2026-01-05', 10)).toBe('2025-12-26');
+    // Un año entero de un año no bisiesto.
+    expect(diasAntes('2026-03-01', 365)).toBe('2025-03-01');
+    // Y uno que se come el 29 de febrero de 2024.
+    expect(diasAntes('2024-03-01', 366)).toBe('2023-03-01');
   });
 });

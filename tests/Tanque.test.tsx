@@ -3,7 +3,7 @@
 // cargar, que sin bordes la API no puede calcular (decisión 49).
 
 import { describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
@@ -13,6 +13,11 @@ import { EST, HOY, establecimiento, tanqueDelPeriodo, sesionDePrueba } from './f
 const PERIODO = `/establecimientos/${EST}/tanque?desde=2026-07-01&hasta=${HOY}`;
 const RUTA_POST = `POST /establecimientos/${EST}/tanque`;
 
+// Los otros dos períodos que los atajos pueden pedir, contados sobre el
+// 29/07/2026 del servidor: siete días que terminan hoy, y treinta.
+const ULTIMOS_7 = `/establecimientos/${EST}/tanque?desde=2026-07-23&hasta=${HOY}`;
+const ULTIMOS_30 = `/establecimientos/${EST}/tanque?desde=2026-06-30&hasta=${HOY}`;
+
 function montarTanque(cambios: Record<string, Manejador> = {}): ApiFalsa {
   window.localStorage.setItem('tambo.establecimiento', EST);
   window.location.hash = '#/tanque';
@@ -21,10 +26,18 @@ function montarTanque(cambios: Record<string, Manejador> = {}): ApiFalsa {
     ...sesionDePrueba(),
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET ${PERIODO}`]: { cuerpo: tanqueDelPeriodo },
+    [`GET ${ULTIMOS_7}`]: { cuerpo: tanqueDelPeriodo },
+    [`GET ${ULTIMOS_30}`]: { cuerpo: tanqueDelPeriodo },
     [RUTA_POST]: { status: 201, cuerpo: { id: 'r1', fecha: HOY, litros: 72, lote: null } },
     ...cambios,
   });
 }
+
+/** Un atajo del período, buscado por el nombre de su grupo. */
+const atajo = (rotulo: string): HTMLElement =>
+  within(screen.getByRole('group', { name: 'El período: atajos' })).getByRole('button', {
+    name: rotulo,
+  });
 
 const cifra = (rotulo: string): string => {
   const caja = screen.getByText(rotulo).closest('.cifra');
@@ -56,6 +69,52 @@ describe('el período', () => {
     expect(screen.getByText('1 día sin cargar en este período')).toBeInTheDocument();
     expect(screen.getByText('25/07/2026')).toBeInTheDocument();
     expect(cifra('Días sin cargar')).toBe('1');
+  });
+
+  /**
+   * Los tres períodos que se piden siempre, a un toque. Antes cambiarlo costaba
+   * seis —tres por calendario nativo— para llegar a uno de estos tres.
+   */
+  it('cada atajo deja los dos calendarios en su rango y se marca como puesto', async () => {
+    montarTanque();
+    render(<App />);
+    await screen.findByText('Litros del período');
+
+    // "Este mes" es el default con el que abre la pantalla, así que ya viene
+    // puesto sin que nadie lo toque.
+    expect(atajo('Este mes')).toHaveAttribute('aria-pressed', 'true');
+    expect(atajo('Últimos 7 días')).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(atajo('Últimos 7 días'));
+    // Siete días **con hoy adentro**: del 23 al 29, no del 22.
+    expect(screen.getByLabelText('Desde')).toHaveValue('2026-07-23');
+    expect(screen.getByLabelText('Hasta')).toHaveValue(HOY);
+    expect(atajo('Últimos 7 días')).toHaveAttribute('aria-pressed', 'true');
+    expect(atajo('Este mes')).toHaveAttribute('aria-pressed', 'false');
+
+    // Y treinta cruzan el borde del mes sin `new Date`: del 30 de junio.
+    await userEvent.click(atajo('Últimos 30'));
+    expect(screen.getByLabelText('Desde')).toHaveValue('2026-06-30');
+    expect(atajo('Últimos 30')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('un rango escrito a mano no deja ninguno puesto, y eso es correcto', async () => {
+    // Igual que "Hoy" y "Ayer" cuando la fecha es de hace tres días: son atajos,
+    // no un segmentado que obligue a que una opción esté elegida.
+    montarTanque({
+      [`GET /establecimientos/${EST}/tanque?desde=2026-07-15&hasta=${HOY}`]: {
+        cuerpo: tanqueDelPeriodo,
+      },
+    });
+    render(<App />);
+    await screen.findByText('Litros del período');
+
+    await userEvent.clear(screen.getByLabelText('Desde'));
+    await userEvent.type(screen.getByLabelText('Desde'), '2026-07-15');
+
+    await waitFor(() => expect(atajo('Este mes')).toHaveAttribute('aria-pressed', 'false'));
+    expect(atajo('Últimos 7 días')).toHaveAttribute('aria-pressed', 'false');
+    expect(atajo('Últimos 30')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('con muchos días faltantes resume en vez de escupir una pared de fechas', async () => {

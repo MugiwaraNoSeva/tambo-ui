@@ -24,7 +24,7 @@ import { Aviso, Cargando, Cifra, SoloLectura, Tarjeta } from '../componentes/bas
 import { Campo, CampoFecha, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { fechaCorta, litros as enLitros, numero } from '../formato';
-import { hoyDelServidor } from '../reloj';
+import { diasAntes, hoyDelServidor } from '../reloj';
 import { aTablero } from '../ruteo';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
@@ -37,6 +37,26 @@ const primeroDelMes = (dia: string): string => `${dia.slice(0, 8)}01`;
  * pasa a ser un párrafo (decisión 65).
  */
 const DIAS_QUE_SE_LISTAN = 8;
+
+/**
+ * Los tres períodos que se piden siempre, con sus bordes calculados sobre el día
+ * del servidor.
+ *
+ * "Últimos 7 días" cuenta **hoy adentro**: son los siete días que terminan hoy,
+ * que es lo que alguien quiere decir cuando lo pide. Por eso el borde de abajo
+ * es `hoy − 6` y no `hoy − 7`, que serían ocho.
+ *
+ * "Este mes" es el mismo default con el que abre la pantalla —así se paga la
+ * leche y así se la mira— y por eso arranca puesto sin que nadie lo toque.
+ */
+const ATAJOS_DEL_PERIODO: readonly {
+  rotulo: string;
+  bordes: (hoy: string) => { desde: string; hasta: string };
+}[] = [
+  { rotulo: 'Últimos 7 días', bordes: (hoy) => ({ desde: diasAntes(hoy, 6), hasta: hoy }) },
+  { rotulo: 'Este mes', bordes: (hoy) => ({ desde: primeroDelMes(hoy), hasta: hoy }) },
+  { rotulo: 'Últimos 30', bordes: (hoy) => ({ desde: diasAntes(hoy, 29), hasta: hoy }) },
+];
 
 export function Tanque() {
   const { id: est, puedeCargar } = usarEstablecimiento();
@@ -63,6 +83,44 @@ export function Tanque() {
       )}
 
       <Tarjeta titulo="El período">
+        {/* ── Los tres períodos que se miran ────────────────────────────────
+            La tarjeta de arriba ya tiene "Hoy" y "Ayer" a un toque; acá abajo
+            quedaban dos `<input type="date">` pelados y cambiar el período
+            costaba **seis** toques —tres por calendario— para llegar a uno de
+            los tres rangos que se piden siempre.
+
+            Mismo marcado que `CampoFecha` y **no** el componente `Chips`, que es
+            deliberado: `Chips` está hecho para filtros que se sueltan
+            (`alElegir(v | null)`) y acá elegir es siempre poner un valor. Con un
+            rango a mano ninguno de los tres queda puesto, igual que hoy pasa con
+            "Hoy" y "Ayer" cuando la fecha es de hace tres días.
+
+            Las fechas salen del día del servidor (decisión 52) y se cuentan
+            hacia atrás sobre su string, sin `new Date`. */}
+        <div
+          className="chips atajos-de-fecha arriba"
+          role="group"
+          aria-label="El período: atajos"
+        >
+          {ATAJOS_DEL_PERIODO.map(({ rotulo, bordes }) => {
+            const { desde: d, hasta: h } = bordes(hoy);
+            return (
+              <button
+                key={rotulo}
+                type="button"
+                className="chip"
+                aria-pressed={desde === d && hasta === h}
+                onClick={() => {
+                  setDesde(d);
+                  setHasta(h);
+                }}
+              >
+                {rotulo}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="dos-columnas">
           <Campo etiqueta="Desde">
             <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
