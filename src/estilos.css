@@ -548,6 +548,24 @@ h2.plegable > button[aria-expanded='true'] {
   color: var(--tinta-suave);
 }
 
+/* ── El índice: una fila que lleva a otra pantalla ───────────────────────────
+   No es un animal, así que no lleva caravana: lleva un número —cuántas hay del
+   otro lado— y dos renglones. El segundo no es adorno: sin él, "Partos y
+   lactancias" es una puerta cerrada y hay que abrirla para saber si hay algo.
+
+   El `strong` recupera la tinta plena porque `.fila .detalle` la baja a suave
+   para el renglón de abajo, y acá la primera línea es el título de la fila. */
+
+.indice .fila strong {
+  color: var(--tinta);
+  font-size: var(--texto-l);
+}
+
+.indice .cuanto {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 /* El nombre del tambo en el selector. Ocupa la fila —no hay nada más que
    mostrar— y es grande, pero no tanto como una caravana: es texto y no un
    número que se lee de reojo. */

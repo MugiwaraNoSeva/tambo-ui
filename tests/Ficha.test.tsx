@@ -2,15 +2,16 @@
 // —incluidos los `null`, que son el caso interesante (decisión 37)— y que el
 // historial distinga un evento anulado de la anulación que lo deshizo.
 //
-// Desde la Parte 3 **los números y la lactancia no se piden al entrar**: viven
-// en tarjetas que traen lo suyo recién cuando alguien las abre. Por eso los
-// tests que hablan de ellas empiezan abriéndolas, y hay uno que afirma
-// justamente que sin abrirlas esos dos pedidos no salen.
+// Desde la Parte 3 **los números no se piden al entrar**: viven en una tarjeta
+// que trae lo suyo recién cuando alguien la abre. Las lactancias se fueron un
+// paso más allá —a su propia pantalla, `Partos.test.tsx`— y desde acá no se
+// piden nunca; lo que queda en la ficha es el renglón que lleva a ellas.
 
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
+import { aAnimal, aPartos, aRodeo } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
 import {
   EST,
@@ -23,7 +24,6 @@ import {
   eventos106,
   kpis102,
   kpis106,
-  lactanciasSinControles,
   rutasDeLaFicha,
   sesionDePrueba,
 } from './fixtures';
@@ -120,59 +120,6 @@ describe('los números', () => {
   });
 });
 
-describe('la lactancia y su curva', () => {
-  it('dibuja un punto por control y marca el pico con su número', async () => {
-    montarFicha();
-    render(<App />);
-    await abrir('La lactancia');
-
-    expect(
-      await screen.findByRole('heading', { name: 'Lactancia 3 (en curso)' }),
-    ).toBeInTheDocument();
-    expect(document.querySelectorAll('.curva .punto')).toHaveLength(6);
-    expect(document.querySelectorAll('.curva .punto.pico')).toHaveLength(1);
-    // El pico dice su número: buscarlo contando cuadraditos no es buscarlo.
-    expect(document.querySelector('.curva .rotulo-pico')?.textContent).toBe('28,0 L');
-  });
-
-  it('cuenta la curva en palabras, que es lo único que se lee sin verla', async () => {
-    montarFicha();
-    render(<App />);
-    await abrir('La lactancia');
-
-    expect(await screen.findByRole('img')).toHaveAccessibleName(
-      'Curva de lactancia con 6 controles, del día 30 al 180 en leche, con el pico de 28,0 L al día 60.',
-    );
-  });
-
-  it('muestra el pico y la acumulada afuera del dibujo', async () => {
-    montarFicha();
-    render(<App />);
-    await abrir('La lactancia');
-
-    expect(await screen.findByText('Pico')).toBeInTheDocument();
-    expect(cifra('Pico')).toBe('28,0 L');
-    expect(cifra('Al día en leche')).toBe('60');
-    expect(cifra('Acumulada')).toBe('4666 L');
-    expect(cifra('RCS máximo')).toBe('320');
-  });
-
-  it('una lactancia sin controles no dibuja una curva vacía: lo dice', async () => {
-    montarFicha({
-      [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: {
-        cuerpo: lactanciasSinControles,
-      },
-    });
-    render(<App />);
-    await abrir('La lactancia');
-
-    expect(await screen.findByText(/todavía no hay controles lecheros/i)).toBeInTheDocument();
-    expect(document.querySelector('.curva')).toBeNull();
-    // Y la acumulada de una lactancia sin controles es "sin datos", no 0.
-    expect(cifra('Acumulada')).toBe('sin datos');
-  });
-});
-
 describe('el historial', () => {
   it('va del último al primero y describe lo que el evento trae adentro', async () => {
     montarFicha();
@@ -187,8 +134,6 @@ describe('el historial', () => {
       'nacida el 12/03/2022 · entra con 2 lactancias',
     );
     expect(screen.getByText(/toro Urubó · pajuela HOL-4521/)).toBeInTheDocument();
-    // La misma frase sale también en la tarjeta de la lactancia; acá se afirma
-    // sobre la del historial.
     const parto = eventos.find((e) => e.textContent?.includes('— Parto'));
     expect(parto?.textContent).toContain('1 cría: hembra, nacida viva');
   });
@@ -439,9 +384,11 @@ describe('cuando una lectura de la ficha no vuelve', () => {
     expect(await screen.findByText('Días abiertos')).toBeInTheDocument();
   });
 
-  it('la lactancia no se pide hasta que alguien la abre', async () => {
-    // La cuenta de esta parte: entrar a una ficha costaba cinco lecturas y en el
-    // corral se entra a cargar lo que se acaba de ver, no a leer la curva.
+  it('ni los números ni las lactancias se piden al entrar', async () => {
+    // La cuenta de la remodelación: entrar a una ficha costaba cinco lecturas y
+    // en el corral se entra a cargar lo que se acaba de ver, no a leer la curva.
+    // Los números siguen colgando de su plegable; las lactancias se fueron
+    // enteras a su pantalla y desde acá no se piden nunca.
     const falsa = montarFicha();
     render(<App />);
     await esperarHistorial();
@@ -451,11 +398,27 @@ describe('cuando una lectura de la ficha no vuelve', () => {
     expect(pedidas('/kpis')).toBe(0);
     expect(pedidas('/lactancias')).toBe(0);
 
-    await abrir('La lactancia');
-    await screen.findByRole('heading', { name: 'Lactancia 3 (en curso)' });
-    expect(pedidas('/lactancias')).toBe(1);
-    // Y abrir una no trae la otra.
-    expect(pedidas('/kpis')).toBe(0);
+    await abrir('Los números');
+    await screen.findByText('Días abiertos');
+    expect(pedidas('/kpis')).toBe(1);
+    // Y abrir esa no trae la otra: la ficha entera nunca pide `/lactancias`.
+    expect(pedidas('/lactancias')).toBe(0);
+  });
+
+  it('el renglón de partos dice cuántas hay y lleva a su pantalla', async () => {
+    // El número sale de `ultimo_numero_lactancia`, que ya venía en la proyección:
+    // sin él, "Partos y lactancias" no distingue una vaca con tres de una con
+    // ninguna y hay que entrar para enterarse.
+    montarFicha();
+    render(<App />);
+    await esperarFicha();
+
+    const renglon = screen.getByRole('link', { name: /Partos y lactancias/ });
+    expect(renglon).toHaveTextContent('3');
+    expect(renglon).toHaveAttribute(
+      'href',
+      aPartos(V102, { desde: aAnimal(V102, aRodeo()), caravana: '102' }),
+    );
   });
 });
 
@@ -477,9 +440,6 @@ describe('el animal de baja', () => {
       [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
       [`GET /establecimientos/${EST}/animales/${V106}`]: { cuerpo: deBaja },
       [`GET /establecimientos/${EST}/animales/${V106}/kpis`]: { cuerpo: kpis106 },
-      [`GET /establecimientos/${EST}/animales/${V106}/lactancias`]: {
-        cuerpo: lactanciasSinControles,
-      },
       [`GET /establecimientos/${EST}/animales/${V106}/eventos`]: { cuerpo: eventos106 },
     });
     render(<App />);

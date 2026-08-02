@@ -33,6 +33,7 @@ export type Ruta =
   | { nombre: 'tablero' }
   | { nombre: 'rodeo' }
   | { nombre: 'animal'; id: string }
+  | { nombre: 'partos'; id: string }
   | { nombre: 'cargar'; id: string }
   | { nombre: 'corrida'; origen: OrigenDeCorrida }
   | { nombre: 'alta' }
@@ -129,7 +130,11 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'tanque') return { nombre: 'tanque' };
   if (primera === 'cuenta') return { nombre: 'cuenta' };
   if (primera === 'animales' && segunda !== undefined) {
-    return tercera === 'cargar' ? { nombre: 'cargar', id: segunda } : { nombre: 'animal', id: segunda };
+    if (tercera === 'cargar') return { nombre: 'cargar', id: segunda };
+    if (tercera === 'partos') return { nombre: 'partos', id: segunda };
+    // Lo que cuelgue del animal y no se entienda es la ficha, que es la pantalla
+    // del animal: un `/partoss` mal tipeado no tiene por qué mandar al inicio.
+    return { nombre: 'animal', id: segunda };
   }
   // El panel, con su propio "cae en el inicio": lo que empieza con `admin` y no
   // se entiende va a la lista de tambos y **no** al tablero. Salir del panel por
@@ -216,6 +221,21 @@ export const aRodeo = (filtros: Record<string, string | undefined> = {}) =>
   con('#/rodeo', filtros);
 /** `desde` es a dónde tiene que volver la flecha de la ficha: el hash de quien la abrió. */
 export const aAnimal = (id: string, desde?: string) => con(`#/animales/${id}`, { de: desde });
+
+/**
+ * Los partos y las lactancias de un animal, con lo mismo que ya viaja a la
+ * carga: de dónde se vino y qué caravana es.
+ *
+ * La caravana va por el mismo motivo que allá —para no pedir el animal entero
+ * solo para escribirla en el encabezado— y con una diferencia: si no viene, esta
+ * pantalla **no la va a buscar**. Allá el encabezado dice a qué animal se le está
+ * por cargar algo y equivocarse sería caro; acá es el título de una lectura, y
+ * pagar un viaje por él no se justifica. Sin caravana el título es genérico.
+ */
+export const aPartos = (
+  id: string,
+  extra: { desde?: string; caravana?: string | null } = {},
+) => con(`#/animales/${id}/partos`, { de: extra.desde, c: extra.caravana });
 
 /**
  * La carga de un evento, con lo que quien la abre **ya sabe**: de dónde se vino

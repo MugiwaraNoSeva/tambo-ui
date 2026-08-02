@@ -6,11 +6,12 @@
 // ficha que dibujar y esa sí bloquea la pantalla.
 //
 // Al entrar se piden **tres** cosas y no cinco: la proyección, el log y las
-// reglas con que se juzgó cada evento. Los números y la lactancia viven en
-// `TarjetaPlegable` y traen lo suyo recién cuando alguien las abre — en el
-// corral se entra a una ficha para cargar lo que se acaba de ver, no para leer
-// la curva. Una consecuencia que se ve en los tests: anular refresca dos
-// tarjetas y no cuatro, porque a las que nadie abrió no hay qué refrescarles.
+// reglas con que se juzgó cada evento. Los números viven en `TarjetaPlegable` y
+// traen lo suyo recién cuando alguien la abre, y las lactancias se fueron
+// enteras a su propia pantalla (`Partos.tsx`) — en el corral se entra a una
+// ficha para cargar lo que se acaba de ver, no para leer la curva. Una
+// consecuencia que se ve en los tests: anular refresca dos tarjetas y no cuatro,
+// porque a las que nadie abrió no hay qué refrescarles.
 //
 // Nada de acá calcula nada del animal. La fecha probable de parto, la categoría
 // de alimentación y los días en leche los sabe el núcleo; los que la API sirve
@@ -40,7 +41,6 @@ import {
   TarjetaPlegable,
 } from '../componentes/basicos';
 import { Campo, Chips, Rechazo, type Opcion } from '../componentes/formulario';
-import { CurvaLactancia } from '../componentes/CurvaLactancia';
 import { usarEstablecimiento } from '../establecimiento';
 import {
   MOTIVO_BAJA,
@@ -50,16 +50,14 @@ import {
   TIPO_EVENTO,
   anios,
   caravanaVisible,
-  crias,
   detallePayload,
   dias,
   fechaCorta,
   fechaOSinDato,
-  litros,
   numero,
   porcentaje,
 } from '../formato';
-import { aAnimal, aCargar, aRodeo, usarVuelta } from '../ruteo';
+import { aAnimal, aCargar, aPartos, aRodeo, usarVuelta } from '../ruteo';
 import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
@@ -114,24 +112,77 @@ export function Ficha({ id }: { id: string }) {
             </a>
           )}
 
-          {/* Las dos que **no se miran al entrar**. Se entra a una ficha en el
-              corral para cargar lo que se acaba de ver, no para leer la curva
-              de lactancia: sus pedidos salen recién cuando alguien las abre, y
-              eso baja la pantalla de cinco lecturas a tres.
+          {/* Los números **no se miran al entrar**. Se entra a una ficha en el
+              corral para cargar lo que se acaba de ver: su pedido sale recién
+              cuando alguien la abre.
 
               El historial se queda abierto: es lo segundo que se mira siempre
               —qué pasó recién— y es el único lugar desde donde se anula. */}
           <TarjetaPlegable titulo="Los números">
             <KPIs animalId={id} version={version} />
           </TarjetaPlegable>
-          <TarjetaPlegable titulo="La lactancia">
-            <Lactancias animalId={id} version={version} />
-          </TarjetaPlegable>
+
+          {/* Donde estaba la plegable de la curva. El pedido sigue siendo
+              diferido —lo hace la pantalla nueva al montarse— y lo que se gana es
+              lugar para todo lo que `api.lactancias` ya traía y acá se tiraba:
+              las seis cifras y el parto de **cada** lactancia, no solo de la
+              última.
+
+              El número es `ultimo_numero_lactancia`, que ya venía en la
+              proyección: sin él, "Partos y lactancias" no distingue una vaca con
+              tres de una con ninguna y hay que entrar para enterarse. */}
+          <IndiceDePartos
+            id={id}
+            vuelta={vuelta}
+            caravana={datos.caravana}
+            cuantas={datos.proyeccion.estado.ultimo_numero_lactancia}
+          />
+
           <Ciclos ciclos={datos.proyeccion.ciclos} />
           <Historial animalId={id} version={version} alAnular={refrescar} />
         </>
       )}
     </Armazon>
+  );
+}
+
+/**
+ * El renglón que lleva a los partos y las lactancias.
+ *
+ * Es una `.fila` como las del rodeo y no un botón: es navegación, así que se
+ * puede abrir en otra pestaña y el "atrás" del celular la deshace. El segundo
+ * renglón dice qué hay del otro lado — sin él, "Partos y lactancias" es una
+ * puerta cerrada que hay que abrir para saber si vale la pena.
+ */
+function IndiceDePartos({
+  id,
+  vuelta,
+  caravana,
+  cuantas,
+}: {
+  id: string;
+  /** A dónde vuelve **esta** ficha: viaja para que la pantalla nueva encadene. */
+  vuelta: string;
+  caravana: string | null;
+  cuantas: number | null;
+}) {
+  return (
+    <Tarjeta>
+      <ul className="lista indice">
+        <li>
+          <a className="fila" href={aPartos(id, { desde: aAnimal(id, vuelta), caravana })}>
+            {cuantas !== null && <span className="cuanto">{numero(cuantas)}</span>}
+            <span className="detalle">
+              <strong>Partos y lactancias</strong>
+              <span className="renglon">Curva, pico, acumulada, 305 días, las crías</span>
+            </span>
+            <span className="flecha" aria-hidden="true">
+              ›
+            </span>
+          </a>
+        </li>
+      </ul>
+    </Tarjeta>
   );
 }
 
@@ -249,79 +300,6 @@ function KPIs({ animalId, version }: { animalId: string; version: number }) {
           {k.ciclos_excluidos === 1 ? 'ciclo tiene' : 'ciclos tienen'} algún evento cargado con
           "confirmar igual", así que sus fechas no son confiables y quedan afuera de estos números.
         </Aviso>
-      )}
-    </>
-  );
-}
-
-// ── Las lactancias ───────────────────────────────────────────────────────────
-
-function Lactancias({ animalId, version }: { animalId: string; version: number }) {
-  const { id: est } = usarEstablecimiento();
-  const traer = useCallback(() => api.lactancias(est, animalId), [est, animalId, version]);
-  const { datos, cargando, error, recargar } = usarPedido(traer);
-
-  if (cargando) return <Cargando que="Trayendo la curva…" />;
-  if (error !== null || datos === null) return <Caida error={error} reintentar={recargar} />;
-
-  if (datos.lactancias.length === 0) {
-    return <p className="vacio">Este animal todavía no tuvo ninguna lactancia.</p>;
-  }
-
-  // La que interesa es la abierta; si están todas cerradas, la última. El resto
-  // va abajo en una línea cada una: lo que se compara entre lactancias viejas es
-  // cuánto dieron, y para eso alcanza la acumulada.
-  const abierta = datos.lactancias.find((l) => l.fecha_fin === null);
-  const enFoco = abierta ?? datos.lactancias[datos.lactancias.length - 1];
-  if (enFoco === undefined) return null;
-  const anteriores = datos.lactancias.filter((l) => l.numero !== enFoco.numero).reverse();
-
-  return (
-    <>
-      <h3>
-        Lactancia {numero(enFoco.numero)}
-        {abierta === undefined ? '' : ' (en curso)'}
-      </h3>
-      <p className="subtitulo">
-        Empezó el {fechaCorta(enFoco.fecha_inicio)}
-        {enFoco.fecha_fin === null ? '' : ` y cerró el ${fechaCorta(enFoco.fecha_fin)}`}.
-      </p>
-      <>
-        {enFoco.datos_incompletos && (
-          <Aviso tono="atencion" titulo="Datos incompletos">
-            La abrió un parto cargado con "confirmar igual": la fecha de inicio no es confiable, y
-            con ella tampoco los días en leche de la curva.
-          </Aviso>
-        )}
-
-        <CurvaLactancia curva={enFoco.curva} pico={enFoco.pico} />
-
-        <div className="cifras">
-          <Cifra rotulo="Pico" valor={litros(enFoco.pico?.litros ?? null)} />
-          <Cifra rotulo="Al día en leche" valor={numero(enFoco.pico?.del ?? null)} />
-          <Cifra rotulo="Acumulada" valor={litros(enFoco.acumulada, 0)} />
-          <Cifra rotulo="Promedio por control" valor={litros(enFoco.promedio_controles)} />
-          <Cifra rotulo="A 305 días" valor={litros(enFoco.estandarizada_305, 0)} />
-          <Cifra rotulo="RCS máximo" valor={numero(enFoco.rcs_maximo)} />
-        </div>
-
-        {enFoco.crias.length > 0 && <p className="renglon">Parto: {crias(enFoco.crias)}</p>}
-      </>
-
-      {anteriores.length > 0 && (
-        <>
-          <h3>Las anteriores</h3>
-          <ul className="reparto">
-            {anteriores.map((l) => (
-              <li key={l.numero}>
-                <span>
-                  Lactancia {numero(l.numero)} — {fechaCorta(l.fecha_inicio)}
-                </span>
-                <span className="cuenta">{litros(l.acumulada, 0)}</span>
-              </li>
-            ))}
-          </ul>
-        </>
       )}
     </>
   );

@@ -781,14 +781,18 @@ export const rutasDelTablero: Record<string, RespuestaFalsa> = {
 };
 
 /**
- * Las cuatro lecturas de la ficha de la 102. Mismo criterio que
- * `rutasDelTablero`: cada tarjeta pide la suya, así que un test que abra la
- * ficha las necesita a las cuatro o ve tarjetas caídas en vez de fallar.
+ * Las lecturas de la ficha de la 102. Mismo criterio que `rutasDelTablero`:
+ * cada tarjeta pide la suya, así que un test que abra la ficha las necesita
+ * todas o ve tarjetas caídas en vez de fallar.
+ *
+ * **`/lactancias` no está**, y eso es parte de la afirmación: se fue entera a su
+ * pantalla y la ficha no la pide nunca más. Si alguien la vuelve a pedir desde
+ * acá, el servidor de mentira tira en vez de contestar — que es exactamente lo
+ * que hay que enterarse. Sus fixtures viven en `Partos.test.tsx`.
  */
 export const rutasDeLaFicha: Record<string, RespuestaFalsa> = {
   [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
   [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: { cuerpo: kpis102 },
-  [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: { cuerpo: lactancias102 },
   [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos102 },
   // El historial la pide para poder decir con qué reglas se juzgó cada evento.
   // Va acá y no en cada test: una ruta que la pantalla pide y el mock no prevé

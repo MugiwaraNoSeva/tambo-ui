@@ -48,6 +48,7 @@ import { Cuenta } from './pantallas/Cuenta';
 import { Ficha } from './pantallas/Ficha';
 import { Login } from './pantallas/Login';
 import { Panel } from './pantallas/Panel';
+import { Partos } from './pantallas/Partos';
 import { Rodeo } from './pantallas/Rodeo';
 import { Tablero } from './pantallas/Tablero';
 import { Tanque } from './pantallas/Tanque';
@@ -384,6 +385,8 @@ function Pantallas({ salida }: { salida: SalidaDelTambo }) {
     // qué dibujar— y la corrida porque su título y su vuelta salen del origen.
     case 'animal':
       return <Ficha id={ruta.id} />;
+    case 'partos':
+      return <Partos id={ruta.id} />;
     case 'cargar':
       return <CargarEvento id={ruta.id} />;
     case 'corrida':

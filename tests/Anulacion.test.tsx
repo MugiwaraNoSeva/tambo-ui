@@ -15,7 +15,6 @@ import {
   eventos102,
   eventos105,
   kpis102,
-  lactancias102,
   sesionDePrueba,
 } from './fixtures';
 
@@ -29,7 +28,6 @@ function montarFicha(cambios: Record<string, Manejador> = {}): ApiFalsa {
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
     [`GET /establecimientos/${EST}/animales/${V102}/kpis`]: { cuerpo: kpis102 },
-    [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: { cuerpo: lactancias102 },
     [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos102 },
     [RUTA_POST]: { status: 201, cuerpo: { evento_id: 'anul', proyeccion: animal102.proyeccion } },
     ...cambios,
