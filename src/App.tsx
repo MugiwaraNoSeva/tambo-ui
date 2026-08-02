@@ -388,7 +388,7 @@ function Pantallas({ salida }: { salida: SalidaDelTambo }) {
     case 'partos':
       return <Partos id={ruta.id} />;
     case 'cargar':
-      return <CargarEvento id={ruta.id} />;
+      return <CargarEvento id={ruta.id} tipo={ruta.tipo} />;
     case 'corrida':
       return <Corrida origen={ruta.origen} />;
 

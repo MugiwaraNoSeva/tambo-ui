@@ -14,6 +14,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useSyncExternalStore } from 'react';
+// Un `import type` y nada más: se borra al compilar, así que este archivo sigue
+// sin traer una línea de código de nadie. Es para que armar la dirección de una
+// carga no acepte un tipo que la API no conoce.
+import type { TipoEvento } from './api/tipos';
 
 /**
  * De qué lista sale una corrida. Viaja en la dirección —y no en un estado que
@@ -34,7 +38,13 @@ export type Ruta =
   | { nombre: 'rodeo' }
   | { nombre: 'animal'; id: string }
   | { nombre: 'partos'; id: string }
-  | { nombre: 'cargar'; id: string }
+  /**
+   * `tipo` viene **crudo** del camino y sin validar: acá no se sabe qué es un
+   * `TipoEvento` y no tiene por qué saberse. Lo valida la pantalla contra el
+   * vocabulario, con el mismo criterio que `deParametros` usa para los filtros —
+   * lo que no se reconoce no rompe, cae en el menú—.
+   */
+  | { nombre: 'cargar'; id: string; tipo: string | null }
   | { nombre: 'corrida'; origen: OrigenDeCorrida }
   | { nombre: 'alta' }
   | { nombre: 'tanque' }
@@ -130,7 +140,7 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'tanque') return { nombre: 'tanque' };
   if (primera === 'cuenta') return { nombre: 'cuenta' };
   if (primera === 'animales' && segunda !== undefined) {
-    if (tercera === 'cargar') return { nombre: 'cargar', id: segunda };
+    if (tercera === 'cargar') return { nombre: 'cargar', id: segunda, tipo: cuarta ?? null };
     if (tercera === 'partos') return { nombre: 'partos', id: segunda };
     // Lo que cuelgue del animal y no se entienda es la ficha, que es la pantalla
     // del animal: un `/partoss` mal tipeado no tiene por qué mandar al inicio.
@@ -242,11 +252,21 @@ export const aPartos = (
  * y qué caravana es. La caravana viaja para que la pantalla no tenga que pedir
  * el animal entero solo para escribirla en el encabezado — y si no viene, la
  * pantalla la va a buscar igual, así que un enlace pelado sigue andando.
+ *
+ * Sin `tipo` es **el menú** de los nueve; con `tipo`, el formulario de ese tipo.
+ * El segmento es el `TipoEvento` tal cual lo escribe la API —`tacto_positivo` y
+ * no `tacto-positivo`— a propósito: un segundo vocabulario para las mismas nueve
+ * cosas es una tabla de traducción que se puede despegar del contrato, y esta
+ * dirección no se lee en voz alta ni se tipea a mano.
  */
 export const aCargar = (
   id: string,
-  extra: { desde?: string; caravana?: string | null } = {},
-) => con(`#/animales/${id}/cargar`, { de: extra.desde, c: extra.caravana });
+  extra: { desde?: string; caravana?: string | null; tipo?: TipoEvento } = {},
+) =>
+  con(`#/animales/${id}/cargar${extra.tipo === undefined ? '' : `/${extra.tipo}`}`, {
+    de: extra.desde,
+    c: extra.caravana,
+  });
 
 /**
  * Una corrida, con los filtros que tenía puestos quien la empezó.

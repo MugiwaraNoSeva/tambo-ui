@@ -6,6 +6,7 @@ import {
   aPanel,
   aPanelTambo,
   aPanelUsuarios,
+  aPartos,
   esRutaDeAdmin,
   leerRuta,
   parametro,
@@ -24,9 +25,31 @@ describe('leerRuta', () => {
     expect(leerRuta('#/tanque')).toEqual({ nombre: 'tanque' });
   });
 
-  it('lee la ficha y la carga de un animal', () => {
+  it('lee la ficha, los partos y la carga de un animal', () => {
     expect(leerRuta(aAnimal('abc'))).toEqual({ nombre: 'animal', id: 'abc' });
-    expect(leerRuta(aCargar('abc'))).toEqual({ nombre: 'cargar', id: 'abc' });
+    expect(leerRuta(aPartos('abc'))).toEqual({ nombre: 'partos', id: 'abc' });
+    // Sin tipo es el menú de los nueve; con tipo, el formulario de ese tipo. Acá
+    // el tipo viaja **crudo**: quién lo valida es la pantalla, contra el
+    // vocabulario, y este archivo no sabe qué es un `TipoEvento`.
+    expect(leerRuta(aCargar('abc'))).toEqual({ nombre: 'cargar', id: 'abc', tipo: null });
+    expect(leerRuta(aCargar('abc', { tipo: 'parto' }))).toEqual({
+      nombre: 'cargar',
+      id: 'abc',
+      tipo: 'parto',
+    });
+    // Y uno inventado llega igual, sin romper: lo descarta la pantalla, que cae
+    // en el menú.
+    expect(leerRuta('#/animales/abc/cargar/tacto_de_verano')).toEqual({
+      nombre: 'cargar',
+      id: 'abc',
+      tipo: 'tacto_de_verano',
+    });
+  });
+
+  it('lo que cuelga de un animal y no se entiende es su ficha, no el inicio', () => {
+    // Un `/partoss` mal tipeado no tiene por qué mandar a otra pantalla: el
+    // animal se sabe cuál es.
+    expect(leerRuta('#/animales/abc/partoss')).toEqual({ nombre: 'animal', id: 'abc' });
   });
 
   it('lo que no se entiende cae en el tablero, no en un error', () => {
@@ -58,6 +81,7 @@ describe('los parámetros del hash', () => {
     expect(leerRuta(aCargar('abc', { desde: '#/', caravana: '104' }))).toEqual({
       nombre: 'cargar',
       id: 'abc',
+      tipo: null,
     });
   });
 
@@ -87,7 +111,7 @@ describe('los parámetros del hash', () => {
     const con = aCargar('abc', { caravana: 'A 1/2&3' });
     expect(parametro(con, 'c')).toBe('A 1/2&3');
     // Y no se lleva puesto el camino: sigue siendo la carga de `abc`.
-    expect(leerRuta(con)).toEqual({ nombre: 'cargar', id: 'abc' });
+    expect(leerRuta(con)).toEqual({ nombre: 'cargar', id: 'abc', tipo: null });
   });
 });
 
