@@ -21,8 +21,9 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../api/cliente';
 import { Aviso, Tarjeta } from '../componentes/basicos';
 import { Armazon } from '../componentes/armazon';
+import type { SalidaDelTambo } from '../establecimiento';
 import { aTablero } from '../ruteo';
-import { usarUsuario } from '../usuario';
+import { usarSalir, usarUsuario } from '../usuario';
 import { mensajeDe } from '../usarPedido';
 
 /** El mínimo que exige la API. Es de forma, no de dominio: el largo lo dice §9. */
@@ -34,8 +35,19 @@ const LARGO_MINIMO = 8;
  * las nueve que no es de un tambo — mi contraseña es mía y no de ningún
  * establecimiento—, y en una base recién instalada es la única forma que tiene
  * el admin de cambiar la suya: todavía no hay tambo al que entrar.
+ *
+ * `salida` es lo que llegó con la barra inferior: las dos acciones que antes
+ * vivían al pie del tablero —irse del tambo y cerrar la sesión— se mudaron acá.
+ * Viene solo desde adentro de un tambo; en el árbol del panel no hay tambo del
+ * que irse y salir se hace desde el panel, así que la tarjeta no se dibuja.
  */
-export function Cuenta({ volverA = aTablero() }: { volverA?: string }) {
+export function Cuenta({
+  volverA = aTablero(),
+  salida,
+}: {
+  volverA?: string;
+  salida?: SalidaDelTambo;
+}) {
   const usuario = usarUsuario();
 
   return (
@@ -49,7 +61,47 @@ export function Cuenta({ volverA = aTablero() }: { volverA?: string }) {
       </Tarjeta>
 
       <CambiarPassword />
+
+      {salida !== undefined && <Salidas salida={salida} />}
     </Armazon>
+  );
+}
+
+/**
+ * Las dos formas de irse, juntas y al final de la pantalla más lejana del pulgar.
+ *
+ * Es el criterio **inverso** al de la barra de abajo, y a propósito: lo que se
+ * hace todo el día va en la zona del pulgar, y lo que se hace una vez por turno
+ * va arriba y lejos, donde el dedo no llega solo. Que salir sea incómodo es la
+ * idea; al pie del tablero pesaba exactamente lo mismo que "Dar de alta".
+ *
+ * Las dos se dicen juntas porque lo que hay que entender es la diferencia:
+ * cambiar de tambo **no** cierra la sesión y salir sí.
+ */
+function Salidas({ salida }: { salida: SalidaDelTambo }) {
+  const salir = usarSalir();
+
+  return (
+    <Tarjeta titulo="Salir">
+      <p className="subtitulo">
+        {salida.rotulo === null
+          ? 'Salir cierra la sesión: hay que volver a escribir la contraseña.'
+          : `"${salida.rotulo}" no cierra la sesión. Salir sí, y hay que volver a escribir la contraseña.`}
+      </p>
+      <div className="acciones">
+        {/* `rotulo: null` es "no hay a dónde ir" —el tambero de un solo tambo—,
+            y entonces el botón no está: una lista de un elemento es una pantalla
+            de peaje y un botón que lleva a ella, un peaje sin pantalla. */}
+        {salida.rotulo !== null && (
+          <button className="boton secundario" type="button" onClick={() => salida.irse(null)}>
+            {salida.rotulo}
+          </button>
+        )}
+        <button className="boton secundario" type="button" onClick={salir}>
+          Salir
+        </button>
+      </div>
+    </Tarjeta>
   );
 }
 

@@ -25,7 +25,6 @@ import { Campo, CampoFecha, Rechazo } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import { fechaCorta, litros as enLitros, numero } from '../formato';
 import { diasAntes, hoyDelServidor } from '../reloj';
-import { aTablero } from '../ruteo';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 /** `2026-07-29` → `2026-07-01`. Presentación pura: corta, no calcula. */
@@ -73,7 +72,7 @@ export function Tanque() {
   const { datos, cargando, error, recargar } = usarPedido(traer);
 
   return (
-    <Armazon titulo="El tanque" volverA={aTablero()} ancha>
+    <Armazon titulo="El tanque" ancha lugar>
       {/* El período se mira igual con cualquier permiso: es una lectura. Lo que
           cambia es la tarjeta de arriba, que es la que escribe. */}
       {puedeCargar ? (

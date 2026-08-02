@@ -34,7 +34,12 @@ import {
 } from './almacen';
 import { Armazon } from './componentes/armazon';
 import { Aviso, Cargando } from './componentes/basicos';
-import { ProveedorEstablecimiento, puedeCargarEn, usarEstablecimiento } from './establecimiento';
+import {
+  ProveedorEstablecimiento,
+  puedeCargarEn,
+  usarEstablecimiento,
+  type SalidaDelTambo,
+} from './establecimiento';
 import { Alta } from './pantallas/Alta';
 import { CargarEvento } from './pantallas/CargarEvento';
 import { Conexion } from './pantallas/Conexion';
@@ -46,9 +51,9 @@ import { Panel } from './pantallas/Panel';
 import { Rodeo } from './pantallas/Rodeo';
 import { Tablero } from './pantallas/Tablero';
 import { Tanque } from './pantallas/Tanque';
-import { aCuenta, aPanel, aTablero, esRutaDeAdmin, ir, usarRuta, type Ruta } from './ruteo';
+import { aPanel, aTablero, esRutaDeAdmin, ir, usarRuta, type Ruta } from './ruteo';
 import { alCaerLaSesion, guardarToken, olvidarToken, tokenGuardado, type CaidaDeSesion } from './sesion';
-import { ProveedorUsuario, usarSalir, usarUsuario } from './usuario';
+import { ProveedorUsuario, usarUsuario } from './usuario';
 import { esSinPermiso, usarPedido } from './usarPedido';
 
 export function App() {
@@ -281,24 +286,6 @@ function ConTambo() {
 }
 
 /**
- * Cómo se sale del tambo, que es lo único que distingue a los dos que entran.
- *
- * El tambero vuelve al selector y el admin al panel, y por eso el rótulo viaja
- * al lado de la función: un botón que diga "Cambiar de tambo" y lleve al panel
- * es peor que no tener botón. `rotulo: null` es "no hay a dónde ir" —el tambero
- * de un solo tambo—, y entonces el botón no se dibuja.
- */
-interface SalidaDelTambo {
-  rotulo: string | null;
-  /**
-   * `porque` es el aviso que se muestra al llegar y `queReboto`, el 403 anotado.
-   * Los dos son del selector: el panel no los usa, y por eso `volverAlPanel`
-   * —que no recibe ninguno— encaja igual.
-   */
-  irse: (porque: string | null, queReboto?: string) => void;
-}
-
-/**
  * El tambo elegido, verificado contra la API: de acá salen el nombre del
  * encabezado y la `Config` que las pantallas necesitan, y por eso la
  * verificación se hace una sola vez y acá arriba.
@@ -360,7 +347,6 @@ function Conectado({ id, salida }: { id: string; salida: SalidaDelTambo }) {
 
 function Pantallas({ salida }: { salida: SalidaDelTambo }) {
   const { nombre } = usarEstablecimiento();
-  const salir = usarSalir();
   const cruda = usarRuta();
 
   // **Las rutas del panel no existen de este lado.** Un `#/admin` tocado por
@@ -372,33 +358,23 @@ function Pantallas({ salida }: { salida: SalidaDelTambo }) {
 
   switch (ruta.nombre) {
     // El tablero es el inicio y por eso lleva el nombre del tambo en el
-    // encabezado y ninguna flecha de volver: no hay a dónde.
+    // encabezado y ninguna flecha de volver: no hay a dónde. Es un **lugar**, y
+    // eso le pone la barra abajo y "Mi cuenta" arriba.
+    //
+    // Las tres salidas que vivían acá —cambiar de tambo, mi cuenta, salir— se
+    // fueron: "Mi cuenta" al encabezado, y las otras dos adentro de esa pantalla.
+    // El criterio es el inverso del de la barra y a propósito: lo que se hace
+    // todo el día va abajo, lo que se hace una vez por turno va arriba y lejos.
     case 'tablero':
       return (
-        <Armazon titulo={nombre}>
+        <Armazon titulo={nombre} lugar>
           <Tablero />
-          {/* Las tres salidas del tablero, juntas y al final: irse del tambo
-              (la sesión sigue) —al selector si es el tambero, al panel si es el
-              admin, y el rótulo lo dice—, mi cuenta, y salir (la sesión se va). */}
-          <div className="acciones">
-            {salida.rotulo !== null && (
-              <button className="boton secundario" type="button" onClick={() => salida.irse(null)}>
-                {salida.rotulo}
-              </button>
-            )}
-            <a className="boton secundario" href={aCuenta()}>
-              Mi cuenta
-            </a>
-            <button className="boton secundario" type="button" onClick={salir}>
-              Salir
-            </button>
-          </div>
         </Armazon>
       );
 
     case 'rodeo':
       return (
-        <Armazon titulo="El rodeo" volverA={aTablero()} ancha>
+        <Armazon titulo="El rodeo" ancha lugar>
           <Rodeo />
         </Armazon>
       );
@@ -417,7 +393,9 @@ function Pantallas({ salida }: { salida: SalidaDelTambo }) {
       return <Alta />;
     case 'tanque':
       return <Tanque />;
+    // La única de las tres salidas que no se puede resolver adentro de "Mi
+    // cuenta" sola: irse del tambo lo sabe hacer `App`, que es quien lo abrió.
     case 'cuenta':
-      return <Cuenta />;
+      return <Cuenta salida={salida} />;
   }
 }

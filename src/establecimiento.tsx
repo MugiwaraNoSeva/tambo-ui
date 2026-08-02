@@ -41,6 +41,28 @@ export function puedeCargarEn(usuario: Usuario, establecimientoId: string): bool
   );
 }
 
+/**
+ * Cómo se sale del tambo, que es lo único que distingue a los dos que entran.
+ *
+ * El tambero vuelve al selector y el admin al panel, y por eso el rótulo viaja
+ * al lado de la función: un botón que diga "Cambiar de tambo" y lleve al panel
+ * es peor que no tener botón. `rotulo: null` es "no hay a dónde ir" —el tambero
+ * de un solo tambo—, y entonces el botón no se dibuja.
+ *
+ * Vive acá y no en `App.tsx` porque desde la barra inferior lo consumen dos: la
+ * `App`, que lo arma, y "Mi cuenta", que es donde se dibuja. Es un dato del
+ * establecimiento activo tanto como el `nombre`.
+ */
+export interface SalidaDelTambo {
+  rotulo: string | null;
+  /**
+   * `porque` es el aviso que se muestra al llegar y `queReboto`, el 403 anotado.
+   * Los dos son del selector: el panel no los usa, y por eso `volverAlPanel`
+   * —que no recibe ninguno— encaja igual.
+   */
+  irse: (porque: string | null, queReboto?: string) => void;
+}
+
 const Contexto = createContext<EstablecimientoActivo | null>(null);
 
 export const ProveedorEstablecimiento = Contexto.Provider;

@@ -36,16 +36,17 @@ export function Tablero() {
       <ListasDeTrabajo />
       <ElRodeoHoy />
       <ElTanqueDeHoy />
-      <div className="acciones">
-        <a className="boton secundario" href={aRodeo()}>
-          Ver el rodeo entero
-        </a>
-        {puedeCargar && (
+      {/* Queda "Dar de alta" sola: "Ver el rodeo entero" se fue a la barra de
+          abajo, que es donde vive la navegación entre lugares desde que existe.
+          Un enlace al rodeo acá abajo sería un segundo camino al mismo lado, y
+          el que está en la barra se alcanza sin scrollear el tablero entero. */}
+      {puedeCargar && (
+        <div className="acciones">
           <a className="boton secundario" href={aAlta()}>
             Dar de alta
           </a>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 }
@@ -281,7 +282,10 @@ function ElTanqueDeHoy() {
       {/* Al de lectura no se le reclama que cargue el tanque: no puede, y el
           aviso sería un reto por algo que no está en sus manos. Ve el número y
           el enlace para mirar el período, como el resto de la pantalla. */}
-      {deHoy === undefined && puedeCargar ? (
+      {/* "Ver el tanque" se fue a la barra de abajo. Lo que queda acá es la
+          **puerta de carga**, que no es navegación: es lo que hay que hacer hoy,
+          y sigue estando a un toque donde se descubre que falta. */}
+      {deHoy === undefined && puedeCargar && (
         <>
           <Aviso tono="atencion" titulo="Todavía no cargaste el tanque">
             Un día sin cargar no baja el promedio: desaparece de la cuenta del mes.
@@ -290,10 +294,6 @@ function ElTanqueDeHoy() {
             Cargar el tanque de hoy
           </a>
         </>
-      ) : (
-        <a className="boton ancho secundario" href={aTanque()}>
-          Ver el tanque
-        </a>
       )}
     </Tarjeta>
   );

@@ -424,7 +424,7 @@ describe('repartir el acceso', () => {
 // ── Entrar y volver ──────────────────────────────────────────────────────────
 
 describe('entrar al tambo y volver', () => {
-  it('entra y es la app de siempre, con la vuelta al panel en el tablero', async () => {
+  it('entra y es la app de siempre, con la vuelta al panel adentro de Mi cuenta', async () => {
     montarPanel(aPanelTambo(EST));
     render(<App />);
 
@@ -433,8 +433,12 @@ describe('entrar al tambo y volver', () => {
     // El tablero del tambo, con su nombre arriba: la misma puerta del tambero.
     expect(await screen.findByRole('heading', { name: 'La Esperanza' })).toBeInTheDocument();
     expect(await screen.findByText('Preñez del rodeo')).toBeInTheDocument();
-    // Y la salida dice a dónde lleva: "Cambiar de tambo" llevaría a otro lado.
-    expect(screen.getByRole('button', { name: 'Volver al panel' })).toBeInTheDocument();
+    // Y el tablero **no** lleva la barra del admin: entró al tambo como un
+    // usuario más, con los tres lugares abajo y ninguna puerta al panel a la
+    // vista. La salida está donde ahora viven todas, y dice a dónde lleva:
+    // "Cambiar de tambo" llevaría a otro lado.
+    await userEvent.click(screen.getByRole('link', { name: 'Mi cuenta' }));
+    expect(await screen.findByRole('button', { name: 'Volver al panel' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /cambiar de tambo/i })).not.toBeInTheDocument();
   });
 
@@ -444,7 +448,8 @@ describe('entrar al tambo y volver', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Entrar al tambo/ }));
     await screen.findByText('Preñez del rodeo');
-    await userEvent.click(screen.getByRole('button', { name: 'Volver al panel' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Mi cuenta' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Volver al panel' }));
 
     expect(await screen.findByRole('heading', { name: 'Administración' })).toBeInTheDocument();
     expect(window.localStorage.getItem('tambo.token')).toBe(TOKEN);

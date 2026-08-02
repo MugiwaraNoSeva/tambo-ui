@@ -10,7 +10,7 @@
 // que mire solo los permisos lo deja mirando una UI de solo lectura.
 
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import type { Usuario } from '../src/api/tipos';
@@ -60,8 +60,12 @@ describe('el rol de lectura', () => {
     render(<App />);
 
     await screen.findByText('Preñez del rodeo');
-    // Mira todo lo que hay para mirar…
-    expect(screen.getByRole('link', { name: /ver el rodeo entero/i })).toBeInTheDocument();
+    // Mira todo lo que hay para mirar. El rodeo y el tanque se alcanzan desde la
+    // barra de abajo, que es de navegación y no de carga: al de lectura no se le
+    // esconde ningún lugar, se le esconden las puertas de carga.
+    const barra = within(screen.getByRole('navigation', { name: 'Secciones' }));
+    expect(barra.getByRole('link', { name: 'Rodeo' })).toBeInTheDocument();
+    expect(barra.getByRole('link', { name: 'Tanque' })).toBeInTheDocument();
     expect(await screen.findByText('Litros del día')).toBeInTheDocument();
     // …y no ve ninguna puerta de carga. Que no estén, no que estén y fallen.
     expect(screen.queryByRole('link', { name: /dar de alta/i })).not.toBeInTheDocument();

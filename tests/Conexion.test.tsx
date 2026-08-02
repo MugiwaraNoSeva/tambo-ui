@@ -106,7 +106,12 @@ describe('varios tambos', () => {
     render(<App />);
 
     await screen.findByRole('heading', { name: 'La Esperanza' });
-    await userEvent.click(screen.getByRole('button', { name: /cambiar de tambo/i }));
+    // La salida ya no está al pie del tablero: se hace una vez por turno, así
+    // que vive arriba y lejos, adentro de "Mi cuenta".
+    await userEvent.click(screen.getByRole('link', { name: 'Mi cuenta' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /cambiar de tambo/i }),
+    );
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /en qué tambo estás/i })).toBeInTheDocument(),

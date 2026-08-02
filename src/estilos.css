@@ -249,6 +249,28 @@ body {
   cursor: pointer;
 }
 
+/* ── La salida, arriba y lejos ───────────────────────────────────────────────
+   Al revés que la barra de abajo y a propósito: lo que se hace todo el día va en
+   la zona del pulgar, y lo que se hace **una vez por turno** —mi cuenta, cambiar
+   de tambo, salir— va arriba, donde el dedo no llega solo. Que salir sea
+   incómodo es la idea; al pie del tablero pesaba lo mismo que "Dar de alta".
+
+   El margen negativo le come el padding del encabezado: el área tocable llega
+   hasta el borde de la pantalla, que es donde el dedo la busca. */
+
+.encabezado .cuenta {
+  min-height: var(--toque);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--espacio-2);
+  margin-right: calc(var(--espacio-2) * -1);
+  color: var(--sobre-verde);
+  font-size: var(--texto-m);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .contenido {
   flex: 1;
   padding: var(--espacio-4);
@@ -256,6 +278,54 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--espacio-4);
+}
+
+/* ── La barra de abajo: los tres lugares ─────────────────────────────────────
+   Vive en **los lugares y no en las tareas**: el tablero, el rodeo y el tanque
+   la llevan y no tienen flecha; la ficha, los partos, la carga, el alta, la
+   corrida, mi cuenta y el panel entero tienen flecha y no la llevan.
+
+   `sticky` y **no** `fixed`, que es la decisión que se paga sola: así queda
+   adentro del `.app` y respeta sus dos anchos —la de carga y la ancha— sin que
+   haya que compensarla con un `padding-bottom` en `.contenido` que alguien
+   tendría que mantener igual al alto de la barra.
+
+   El `padding-bottom` del área segura es lo que la despega del gesto de inicio
+   en los celulares con muesca, que si no se come la mitad del target. */
+
+.barra {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  background: var(--papel);
+  border-top: 1px solid var(--borde);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.barra a {
+  flex: 1;
+  min-height: var(--toque);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espacio-2) var(--espacio-1);
+  color: var(--tinta-suave);
+  font-size: var(--texto-m);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Tres señales y ninguna es solo el color: la barra de arriba, el peso y la
+   tinta. `aria-current` lo dice para quien no ve la pantalla. */
+.barra a[aria-current='page'] {
+  color: var(--verde-texto);
+  font-weight: 700;
+  box-shadow: inset 0 3px 0 var(--verde);
+}
+
+.barra a:active {
+  background: var(--verde-tenue);
 }
 
 /* ── Tarjetas y secciones ────────────────────────────────────────────────── */

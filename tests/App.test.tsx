@@ -265,7 +265,11 @@ describe('salir', () => {
     render(<App />);
 
     await screen.findByRole('heading', { name: 'La Esperanza' });
-    await userEvent.click(screen.getByRole('button', { name: 'Salir' }));
+    // Salir se hace una vez por turno, así que se fue del pie del tablero al
+    // lugar más lejos del pulgar: adentro de "Mi cuenta". Que sea incómodo es la
+    // idea — antes pesaba exactamente lo mismo que "Dar de alta".
+    await userEvent.click(screen.getByRole('link', { name: 'Mi cuenta' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Salir' }));
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Entrar' })).toBeInTheDocument());
     expect(window.localStorage.getItem('tambo.token')).toBeNull();
