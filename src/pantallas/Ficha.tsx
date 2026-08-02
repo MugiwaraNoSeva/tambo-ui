@@ -482,6 +482,27 @@ function EventoDelLog({
   const detalle = detallePayload(evento.tipo, evento.payload);
   const otrasReglas = reglasDistintas(evento, versiones);
 
+  // ── Cuándo se cargó, y solo cuando no es cuándo pasó ───────────────────────
+  //
+  // El renglón decía cuándo **pasó** el evento y nunca cuándo se **cargó**, con
+  // `fecha_registro` llegando en cada evento y ninguna pantalla mirándola. El
+  // atajo "Ayer" existe precisamente porque se cargan tarde: el celo que se vio
+  // al caer la tarde se anota a la mañana siguiente. Cuando alguien revisa el
+  // historial y no entiende por qué una vaca no estaba en la lista de esa
+  // mañana, esta es la respuesta.
+  //
+  // Aparece **solo cuando las dos fechas difieren**, que es la misma forma que
+  // ya tiene la marca de "otras reglas": habla cuando hay algo que decir y se
+  // calla en los demás casos, que son casi todos. Escribir "cargado el mismo
+  // día" en cuarenta renglones taparía los dos que importan.
+  //
+  // `fecha_registro` es un instante ISO y se corta en el día, como el
+  // `vigente_desde` del historial de reglas: es el día en UTC y no el de
+  // Montevideo, pero abrirlo con `new Date` para corregir tres horas traería el
+  // parser que las decisiones 47 y 52 sacaron de todo el archivo.
+  const diaDeCarga = evento.fecha_registro.slice(0, 10);
+  const cargadoOtroDia = diaDeCarga !== '' && diaDeCarga !== evento.fecha_evento;
+
   return (
     <li className={anulado ? 'anulado' : undefined}>
       <strong>
@@ -493,6 +514,7 @@ function EventoDelLog({
       {esAnulacion && <span className="marca">deshace un evento anterior</span>}
       {evento.forzado && <span className="marca forzado">cargado con "confirmar igual"</span>}
       {otrasReglas !== null && <span className="marca forzado">otras reglas</span>}
+      {cargadoOtroDia && <span className="marca">cargado el {fechaCorta(diaDeCarga)}</span>}
       {detalle !== null && <span className="renglon">{detalle}</span>}
       {otrasReglas !== null && (
         <span className="renglon aviso-suave">

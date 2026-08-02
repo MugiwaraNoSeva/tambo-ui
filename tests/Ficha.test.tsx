@@ -18,6 +18,7 @@ import {
   V106,
   animal102,
   establecimiento,
+  eventos102,
   eventos105,
   eventos106,
   kpis102,
@@ -246,6 +247,42 @@ describe('el historial', () => {
     const anulado = eventos.find((e) => e.textContent?.includes('30/04/2026'));
     expect(anulado?.className).toContain('anulado');
     expect(anulado?.textContent).toContain('anulado');
+  });
+
+  /**
+   * Cuándo se cargó, que es la respuesta a "por qué esta vaca no estaba en la
+   * lista de esa mañana". El atajo "Ayer" existe porque se cargan tarde.
+   */
+  it('dice cuándo se cargó un evento que se anotó otro día', async () => {
+    // El parto del 13, anotado el 15: dos días después, que es lo normal.
+    const anotadoTarde = {
+      ...eventos102,
+      eventos: eventos102.eventos.map((e) =>
+        e.tipo === 'parto' ? { ...e, fecha_registro: '2026-01-15T12:00:00.000Z' } : e,
+      ),
+    };
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: anotadoTarde },
+    });
+    render(<App />);
+    await esperarHistorial();
+
+    const parto = [...document.querySelectorAll('.historial > li')].find((e) =>
+      e.textContent?.includes('— Parto'),
+    );
+    expect(parto?.textContent).toContain('13/01/2026 — Parto');
+    expect(parto?.textContent).toContain('cargado el 15/01/2026');
+  });
+
+  it('y no dice nada cuando se cargó el mismo día que pasó', async () => {
+    // Las fixtures traen `fecha_registro` del día del evento, que es el caso
+    // normal: escribir "cargado el mismo día" en cuarenta renglones sería ruido
+    // que tapa los pocos que tienen algo que contar.
+    montarFicha();
+    render(<App />);
+    await esperarHistorial();
+
+    expect(screen.queryByText(/^cargado el /)).not.toBeInTheDocument();
   });
 
   it('marca los forzados: el que se cargó con "confirmar igual"', async () => {
