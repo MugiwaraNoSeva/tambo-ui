@@ -130,7 +130,9 @@ describe('el rol de escritura', () => {
 
     await screen.findByText(/toro Urubó/);
     expect(screen.getByRole('link', { name: /cargar un evento/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /anular este evento/i })).toBeInTheDocument();
+    // Uno por evento vigente desde la decisión 101, no uno solo: lo que este test
+    // afirma es el permiso —que los ve—, y cuántos son lo fija `Anulacion.test`.
+    expect(screen.getAllByRole('button', { name: /anular este evento/i })).not.toHaveLength(0);
   });
 });
 
@@ -161,6 +163,6 @@ describe('el admin, que no tiene permisos y puede todo', () => {
     await entrarAlTambo(`#/animales/${V102}`);
 
     await screen.findByText(/toro Urubó/);
-    expect(screen.getByRole('button', { name: /anular este evento/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /anular este evento/i })).not.toHaveLength(0);
   });
 });

@@ -36,6 +36,7 @@ const tresParaRevisar: RespuestaAlertas = {
     { animal_id: V101, caravana: '101' },
   ],
   para_secar: [],
+  para_descartar_leche: [],
 };
 
 const postDe = (animal: string) => `POST /establecimientos/${EST}/animales/${animal}/eventos`;

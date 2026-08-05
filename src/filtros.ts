@@ -29,6 +29,8 @@ export interface Filtrable {
   reproductivo: EstadoReproductivo | null;
   productivo: EstadoProductivo | null;
   categoria: CategoriaAlimentacion | null;
+  /** En qué corral está (decisión 100). Null = rodeo general. */
+  lote: string | null;
 }
 
 /** `null` es "sin filtrar por este eje", que es lo que devuelve soltar un chip. */
@@ -37,6 +39,7 @@ export interface Filtros {
   reproductivo: EstadoReproductivo | null;
   productivo: EstadoProductivo | null;
   categoria: CategoriaAlimentacion | null;
+  lote: string | null;
 }
 
 export const SIN_FILTROS: Filtros = {
@@ -44,13 +47,30 @@ export const SIN_FILTROS: Filtros = {
   reproductivo: null,
   productivo: null,
   categoria: null,
+  lote: null,
 };
 
 export const hayFiltro = (f: Filtros): boolean =>
   f.busqueda.trim() !== '' ||
   f.reproductivo !== null ||
   f.productivo !== null ||
-  f.categoria !== null;
+  f.categoria !== null ||
+  f.lote !== null;
+
+/**
+ * Los lotes que hay **en la lista que se está mirando**, ordenados, para armar
+ * los chips.
+ *
+ * Salen de los datos y no de un vocabulario fijo porque un lote es un nombre que
+ * el tambo escribe, no una lista cerrada del modelo — es la diferencia con los
+ * otros tres filtros. Los que no están en ningún lote no generan chip: para
+ * verlos está soltar el filtro, que es lo que ya significa "mostrá todo".
+ */
+export function lotesDe(animales: readonly Filtrable[]): string[] {
+  return [...new Set(animales.map((a) => a.lote).filter((l): l is string => l !== null))].sort(
+    (a, b) => a.localeCompare(b),
+  );
+}
 
 /**
  * Las filas que pasan los filtros.
@@ -66,7 +86,8 @@ export function filtrar<T extends Filtrable>(animales: readonly T[], f: Filtros)
       (texto === '' || (a.caravana ?? '').toLowerCase().includes(texto)) &&
       (f.reproductivo === null || a.reproductivo === f.reproductivo) &&
       (f.productivo === null || a.productivo === f.productivo) &&
-      (f.categoria === null || a.categoria === f.categoria),
+      (f.categoria === null || a.categoria === f.categoria) &&
+      (f.lote === null || a.lote === f.lote),
   );
 }
 
@@ -84,6 +105,7 @@ export function aParametros(f: Filtros): Record<string, string | undefined> {
     repro: f.reproductivo ?? undefined,
     prod: f.productivo ?? undefined,
     cat: f.categoria ?? undefined,
+    lote: f.lote ?? undefined,
   };
 }
 
@@ -106,6 +128,16 @@ export function deParametros(hash: string): Filtros {
     reproductivo: uno<EstadoReproductivo>('repro', REPRODUCTIVO),
     productivo: uno<EstadoProductivo>('prod', PRODUCTIVO),
     categoria: uno<CategoriaAlimentacion>('cat', CATEGORIA),
+    // El lote **no se puede validar acá**, y es la excepción de la regla de
+    // arriba: los otros tres se comparan contra un vocabulario cerrado y este es
+    // un nombre que el tambo escribió, que solo la lista del rodeo conoce y que
+    // esta función no tiene a mano. Pasa tal cual.
+    //
+    // Lo que lo cubre es lo que ya existía para el caso feo: un lote inventado
+    // deja la lista vacía, y arriba de la lista vacía está la frase "Filtrando
+    // por lote X" con su botón de quitar. Esa frase se escribió justamente para
+    // ese caso — enterarse de qué se está filtrando cuando no queda nada.
+    lote: parametro(hash, 'lote') ?? null,
   };
 }
 
@@ -116,5 +148,6 @@ export function enPalabras(f: Filtros): string[] {
   if (f.reproductivo !== null) puestos.push(REPRODUCTIVO[f.reproductivo].toLowerCase());
   if (f.productivo !== null) puestos.push(PRODUCTIVO[f.productivo].toLowerCase());
   if (f.categoria !== null) puestos.push(CATEGORIA[f.categoria].toLowerCase());
+  if (f.lote !== null) puestos.push(`lote ${f.lote}`);
   return puestos;
 }

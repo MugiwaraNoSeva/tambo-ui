@@ -42,9 +42,16 @@ import type {
   RespuestaKPIs,
   RespuestaLactancias,
   RespuestaLogin,
+  RespuestaPartosDelRodeo,
+  RespuestaPrenez,
+  RespuestaRazas,
+  RespuestaReparto,
   RespuestaRodeo,
+  RespuestaSalidas,
+  RespuestaServicios,
   RespuestaTanque,
   RespuestaTanquePost,
+  RespuestaToros,
   RespuestaUsuarios,
   RespuestaYo,
   Rol,
@@ -190,6 +197,29 @@ const A = (est: string, animal: string) => `${E(est)}/animales/${encodeURICompon
 const U = (usuario: string) => `/usuarios/${encodeURIComponent(usuario)}`;
 const P = (usuario: string, est: string) => `${U(usuario)}/permisos/${encodeURIComponent(est)}`;
 
+/**
+ * La cola de una URL, salteando lo que no vino.
+ *
+ * Existe porque desde las decisiones 97 a 107 casi todas las lecturas del rodeo
+ * aceptan ventana, y armar el `?desde=…&hasta=…` a mano en cada una es cómo se
+ * cuela un `?desde=undefined` — un 400 de la API por un string de más, que es
+ * exactamente el borde que la decisión 49 encontró en el tanque.
+ */
+function cola(parametros: Record<string, string | number | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [nombre, valor] of Object.entries(parametros)) {
+    if (valor !== undefined && valor !== '') q.set(nombre, String(valor));
+  }
+  const escrita = q.toString();
+  return escrita === '' ? '' : `?${escrita}`;
+}
+
+/** El período que aceptan `/servicios`, `/salidas`, `/partos` y el tanque. */
+export interface Periodo {
+  desde?: string;
+  hasta?: string;
+}
+
 // ── Las operaciones, en el orden de la tabla de §9 ───────────────────────────
 
 export const api = {
@@ -276,6 +306,17 @@ export const api = {
    */
   configDefault: () => get<RespuestaConfigDefault>('/config-default'),
 
+  /**
+   * El catálogo de razas (decisión 109).
+   *
+   * **No cuelga de ningún establecimiento** y por eso está acá arriba, entre las
+   * globales: una raza no es de nadie, y que "Jersey" sea la misma Jersey en
+   * todos los tambos es el punto de que exista la tabla. Es de lectura para
+   * cualquiera autenticado, como `/config-default`: quien da de alta un animal
+   * necesita la lista.
+   */
+  razas: () => get<RespuestaRazas>('/razas'),
+
   // ── Y de acá en adelante, las del tambo ────────────────────────────────────
 
   /**
@@ -291,7 +332,13 @@ export const api = {
   animales: (est: string, todas = false) =>
     get<RespuestaAnimales>(`${E(est)}/animales${todas ? '?todas=true' : ''}`),
 
-  animal: (est: string, animal: string) => get<RespuestaAnimal>(A(est, animal)),
+  /**
+   * La ficha. Con `fecha` devuelve **cómo estaba ese día**, plegando el log
+   * (decisión 97), y ahí la respuesta viene sin `version`: esa es el contador con
+   * el que se escribe, o sea una propiedad de hoy, y no de la foto.
+   */
+  animal: (est: string, animal: string, fecha?: string) =>
+    get<RespuestaAnimal>(`${A(est, animal)}${cola({ fecha })}`),
 
   alta: (est: string, cuerpo: CuerpoAlta) => post<RespuestaAlta>(`${E(est)}/animales`, cuerpo),
 
@@ -305,18 +352,64 @@ export const api = {
   lactancias: (est: string, animal: string) =>
     get<RespuestaLactancias>(`${A(est, animal)}/lactancias`),
 
-  rodeo: (est: string) => get<RespuestaRodeo>(`${E(est)}/rodeo`),
+  /**
+   * La foto del rodeo. Con `fecha`, la de ese día: el cache no acepta fechas
+   * (decisión 45), así que esa lectura **pliega el log entero** en vez de hacer
+   * cinco consultas. Es la lectura de una consulta, no la de una pantalla que se
+   * refresca sola.
+   */
+  rodeo: (est: string, fecha?: string) =>
+    get<RespuestaRodeo>(`${E(est)}/rodeo${cola({ fecha })}`),
 
   alertas: (est: string) => get<RespuestaAlertas>(`${E(est)}/alertas`),
+
+  /** Qué corral come qué (decisión 100). Acepta `fecha` como `/rodeo`. */
+  reparto: (est: string, fecha?: string) =>
+    get<RespuestaReparto>(`${E(est)}/reparto${cola({ fecha })}`),
+
+  // ── Los indicadores del rodeo ──────────────────────────────────────────────
+
+  /**
+   * La tasa de concepción del rodeo (decisión 98): cuántos servicios prendieron.
+   * Es el complemento de `servicios_por_concepcion` de `/kpis` — aquel mira desde
+   * el animal y este desde el servicio, que es el indicador del **programa**.
+   */
+  servicios: (est: string, periodo: Periodo = {}) =>
+    get<RespuestaServicios>(`${E(est)}/servicios${cola({ ...periodo })}`),
+
+  /**
+   * Qué rinde cada toro (decisión 96). **No acepta período, y es deliberado**: la
+   * fertilidad de un toro es una propiedad suya que no cambia con el año.
+   */
+  toros: (est: string) => get<RespuestaToros>(`${E(est)}/toros`),
+
+  /**
+   * La tasa de preñez a 21 días (decisión 104): el único indicador con la vaca que
+   * **nadie sirvió** en el denominador. `ventanas` es cuántos ciclos estrales
+   * hacia atrás — 17 son un año, y el techo de la API son 52.
+   */
+  prenez: (est: string, opciones: { hasta?: string; ventanas?: number } = {}) =>
+    get<RespuestaPrenez>(`${E(est)}/prenez${cola({ ...opciones })}`),
+
+  /** Por qué se van las vacas (decisión 106), que es otra pregunta que cómo salieron. */
+  salidas: (est: string, periodo: Periodo = {}) =>
+    get<RespuestaSalidas>(`${E(est)}/salidas${cola({ ...periodo })}`),
+
+  /** Cuánto costaron los partos: la distocia y lo que deja después (decisión 107). */
+  partosDelRodeo: (est: string, periodo: Periodo = {}) =>
+    get<RespuestaPartosDelRodeo>(`${E(est)}/partos${cola({ ...periodo })}`),
+
+  // ── El tanque ──────────────────────────────────────────────────────────────
 
   cargarTanque: (est: string, cuerpo: CuerpoTanque) =>
     post<RespuestaTanquePost>(`${E(est)}/tanque`, cuerpo),
 
-  tanque: (est: string, periodo?: { desde?: string; hasta?: string }) => {
-    const q = new URLSearchParams();
-    if (periodo?.desde !== undefined) q.set('desde', periodo.desde);
-    if (periodo?.hasta !== undefined) q.set('hasta', periodo.hasta);
-    const cola = q.toString();
-    return get<RespuestaTanque>(`${E(est)}/tanque${cola === '' ? '' : `?${cola}`}`);
-  },
+  /**
+   * Los registros del período. **Sin `lote` es el tambo entero** y suma solo los
+   * registros sin lote, que es el total por definición (decisión 33); con `lote`
+   * se filtran los dos lados —la leche de ese lote sobre las vacas en ordeñe de
+   * ese lote—, que es lo que hace comparable el litro por vaca de un corral.
+   */
+  tanque: (est: string, periodo: Periodo & { lote?: string } = {}) =>
+    get<RespuestaTanque>(`${E(est)}/tanque${cola({ ...periodo })}`),
 };

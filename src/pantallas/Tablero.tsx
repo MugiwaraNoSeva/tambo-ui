@@ -54,9 +54,9 @@ export function Tablero() {
 // ── Las dos listas de trabajo ────────────────────────────────────────────────
 
 /**
- * Las dos listas salen de **un solo** `GET /alertas` y se dibujan en dos
- * tarjetas: es una lectura y dos tareas distintas, y separarlas en dos pedidos
- * sería pagar dos viajes por el mismo dato.
+ * Las **tres** listas salen de un solo `GET /alertas` y se dibujan en tres
+ * tarjetas: es una lectura y tres tareas distintas, y separarlas en tres pedidos
+ * sería pagar tres viajes por el mismo dato.
  */
 function ListasDeTrabajo() {
   const { id } = usarEstablecimiento();
@@ -77,6 +77,24 @@ function ListasDeTrabajo() {
 
   return (
     <>
+      {/* Va **primera**, arriba de las otras dos, y es la única lista del tablero
+          que se ordena por urgencia y no por el trabajo del día.
+
+          Las otras dos avisan de un problema de manejo: una vaca sin diagnóstico
+          o secada tarde cuesta plata y se puede resolver mañana. Esta avisa de
+          uno **legal**, y la ventana para atenderlo es antes de empezar a
+          ordeñar: la leche de una vaca en período de retiro no arruina su tarro,
+          arruina la carga entera del tambo. Después del ordeñe, saberlo no sirve.
+
+          Es también la más incómoda de las tres de contar: la API la contestaba
+          desde la decisión 99 y no había pantalla que la mostrara. */}
+      <ListaDeTrabajo
+        titulo="Hoy no van al tanque"
+        subtitulo="En ordeñe y con la leche en período de retiro por un tratamiento."
+        animales={datos.para_descartar_leche}
+        vacia="Ninguna en retiro: toda la leche de hoy puede ir al tanque."
+        alerta="Su leche se descarta. Si va al tanque, se pierde la carga entera del tambo."
+      />
       <ListaDeTrabajo
         titulo="Para revisar"
         subtitulo="Inseminadas que ya pasaron el plazo y siguen sin diagnóstico."
@@ -108,6 +126,7 @@ function ListaDeTrabajo({
   subtitulo,
   animales,
   vacia,
+  alerta,
   origen,
   corrida,
 }: {
@@ -115,9 +134,26 @@ function ListaDeTrabajo({
   subtitulo: string;
   animales: AnimalDeLista[];
   vacia: string;
-  origen: OrigenDeCorrida;
+  /**
+   * Lo que hay que hacer con estos animales cuando **no es cargar un evento**.
+   *
+   * Es el caso de la lista de retiro de leche y por ahora el único: lo que se
+   * hace con esas vacas pasa en la sala de ordeñe, no en el sistema. Sin este
+   * renglón la tarjeta sería una lista de caravanas sin decir qué se hace con
+   * ellas, que en la única alerta con consecuencia legal del sistema es
+   * exactamente lo que no puede pasar.
+   */
+  alerta?: string;
+  /**
+   * De dónde sale la corrida, si es que hay algo que cargarles a todas.
+   *
+   * Las dos listas reproductivas la tienen —veinticinco tactos se cargan de
+   * corrido— y la de retiro no: no hay evento que cargar, hay leche que apartar.
+   * Ofrecer una corrida ahí sería una puerta a un formulario sin sentido.
+   */
+  origen?: OrigenDeCorrida;
   /** El rótulo de la corrida: dice qué se les va a hacer, no "empezar". */
-  corrida: string;
+  corrida?: string;
 }) {
   const { puedeCargar } = usarEstablecimiento();
   const hay = animales.length > 0;
@@ -140,11 +176,19 @@ function ListaDeTrabajo({
         <p className="vacio">{vacia}</p>
       ) : (
         <>
+          {/* Qué hay que hacer con estas, cuando no es cargarles nada. Va arriba
+              y como aviso: el que ordeña tiene que leerlo antes que las
+              caravanas, no después de scrollear la lista. */}
+          {alerta !== undefined && (
+            <Aviso tono="atencion" titulo="No mandarla al tanque">
+              {alerta}
+            </Aviso>
+          )}
           {/* La corrida va **arriba de la lista** y no al final: es lo que se
               viene a hacer con estos animales, y abajo de cuatro o de treinta
               filas habría que scrollear para encontrarla. Al de lectura no se
               le ofrece — el recorrido entero terminaría en un 403 por animal. */}
-          {puedeCargar && (
+          {puedeCargar && origen !== undefined && corrida !== undefined && (
             <a className="boton ancho" href={aCorrida(origen)}>
               {corrida}
             </a>

@@ -1,19 +1,23 @@
-// La carga de un evento: el menú de los nueve tipos, el formulario de cada uno,
+// La carga de un evento: el menú de los doce tipos, el formulario de cada uno,
 // y el flujo del rechazo — que es el único lugar donde la UI "sabe" algo de
 // dominio: que un rechazo forzable se puede confirmar (decisión 50).
 //
 // Lo que se prueba es **qué manda el formulario** y **qué hace con lo que la API
-// contesta**. Si el celo era válido o no lo deciden 237 tests del otro lado.
+// contesta**. Si el celo era válido o no lo deciden los tests del otro lado.
 //
 // Desde que la pantalla se partió en dos, se prueba además la puerta: que el
-// menú liste los nueve, que cada uno lleve a su ruta, y que un `:tipo` que no se
+// menú los liste, que cada uno lleve a su ruta, y que un `:tipo` que no se
 // entiende caiga en el menú en vez de romper.
+//
+// Eran nueve hasta que entraron el tratamiento, la medición y el traslado —las
+// decisiones 99, 100 y 108—, y el tacto positivo dejó de ser un formulario vacío
+// cuando la 111 y la 112 le dieron sus dos campos.
 
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
-import type { TipoEvento } from '../src/api/tipos';
+import type { RespuestaAnimal, TipoEvento } from '../src/api/tipos';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
 import { aCargar, aTablero } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
@@ -61,8 +65,29 @@ const menu = aCargar(V102, { desde: aTablero(), caravana: '102' });
 const mandado = (falsa: ApiFalsa): Record<string, unknown> =>
   falsa.cuerpoDe(RUTA_POST) as Record<string, unknown>;
 
-describe('el menú de los nueve tipos', () => {
-  it('los lista a los nueve, agrupados y en el orden del trabajo', async () => {
+/**
+ * La misma 102 con `n` servicios en el ciclo abierto (decisión 112).
+ *
+ * Con uno solo no hay nada que elegir —a falta de puntero la API usa el último, y
+ * el último es ese—; con dos aparece la pregunta, que es el **celo falso**: la
+ * vaca ya estaba preñada del primero, mostró celo igual y la re-sirvieron.
+ */
+const conServicios = (n: number): RespuestaAnimal => ({
+  ...animal102,
+  proyeccion: {
+    ...animal102.proyeccion,
+    estado: {
+      ...animal102.proyeccion.estado,
+      servicios_del_ciclo: [
+        { evento_id: 'ins-1', fecha: '2026-05-20' },
+        { evento_id: 'ins-2', fecha: '2026-06-10' },
+      ].slice(0, n),
+    },
+  },
+});
+
+describe('el menú de los doce tipos', () => {
+  it('los lista a los doce, agrupados y en el orden del trabajo', async () => {
     montarCarga(menu);
     render(<App />);
 
@@ -79,11 +104,17 @@ describe('el menú de los nueve tipos', () => {
       'Aborto',
       'Control lechero',
       'Secado',
+      'Tratamiento',
+      'Peso y condición',
+      'Cambio de lote',
       'Baja',
     ]);
-    // Los tres grupos, con su título.
+    // Los cuatro grupos, con su título. El tercero es el que trajeron las
+    // decisiones 99, 100 y 108, y agrupa lo que **no cambia el estado** del
+    // animal: ni preñada ni seca, otra dimensión.
     expect(screen.getByRole('heading', { name: 'Reproducción' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Producción' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sanidad y manejo' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Salida' })).toBeInTheDocument();
   });
 
@@ -94,10 +125,12 @@ describe('el menú de los nueve tipos', () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'Cargarle a 102' });
 
-    expect(screen.getByRole('link', { name: /^Tacto positivo/ })).toHaveTextContent('Preñada');
+    expect(screen.getByRole('link', { name: /^Tacto positivo/ })).toHaveTextContent(
+      'Preñada, y de cuánto',
+    );
     expect(screen.getByRole('link', { name: /^Tacto negativo/ })).toHaveTextContent('Vacía');
-    expect(screen.getByRole('link', { name: /^Parto/ })).toHaveTextContent(
-      'Las crías, con su sexo y su resultado',
+    expect(screen.getByRole('link', { name: /^Tratamiento/ })).toHaveTextContent(
+      'Qué se le dio y cuántos días de retiro',
     );
   });
 
@@ -181,7 +214,6 @@ describe('los formularios por tipo', () => {
   });
 
   it.each([
-    ['tacto_positivo', 'Tacto positivo — 102', 'Cargar el tacto'],
     ['tacto_negativo', 'Tacto negativo — 102', 'Cargar el tacto'],
     ['aborto', 'Aborto — 102', 'Cargar el aborto'],
     ['secado', 'Secado — 102', 'Cargar el secado'],
@@ -190,8 +222,12 @@ describe('los formularios por tipo', () => {
     titulo,
     boton,
   ) => {
-    // Cinco de los nueve no llevan payload. Cinco pantallas idénticas con el
-    // título cambiado serían cinco lugares donde arreglar lo mismo.
+    // Cuatro de los doce no llevan payload. Cuatro pantallas idénticas con el
+    // título cambiado serían cuatro lugares donde arreglar lo mismo.
+    //
+    // Eran cinco: el **tacto positivo se fue de acá** con las decisiones 111 y
+    // 112, que le dieron dos campos propios. Que este `each` haya perdido una fila
+    // es la señal más barata de que esa pantalla ahora existe.
     const falsa = montarTipo(tipo);
     render(<App />);
 
@@ -221,6 +257,98 @@ describe('los formularios por tipo', () => {
     });
   });
 
+  // ── El tacto positivo: las decisiones 111 y 112, que hasta ahora no tenían
+  //    dónde escribirse ────────────────────────────────────────────────────────
+
+  it('el tacto positivo manda la edad de la preñez que declaró el veterinario', async () => {
+    const falsa = montarTipo('tacto_positivo');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tacto positivo — 102' });
+
+    await userEvent.type(screen.getByLabelText('De cuántos días viene la preñez'), '45');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el tacto' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    // Se manda **lo observado** y no la fecha de concepción: esa cuenta la hace
+    // el núcleo, y pedirle a la persona que la haga a mano invita al error que
+    // este campo vino a evitar.
+    expect(mandado(falsa)['payload']).toEqual({ dias_gestacion: 45 });
+  });
+
+  it('sin edad de preñez el payload va vacío, porque el campo es opcional', async () => {
+    const falsa = montarTipo('tacto_positivo');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tacto positivo — 102' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el tacto' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    // Un chequeo rápido del propio tambero puede no traer una edad, y exigirla
+    // convertiría un dato de más en una traba.
+    expect(mandado(falsa)['payload']).toEqual({});
+  });
+
+  it('con un solo servicio en el ciclo no ofrece elegir: apuntar y no apuntar es lo mismo', async () => {
+    montarTipo('tacto_positivo', {
+      [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: conServicios(1) },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tacto positivo — 102' });
+    // Se espera a que el pedido del animal haya vuelto, o el test pasaría por
+    // llegar antes que la respuesta y no por la regla que dice probar.
+    await waitFor(() =>
+      expect(screen.getByLabelText('De cuántos días viene la preñez')).toBeInTheDocument(),
+    );
+
+    expect(screen.queryByLabelText('De qué servicio quedó preñada')).not.toBeInTheDocument();
+  });
+
+  it('con dos servicios ofrece elegir cuál prendió, que es el celo falso', async () => {
+    const falsa = montarTipo('tacto_positivo', {
+      [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: conServicios(2) },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tacto positivo — 102' });
+
+    const selector = await screen.findByLabelText('De qué servicio quedó preñada');
+    // Los servicios, del más nuevo al más viejo, más la opción de no elegir.
+    expect([...selector.querySelectorAll('option')].map((o) => o.textContent)).toEqual([
+      'El último',
+      '10/06/2026',
+      '20/05/2026',
+    ]);
+
+    // Se elige **el viejo**, que es el caso que la decisión 112 vino a resolver:
+    // la vaca ya estaba preñada del 20/05, mostró celo igual y la re-sirvieron.
+    await userEvent.selectOptions(selector, 'ins-1');
+    await userEvent.type(screen.getByLabelText('De cuántos días viene la preñez'), '70');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el tacto' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({
+      dias_gestacion: 70,
+      inseminacion_id: 'ins-1',
+    });
+  });
+
+  it('si el animal no vuelve, el tacto se carga igual sin el selector', async () => {
+    // El pedido del animal es **secundario**: sin `inseminacion_id` la API le
+    // atribuye la preñez al último servicio, que es lo correcto casi siempre. Un
+    // tacto que no se puede cargar porque una lectura de apoyo falló sería mucho
+    // peor que un tacto sin puntero.
+    const falsa = montarTipo('tacto_positivo', {
+      [`GET /establecimientos/${EST}/animales/${V102}`]: { status: 500, ilegible: true },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tacto positivo — 102' });
+
+    await userEvent.type(screen.getByLabelText('De cuántos días viene la preñez'), '30');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el tacto' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({ dias_gestacion: 30 });
+  });
+
   it('el parto junta las crías, y la melliza es un botón', async () => {
     const falsa = montarTipo('parto');
     render(<App />);
@@ -239,6 +367,127 @@ describe('los formularios por tipo', () => {
         { sexo: 'hembra', resultado: 'muerta' },
       ],
     });
+  });
+
+  it('el parto manda la distocia, y sin declarar no la manda', async () => {
+    const falsa = montarTipo('parto');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Parto — 102' });
+
+    // Primero sin tocarla: el desplegable arranca en "No lo anoté", y eso **no
+    // viaja como `normal`**. Lo no declarado se cuenta aparte (decisión 107), y
+    // asumir el grado más benigno sería inventar el dato hacia el lado que hace
+    // quedar mejor al tambo.
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el parto' }));
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({ crias: [{ sexo: 'hembra', resultado: 'viva' }] });
+  });
+
+  it('y con el grado elegido, lo manda', async () => {
+    const falsa = montarTipo('parto');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Parto — 102' });
+
+    await userEvent.selectOptions(screen.getByLabelText('Cuánta ayuda necesitó'), 'veterinario');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el parto' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({
+      crias: [{ sexo: 'hembra', resultado: 'viva' }],
+      distocia: 'veterinario',
+    });
+  });
+
+  // ── Los tres de "Sanidad y manejo" ─────────────────────────────────────────
+
+  it('el tratamiento manda producto, motivo y los días de retiro', async () => {
+    const falsa = montarTipo('tratamiento');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tratamiento — 102' });
+
+    await userEvent.type(screen.getByLabelText('Qué se le dio'), 'Mastijet');
+    await userEvent.selectOptions(screen.getByLabelText('Por qué'), 'mastitis');
+    await userEvent.type(screen.getByLabelText('Días de retiro de la leche'), '4');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el tratamiento' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    // Sin el retiro de carne ni el detalle, que son opcionales. Los tres de
+    // arriba no: sin ellos no hay trazabilidad, ni informe sanitario, ni —el que
+    // importa— forma de saber qué leche no puede ir al tanque.
+    expect(mandado(falsa)['payload']).toEqual({
+      producto: 'Mastijet',
+      motivo: 'mastitis',
+      retiro_leche_dias: 4,
+    });
+  });
+
+  it('un retiro de cero viaja como cero, que es un valor legítimo', async () => {
+    // El borde que la decisión 99 nombra: cero significa "este producto no tiene
+    // retiro", y es distinto de no haber cargado el dato. Por eso el campo es
+    // obligatorio en la API y por eso acá el 0 no se filtra como "vacío".
+    const falsa = montarTipo('tratamiento');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Tratamiento — 102' });
+
+    await userEvent.type(screen.getByLabelText('Qué se le dio'), 'Ivermectina');
+    await userEvent.selectOptions(screen.getByLabelText('Por qué'), 'parasitario');
+    await userEvent.type(screen.getByLabelText('Días de retiro de la leche'), '0');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el tratamiento' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({
+      producto: 'Ivermectina',
+      motivo: 'parasitario',
+      retiro_leche_dias: 0,
+    });
+  });
+
+  it('la medición no se puede mandar vacía, y con un campo alcanza', async () => {
+    const falsa = montarTipo('medicion');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Peso y condición — 102' });
+
+    // Los dos campos son opcionales **pero uno tiene que venir**: una medición
+    // vacía no mide nada. Es la única regla de forma del menú que un `required`
+    // no puede expresar, porque mira los dos a la vez.
+    const boton = screen.getByRole('button', { name: 'Cargar la medición' });
+    expect(boton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Peso (kg)'), '410');
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({ peso: 410 });
+  });
+
+  it('el traslado distingue cambiar de lote de volver al rodeo general', async () => {
+    const falsa = montarTipo('traslado');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Cambio de lote — 102' });
+
+    await userEvent.type(screen.getByLabelText('A qué lote pasa'), 'Ordeñe 2');
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el cambio' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({ lote: 'Ordeñe 2' });
+  });
+
+  it('y sacarla del lote es un gesto explícito, no un campo vacío', async () => {
+    // `lote: null` significa sacarla del lote, que es un cambio de verdad. Con un
+    // campo de texto suelto, "no escribí nada todavía" y "quiero que vuelva al
+    // general" se verían igual — y el segundo se haría sin querer.
+    const falsa = montarTipo('traslado');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Cambio de lote — 102' });
+
+    expect(screen.getByRole('button', { name: 'Cargar el cambio' })).toBeDisabled();
+    await userEvent.click(screen.getByLabelText(/sacarla del lote/i));
+    expect(screen.queryByLabelText('A qué lote pasa')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar el cambio' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['payload']).toEqual({ lote: null });
   });
 
   it('el control lechero manda los opcionales solo si se llenaron', async () => {
@@ -261,7 +510,7 @@ describe('los formularios por tipo', () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'Baja — 102' });
 
-    await userEvent.selectOptions(screen.getByLabelText('Motivo'), 'muerte');
+    await userEvent.selectOptions(screen.getByLabelText('Cómo salió'), 'muerte');
     const boton = screen.getByRole('button', { name: 'Dar de baja' });
     // Lo que hace no se parece a lo demás y el color lo dice — junto con la
     // palabra, que sigue siendo la señal que manda.
@@ -269,7 +518,25 @@ describe('los formularios por tipo', () => {
     await userEvent.click(boton);
 
     await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    // Sin `causa`: no se eligió, y el default del desplegable es "No lo sé".
+    // Mandar `otro` sería declarar una causa que nadie declaró, que es justo lo
+    // que la decisión 106 evita contándolas aparte.
     expect(mandado(falsa)['payload']).toEqual({ motivo: 'muerte' });
+  });
+
+  it('y la causa, que es otra pregunta: por qué se fue', async () => {
+    const falsa = montarTipo('baja');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Baja — 102' });
+
+    await userEvent.selectOptions(screen.getByLabelText('Cómo salió'), 'descarte');
+    await userEvent.selectOptions(screen.getByLabelText('Por qué se fue'), 'podal');
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de baja' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    // Las dos, porque contestan cosas distintas: cómo salió y qué hay que
+    // arreglar en el tambo.
+    expect(mandado(falsa)['payload']).toEqual({ motivo: 'descarte', causa: 'podal' });
   });
 
   it('la flecha del formulario vuelve al menú, con el origen adentro', async () => {

@@ -25,8 +25,10 @@ import type {
   Ciclo,
   CuerpoError,
   EventoHistorial,
+  Medicion,
   RespuestaAnimal,
   TipoEvento,
+  Tratamiento,
   VersionDeConfig,
 } from '../api/tipos';
 import { diferenciasDeConfig } from './ConfigDelTambo';
@@ -43,20 +45,25 @@ import {
 import { Campo, Chips, Rechazo, type Opcion } from '../componentes/formulario';
 import { usarEstablecimiento } from '../establecimiento';
 import {
+  CAUSA_BAJA,
   MOTIVO_BAJA,
+  MOTIVO_TRATAMIENTO,
   ORIGEN_CICLO,
   RESULTADO_CICLO,
   SIN_DATO,
   TIPO_EVENTO,
   anios,
   caravanaVisible,
+  condicion,
   detallePayload,
   dias,
   fechaCorta,
   fechaOSinDato,
+  kilos,
   numero,
   porcentaje,
 } from '../formato';
+import { hoyDelServidor } from '../reloj';
 import { aAnimal, aCargar, aPartos, aRodeo, usarVuelta } from '../ruteo';
 import { nuevoUuid } from '../uuid';
 import { mensajeDe, usarPedido } from '../usarPedido';
@@ -90,6 +97,8 @@ export function Ficha({ id }: { id: string }) {
       {!cargando && datos !== null && error === null && (
         <>
           <EstadoActual animal={datos} />
+          <Sanidad tratamientos={datos.proyeccion.tratamientos} />
+          <Cuerpo mediciones={datos.proyeccion.mediciones} />
 
           {/* La acción más frecuente de la ficha, arriba y a un toque: se entra
               a una ficha en el corral para cargar lo que se acaba de ver.
@@ -206,12 +215,24 @@ function EstadoActual({ animal }: { animal: RespuestaAnimal }) {
 
       {e.motivo_baja !== null && (
         <Aviso tono="atencion" titulo="Fuera del rodeo">
-          Salió por {MOTIVO_BAJA[e.motivo_baja].toLowerCase()}. No cuenta en ninguna de las cifras
-          del rodeo y no se le pueden cargar eventos. Si volvió, anulá la baja desde el historial.
+          Salió por {MOTIVO_BAJA[e.motivo_baja].toLowerCase()}
+          {/* Cómo salió y por qué se fue son dos datos distintos (decisión 106),
+              y el segundo es el que dice qué arreglar. Se escribe solo si se
+              declaró: es opcional, y "por otro" sería inventarlo. */}
+          {e.causa_baja !== null && `, por ${CAUSA_BAJA[e.causa_baja].toLowerCase()}`}. No cuenta en
+          ninguna de las cifras del rodeo y no se le pueden cargar eventos. Si volvió, anulá la baja
+          desde el historial.
         </Aviso>
       )}
 
       <dl className="datos">
+        {/* La raza es descriptiva y no entra en ninguna regla (decisión 109), así
+            que va acá arriba con lo que identifica al animal y no con los
+            números. Se muestra solo si el animal la tiene: un "sin datos" en la
+            raza de un rodeo que nunca la cargó sería un reproche repetido
+            cuatrocientas veces. */}
+        {e.lote !== null && <Dato rotulo="Lote" valor={e.lote} />}
+        {animal.raza !== null && <Dato rotulo="Raza" valor={animal.raza} />}
         <Dato rotulo="Nacimiento" valor={fechaOSinDato(e.fecha_nacimiento)} />
         <Dato rotulo="Último parto" valor={fechaOSinDato(e.fecha_ultimo_parto)} />
         <Dato rotulo="Lactancias" valor={numero(e.ultimo_numero_lactancia)} />
@@ -229,6 +250,18 @@ function EstadoActual({ animal }: { animal: RespuestaAnimal }) {
         )}
         {e.madre_id !== null && <Dato rotulo="Nacida en el rodeo" valor="sí" />}
       </dl>
+
+      {/* Los servicios del ciclo abierto, cuando hay más de uno (decisión 112).
+          Con uno solo no dicen nada que no diga ya "Última inseminación"; con dos
+          o más son la única forma de ver el caso que esa decisión vino a
+          resolver — una vaca que se sirvió, mostró celo igual y se re-sirvió—, y
+          de entender por qué el tacto pregunta a cuál atribuirle la preñez. */}
+      {e.servicios_del_ciclo.length > 1 && (
+        <p className="renglon">
+          Servicios de este ciclo:{' '}
+          {e.servicios_del_ciclo.map((s) => fechaCorta(s.fecha)).join(' · ')}
+        </p>
+      )}
     </Tarjeta>
   );
 }
@@ -239,6 +272,107 @@ function Dato({ rotulo, valor }: { rotulo: string; valor: string }) {
       <dt>{rotulo}</dt>
       <dd className={valor === SIN_DATO ? 'sin-datos' : undefined}>{valor}</dd>
     </div>
+  );
+}
+
+// ── La dimensión sanitaria ───────────────────────────────────────────────────
+
+/**
+ * Los tratamientos, y **hasta cuándo su leche no va al tanque** (decisión 99).
+ *
+ * Va arriba de todo lo demás y no plegada, a diferencia de los números: si la
+ * vaca está en retiro hoy, eso es lo primero que hay que saber al abrir su
+ * ficha —la única alerta con consecuencia legal del sistema—, y una tarjeta que
+ * hay que abrir para enterarse no es una alerta.
+ *
+ * **Acá no se calcula nada del dominio.** La aritmética del retiro la hizo el
+ * fold y viene resuelta en `leche_apta_desde`, que es el **primer día apto** —la
+ * forma que no tiene un ±1 adentro—; lo único que pasa acá es comparar dos
+ * strings de fecha, que es lo mismo que hace `fechaCorta` para mostrarlas. Si
+ * ese campo fuera "días de retiro", esta pantalla tendría que sumar días, y ahí
+ * sí estaría del lado equivocado del contrato.
+ */
+function Sanidad({ tratamientos }: { tratamientos: Tratamiento[] }) {
+  if (tratamientos.length === 0) return null;
+
+  // El hoy del servidor y nunca el del celular (decisión 52): con el reloj del
+  // corral corrido un día, la ficha diría que la leche ya es apta el día que
+  // todavía no lo es. Es el único lado en el que equivocarse importa.
+  const hoy = hoyDelServidor();
+  const enRetiro = tratamientos.filter((t) => t.leche_apta_desde > hoy);
+
+  return (
+    <Tarjeta titulo="Sanidad" destacada={enRetiro.length > 0}>
+      {enRetiro.length > 0 && (
+        <Aviso tono="atencion" titulo="Hoy su leche no va al tanque">
+          Está en período de retiro hasta el{' '}
+          {/* El más lejano manda: dos tratamientos superpuestos no se turnan, y
+              el que libera la leche es el último en vencer. */}
+          {fechaCorta(
+            enRetiro.map((t) => t.leche_apta_desde).reduce((a, b) => (a > b ? a : b)),
+          )}
+          . Mandarla no arruina su tarro: arruina la carga entera del tambo.
+        </Aviso>
+      )}
+
+      <ul className="lista-simple">
+        {[...tratamientos].reverse().map((t) => (
+          <li key={t.evento_id}>
+            <strong>
+              {fechaCorta(t.fecha)} — {t.producto}
+            </strong>
+            <span className="renglon">
+              {MOTIVO_TRATAMIENTO[t.motivo]}
+              {' · '}
+              {t.retiro_leche_dias === 0
+                ? 'sin retiro de leche'
+                : `leche apta desde el ${fechaCorta(t.leche_apta_desde)}`}
+              {t.carne_apta_desde !== undefined &&
+                ` · carne apta desde el ${fechaCorta(t.carne_apta_desde)}`}
+            </span>
+            {t.detalle !== undefined && t.detalle !== '' && (
+              <span className="renglon">{t.detalle}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Tarjeta>
+  );
+}
+
+// ── El cuerpo ────────────────────────────────────────────────────────────────
+
+/**
+ * El peso y la condición corporal a lo largo de la vida (decisión 108).
+ *
+ * Lo que se lee de estas es una **tendencia** y no un valor puntual —cuánto
+ * engordó en recría, con qué condición llegó al parto— y por eso van las últimas
+ * y no solo la última. La ganancia diaria de recría, que es el número que las
+ * resume, la calcula el núcleo y llega por `/kpis`: acá no se resta nada.
+ */
+function Cuerpo({ mediciones }: { mediciones: Medicion[] }) {
+  if (mediciones.length === 0) return null;
+
+  return (
+    <TarjetaPlegable titulo="Peso y condición">
+      <ul className="lista-simple">
+        {[...mediciones].reverse().map((m) => (
+          <li key={m.evento_id}>
+            <strong>{fechaCorta(m.fecha)}</strong>
+            <span className="renglon">
+              {[
+                m.condicion_corporal === undefined
+                  ? null
+                  : `condición ${condicion(m.condicion_corporal)}`,
+                m.peso === undefined ? null : kilos(m.peso),
+              ]
+                .filter((parte) => parte !== null)
+                .join(' · ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </TarjetaPlegable>
   );
 }
 
@@ -292,6 +426,20 @@ function KPIs({ animalId, version }: { animalId: string; version: number }) {
         <Cifra rotulo="Hembras nacidas vivas" valor={numero(k.hembras_nacidas_vivas)} />
         <Cifra rotulo="Edad" valor={anios(k.edad_dias)} />
         <Cifra rotulo="Edad al primer parto" valor={anios(k.edad_al_primer_parto)} />
+      </div>
+
+      {/* El cuerpo va **abajo y aparte** (decisión 108) porque no es un indicador
+          más: es lo que **explica** a los de arriba. La condición al parto es el
+          mejor predictor del desempeño reproductivo —o sea de los días abiertos
+          que están tres renglones más arriba— y la ganancia en recría es por qué
+          la edad al primer parto es la que es. Leídos mezclados serían cuatro
+          cifras más; leídos abajo, son la respuesta a las de arriba. */}
+      <h3>El cuerpo, que explica lo de arriba</h3>
+      <div className="cifras">
+        <Cifra rotulo="Condición corporal" valor={condicion(k.condicion_corporal)} />
+        <Cifra rotulo="Peso" valor={kilos(k.peso)} />
+        <Cifra rotulo="Condición al parto" valor={condicion(k.condicion_al_parto)} />
+        <Cifra rotulo="Ganancia en recría" valor={kilos(k.ganancia_diaria_recria, 2)} />
       </div>
 
       {k.ciclos_excluidos > 0 && (
@@ -368,23 +516,29 @@ function reglasDistintas(
 
 // ── El historial, filtrable por tipo ─────────────────────────────────────────
 //
-// Cuatro grupos y no once tipos: lo que se busca en un historial es "cuándo
+// Cinco grupos y no quince tipos: lo que se busca en un historial es "cuándo
 // parió" o "cuántas veces la inseminaron", y para eso los tres tipos de tacto y
-// el celo son una sola pregunta —cómo viene el ciclo—. Once chips serían tres
+// el celo son una sola pregunta —cómo viene el ciclo—. Quince chips serían cuatro
 // renglones de pantalla arriba de la línea de tiempo que se vino a leer.
 //
-// Los que no están en ningún grupo —el alta, el aborto, el secado, la baja y la
-// anulación— **no desaparecen**: son los que se ven cuando no hay ningún chip
-// puesto, que es como abre la ficha. Un chip filtra y soltarlo devuelve la línea
-// de tiempo entera; por eso acá sí se usa el componente `Chips` y no el marcado
-// de los atajos de fecha.
-type GrupoDeEventos = 'parto' | 'inseminacion' | 'celo' | 'control';
+// El quinto es el que trajeron las decisiones 99, 100 y 108, y se ganó el lugar:
+// "cuándo la trataron" es la pregunta que hace el veterinario cuando entra, y
+// contestarla scrolleando un log de cuarenta renglones era el mismo problema que
+// los otros cuatro chips vinieron a resolver.
+//
+// Los que no están en ningún grupo —el alta, el aborto, el secado, la baja, la
+// anulación y la corrección— **no desaparecen**: son los que se ven cuando no hay
+// ningún chip puesto, que es como abre la ficha. Un chip filtra y soltarlo
+// devuelve la línea de tiempo entera; por eso acá sí se usa el componente `Chips`
+// y no el marcado de los atajos de fecha.
+type GrupoDeEventos = 'parto' | 'inseminacion' | 'celo' | 'control' | 'sanidad';
 
 const GRUPOS: Record<GrupoDeEventos, { rotulo: string; tipos: readonly TipoEvento[] }> = {
   parto: { rotulo: 'Partos', tipos: ['parto'] },
   inseminacion: { rotulo: 'Inseminaciones', tipos: ['inseminacion'] },
   celo: { rotulo: 'Celos y tactos', tipos: ['celo', 'tacto_positivo', 'tacto_negativo'] },
   control: { rotulo: 'Controles', tipos: ['control_lechero'] },
+  sanidad: { rotulo: 'Sanidad y manejo', tipos: ['tratamiento', 'medicion', 'traslado'] },
 };
 
 const OPCIONES_DE_TIPO: readonly Opcion<GrupoDeEventos>[] = (
@@ -395,14 +549,13 @@ const OPCIONES_DE_TIPO: readonly Opcion<GrupoDeEventos>[] = (
  * El log del animal, **del último al primero**.
  *
  * La API lo sirve en el orden en que ocurrió, que es el orden del fold; acá se
- * da vuelta porque lo que se busca al abrir una ficha es qué pasó recién. Es
- * también el orden en que se anula (§3.5: en orden inverso), así que el evento
- * que se puede deshacer queda arriba de todo.
+ * da vuelta porque lo que se busca al abrir una ficha es qué pasó recién.
  *
- * Tres marcas y no una: un evento **anulado** (tachado), la **anulación** que lo
- * deshizo, y los **forzados**. La anulación tiene `vigente: false` como el
- * evento que anuló —no forma parte del estado— pero no está anulada, así que
- * pintarlas igual sería mentir sobre cuál deshizo a cuál.
+ * Cuatro marcas y no una: un evento **anulado** (tachado), la **anulación** que
+ * lo deshizo, los **corregidos** (decisión 102) y los **forzados**. La anulación
+ * tiene `vigente: false` como el evento que anuló —no forma parte del estado—
+ * pero no está anulada, así que pintarlas igual sería mentir sobre cuál deshizo
+ * a cuál.
  */
 function Historial({
   animalId,
@@ -440,19 +593,26 @@ function Historial({
     return <TarjetaCaida titulo="El historial" error={error} reintentar={recargar} />;
   }
 
-  // El único que se puede anular es **el último vigente**, y la UI ofrece el
-  // botón solo ahí (§3.5: se anula en orden inverso). No es una regla que la UI
-  // decida: si se manda otro, la API contesta `ANULACION_INVALIDA` con el
-  // mensaje que explica el orden. Ofrecerlo en todos sería invitar a un rechazo
-  // que ya se sabe que va a venir. Y anular es cargar un evento más, así que el
-  // de lectura no lo ve: el historial se mira igual, entero y con sus marcas.
+  // ── Qué se puede anular, desde la decisión 101 ─────────────────────────────
   //
-  // Se calcula sobre **todos** los eventos y no sobre los que se están viendo:
-  // qué se puede anular no puede depender de qué chip está puesto.
-  const ultimoVigente = puedeCargar
-    ? [...datos.eventos].reverse().find((e) => e.vigente)
-    : undefined;
-
+  // **Cualquier evento vigente**, y no solo el último. Esta pantalla ofrecía el
+  // botón únicamente en el último porque la regla era LIFO y la decisión 57
+  // concluyó, con razón entonces, que ofrecerlo en todos era invitar a un rechazo
+  // conocido de antemano.
+  //
+  // Ya no lo es: la anulación pasó a juzgarse **por consecuencia y no por
+  // posición**, o sea plegando el log sin ese evento y viendo si sigue siendo
+  // válido. Sobre un log real de nueve eventos, con el LIFO se podía anular uno y
+  // ahora cuatro — y los tres que se sumaron son de las dimensiones ortogonales
+  // (un control, un tratamiento, un traslado), que son justamente los más
+  // numerosos y los que más se cargan mal.
+  //
+  // El rechazo, cuando llega, ya no es un "no" seco: viene con la lista de qué
+  // habría que resolver primero, que `Rechazo` sabe dibujar desde la decisión 14.
+  // Por eso ahora conviene ofrecerlo y dejar que la API conteste.
+  //
+  // Anular sigue siendo cargar un evento más, así que el de lectura no lo ve: el
+  // historial se mira igual, entero y con sus marcas.
   const mostrados =
     grupo === null
       ? datos.eventos
@@ -493,7 +653,7 @@ function Historial({
               key={evento.id}
               evento={evento}
               animalId={animalId}
-              anulable={evento.id === ultimoVigente?.id}
+              anulable={puedeCargar && evento.vigente}
               alAnular={alAnular}
               versiones={reglas.datos?.configuraciones ?? null}
             />
@@ -519,6 +679,7 @@ function EventoDelLog({
   versiones: VersionDeConfig[] | null;
 }) {
   const anulado = evento.anulado_por !== null;
+  const corregido = evento.corregido_por !== null;
   const esAnulacion = evento.tipo === 'anulacion';
   const detalle = detallePayload(evento.tipo, evento.payload);
   const otrasReglas = reglasDistintas(evento, versiones);
@@ -553,6 +714,11 @@ function EventoDelLog({
           la palabra se lee como un problema de la pantalla. */}
       {anulado && <span className="marca anulado">anulado</span>}
       {esAnulacion && <span className="marca">deshace un evento anterior</span>}
+      {/* Corregido (decisión 102): el evento se muestra **como se cargó** —el log
+          es append-only— así que sin esta marca un renglón que ya no vale se lee
+          igual que uno intacto. Es la única forma en que una corrección puede
+          hacer daño, y por eso la marca no es opcional. */}
+      {corregido && <span className="marca forzado">corregido después</span>}
       {evento.forzado && <span className="marca forzado">cargado con "confirmar igual"</span>}
       {otrasReglas !== null && <span className="marca forzado">otras reglas</span>}
       {cargadoOtroDia && <span className="marca">cargado el {fechaCorta(diaDeCarga)}</span>}
@@ -571,7 +737,7 @@ function EventoDelLog({
 }
 
 /**
- * Deshacer el último evento.
+ * Deshacer un evento.
  *
  * No se edita ni se borra: se carga una **anulación**, que es un evento más del
  * log. El original queda —con su marca— porque el log es append-only y saber que
@@ -641,8 +807,11 @@ function Anulacion({
           required
         />
       </Campo>
-      {/* Una anulación rechazada no es forzable —no está en §5.6— así que va sin
-          "Confirmar igual": el mensaje de la API ya explica el orden inverso. */}
+      {/* Una anulación rechazada no es forzable y va sin "Confirmar igual":
+          forzarla dejaría el log inválido, que es justo lo que no puede pasar.
+          Lo que sí trae desde la decisión 101 es la **lista de conflictos** —qué
+          eventos quedarían colgados— y eso `Rechazo` ya lo dibuja: es la
+          diferencia entre un "no" seco y saber qué resolver primero. */}
       {rechazo !== null && <Rechazo error={rechazo} />}
       <div className="acciones">
         <button

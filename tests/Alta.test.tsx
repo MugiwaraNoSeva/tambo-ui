@@ -9,7 +9,17 @@ import { App } from '../src/App';
 import { anotarFechaDeLaRespuesta } from '../src/reloj';
 import { aRodeo, aTablero } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
-import { EST, HOY, V102, animal102, animales, establecimiento, eventos102, sesionDePrueba } from './fixtures';
+import {
+  EST,
+  HOY,
+  V102,
+  animal102,
+  animales,
+  establecimiento,
+  eventos102,
+  razas,
+  sesionDePrueba,
+} from './fixtures';
 
 const RUTA_POST = `POST /establecimientos/${EST}/animales`;
 const NUEVO = '99999999-9999-9999-9999-999999999999';
@@ -23,6 +33,8 @@ function montarAlta(cambios: Record<string, Manejador> = {}): ApiFalsa {
     [`GET /establecimientos/${EST}`]: { cuerpo: establecimiento },
     [`GET /establecimientos/${EST}/animales`]: { cuerpo: animales },
     [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: { cuerpo: eventos102 },
+    // El catálogo global (decisión 109): no cuelga del establecimiento.
+    'GET /razas': { cuerpo: razas },
     [RUTA_POST]: {
       status: 201,
       cuerpo: {
@@ -37,6 +49,65 @@ function montarAlta(cambios: Record<string, Manejador> = {}): ApiFalsa {
 }
 
 const mandado = (falsa: ApiFalsa) => falsa.cuerpoDe(RUTA_POST) as Record<string, unknown>;
+
+describe('la raza, elegida de un catálogo (decisión 109)', () => {
+  it('viaja al lado de la caravana y no adentro del payload', async () => {
+    const falsa = montarAlta();
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText('Caravana'), '201');
+    await userEvent.selectOptions(await screen.findByLabelText('Raza'), 'JER');
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    // Es un atributo de la **fila** del animal, como la caravana, y no un dato
+    // del evento `alta` que el fold vaya a leer. Meterla en el payload la dejaría
+    // en un lugar donde el núcleo la ignora en silencio.
+    expect(mandado(falsa)['raza_codigo']).toBe('JER');
+    expect(mandado(falsa)['payload']).toBeUndefined();
+  });
+
+  it('es una lista y no un campo libre, que es lo que la mantiene limpia', async () => {
+    montarAlta();
+    render(<App />);
+    await screen.findByLabelText('Caravana');
+
+    const selector = await screen.findByLabelText('Raza');
+    // Un campo de texto termina con "Holando", "holando", "HOLANDO" y "Hol."
+    // conviviendo, y ninguna de las cuatro se puede agrupar.
+    expect([...selector.querySelectorAll('option')].map((o) => o.textContent)).toEqual([
+      'Sin especificar',
+      'Holando',
+      'Jersey',
+      'Cruza HxJ',
+    ]);
+  });
+
+  it('sin elegir raza no manda el campo', async () => {
+    const falsa = montarAlta();
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText('Caravana'), '201');
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)).not.toHaveProperty('raza_codigo');
+  });
+
+  it('si el catálogo no vuelve, el alta se puede dar igual', async () => {
+    // La raza es descriptiva: frenar un alta en el corral por una lista de adorno
+    // sería el peor intercambio posible.
+    const falsa = montarAlta({ 'GET /razas': { status: 500, ilegible: true } });
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText('Caravana'), '201');
+    expect(screen.queryByLabelText('Raza')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+
+    await waitFor(() => expect(mandado(falsa)).toBeDefined());
+    expect(mandado(falsa)['caravana']).toBe('201');
+  });
+});
 
 describe('el alta mínima', () => {
   it('caravana y fecha alcanzan: lo opcional no viaja vacío', async () => {

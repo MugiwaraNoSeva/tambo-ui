@@ -158,6 +158,79 @@ describe('buscar y filtrar', () => {
  * ahí en más manda el estado local. Es la puerta que le faltaba al reparto de
  * dietas del tablero, que ya sabía contar por categoría y no llevaba a ninguna.
  */
+describe('el lote, que es como se recorre un tambo (decisión 100)', () => {
+  it('cada fila dice en qué corral está, cuando está en uno', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: /^7 de 7$/ });
+
+    const fila102 = screen.getByText('102').closest('li') as HTMLElement;
+    expect(fila102.textContent).toContain('lote Ordeñe 1');
+    // Y la que no está en ninguno no dice "sin lote": el rodeo general es el
+    // estado en el que nacen todas, no un dato que falte.
+    const fila101 = screen.getByText('101').closest('li') as HTMLElement;
+    expect(fila101.textContent).not.toContain('lote');
+  });
+
+  it('los chips salen de los datos y no de un vocabulario fijo', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: /^7 de 7$/ });
+
+    // Un lote es un nombre que el tambo escribe, no una lista cerrada del
+    // modelo: es la diferencia con los otros tres filtros. Ordenados, y sin chip
+    // para los que no están en ninguno.
+    const grupo = screen.getByRole('group', { name: 'Lote' });
+    expect([...grupo.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      'Ordeñe 1',
+      'Ordeñe 2',
+      'Recría',
+      'Secas',
+    ]);
+  });
+
+  it('filtrar por corral deja solo ese, sin volver a pedir la lista', async () => {
+    const falsa = montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: /^7 de 7$/ });
+    const pedidosAntes = falsa.pedidos.length;
+
+    await userEvent.click(chip('Lote', 'Ordeñe 1'));
+
+    expect(caravanas()).toEqual(['102', '106']);
+    expect(contador()).toBe('2 de 7');
+    // El filtrado es en el cliente sobre la lista que ya está (decisión 58).
+    expect(falsa.pedidos).toHaveLength(pedidosAntes);
+  });
+
+  it('y la corrida se lleva el corral puesto: se le carga lo mismo a todo el lote', async () => {
+    montarRodeo();
+    render(<App />);
+    await screen.findByRole('heading', { name: /^7 de 7$/ });
+
+    await userEvent.click(chip('Lote', 'Secas'));
+    // Es el caso que hace útil el filtro: tratar o trasladar un corral entero.
+    const corrida = screen.getByRole('link', { name: /Cargarle lo mismo a esta/ });
+    expect(corrida.getAttribute('href')).toContain('lote=Secas');
+    expect(screen.getByText(/Filtrando por lote Secas\./)).toBeInTheDocument();
+  });
+
+  it('un tambo que no usa lotes no ve el grupo de chips', async () => {
+    montarRodeo({
+      [`GET /establecimientos/${EST}/animales`]: {
+        cuerpo: {
+          ...animales,
+          animales: animales.animales.map((a) => ({ ...a, lote: null })),
+        },
+      },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: /^7 de 7$/ });
+
+    expect(screen.queryByRole('group', { name: 'Lote' })).not.toBeInTheDocument();
+  });
+});
+
 describe('los filtros que trae la dirección', () => {
   it('llega con el chip puesto y la lista ya filtrada', async () => {
     montarRodeo();

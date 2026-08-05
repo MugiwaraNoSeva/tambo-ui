@@ -58,8 +58,11 @@ function FormularioDeAlta({ vuelta }: { vuelta: string }) {
   const { id: est } = usarEstablecimiento();
 
   const [caravana, setCaravana] = useState('');
+  const [razaCodigo, setRazaCodigo] = useState(SIN_ELEGIR);
   const [fechaAlta, setFechaAlta] = useState(hoyDelServidor);
   const [nacimiento, setNacimiento] = useState('');
+  const [lote, setLote] = useState('');
+  const [ultimoParto, setUltimoParto] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
   const [conEstadoInicial, setConEstadoInicial] = useState(false);
@@ -87,6 +90,12 @@ function FormularioDeAlta({ vuelta }: { vuelta: string }) {
       if (numeroLactancia !== '') inicial.numero_lactancia = Number(numeroLactancia);
       if (fechaServicio !== '') inicial.fecha_servicio_estimada = fechaServicio;
       if (partoProbable !== '') inicial.fecha_parto_probable = partoProbable;
+      // El equivalente productivo de la fecha de servicio (decisión 94): sin
+      // esto, la lactancia de una comprada **en ordeñe** arranca el día del alta
+      // y el DEL queda corrido tantos días como llevaba en leche al comprarla —
+      // come de vaca fresca meses de más y no le corre el período de espera.
+      if (ultimoParto !== '') inicial.fecha_ultimo_parto = ultimoParto;
+      if (lote.trim() !== '') inicial.lote = lote.trim();
       if (Object.keys(inicial).length > 0) payload.estado_inicial = inicial;
     }
 
@@ -107,6 +116,11 @@ function FormularioDeAlta({ vuelta }: { vuelta: string }) {
     const payload = armarPayload();
     const cuerpo: CuerpoAlta = {
       caravana: caravana.trim(),
+      // Va al lado de la caravana y **no adentro del payload** (decisión 109):
+      // es un atributo de la fila del animal, no un dato del evento que el fold
+      // vaya a leer. Se manda solo si se eligió: la raza es descriptiva y un
+      // rodeo puede no tenerla cargada.
+      ...(razaCodigo === SIN_ELEGIR ? {} : { raza_codigo: razaCodigo }),
       fecha_evento: fechaAlta,
       observaciones: notas === '' ? null : notas,
       ...(payload === undefined ? {} : { payload }),
@@ -167,6 +181,7 @@ function FormularioDeAlta({ vuelta }: { vuelta: string }) {
               onChange={(e) => setNacimiento(e.target.value)}
             />
           </Campo>
+          <Raza elegida={razaCodigo} alElegir={setRazaCodigo} />
         </Tarjeta>
 
         <Tarjeta
@@ -239,6 +254,23 @@ function FormularioDeAlta({ vuelta }: { vuelta: string }) {
                   onChange={(e) => setPartoProbable(e.target.value)}
                 />
               </Campo>
+              <Campo
+                etiqueta="Cuándo parió por última vez"
+                ayuda="Si ya parió alguna vez. Sin esto, una comprada en ordeñe arranca su lactancia el día del alta y come de vaca fresca meses de más."
+              >
+                <input
+                  type="date"
+                  value={ultimoParto}
+                  onChange={(e) => setUltimoParto(e.target.value)}
+                />
+              </Campo>
+              <Campo etiqueta="A qué lote entra" ayuda="Sin esto, al rodeo general.">
+                <input
+                  value={lote}
+                  onChange={(e) => setLote(e.target.value)}
+                  autoComplete="off"
+                />
+              </Campo>
             </>
           )}
         </Tarjeta>
@@ -282,6 +314,42 @@ function FormularioDeAlta({ vuelta }: { vuelta: string }) {
         </button>
       </form>
     </Armazon>
+  );
+}
+
+/**
+ * La raza, elegida de un catálogo y no escrita (decisión 109).
+ *
+ * `GET /razas` es global y no cuelga del establecimiento: que "Jersey" sea la
+ * misma Jersey en todos los tambos es el punto de que exista la tabla, y es lo
+ * único que de verdad mantiene limpio un dato así — un campo libre termina con
+ * "Holando", "holando", "HOLANDO" y "Hol." conviviendo.
+ *
+ * El pedido **no bloquea el alta**: si el catálogo no vuelve, el desplegable no
+ * aparece y el animal se da de alta sin raza, que es un estado legítimo —es
+ * descriptiva y no entra en ninguna regla—. Frenar un alta por una lista de
+ * adorno sería el peor intercambio posible en el corral.
+ */
+function Raza({ elegida, alElegir }: { elegida: string; alElegir: (codigo: string) => void }) {
+  const traer = useCallback(() => api.razas(), []);
+  const { datos, cargando } = usarPedido(traer);
+
+  if (cargando) return <Cargando que="Trayendo las razas…" />;
+
+  const razas = datos?.razas ?? [];
+  if (razas.length === 0) return null;
+
+  return (
+    <Campo etiqueta="Raza" ayuda="Opcional. Es descriptiva: no cambia ninguna regla del tambo.">
+      <select value={elegida} onChange={(e) => alElegir(e.target.value)}>
+        <option value={SIN_ELEGIR}>Sin especificar</option>
+        {razas.map((r) => (
+          <option key={r.codigo} value={r.codigo}>
+            {r.nombre}
+          </option>
+        ))}
+      </select>
+    </Campo>
   );
 }
 

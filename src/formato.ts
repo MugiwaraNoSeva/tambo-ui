@@ -16,11 +16,14 @@
 
 import type {
   CategoriaAlimentacion,
+  CausaBaja,
   Cria,
   EstadoProductivo,
   EstadoReproductivo,
   EstadoVida,
+  GradoDistocia,
   MotivoBaja,
+  MotivoTratamiento,
   OrigenCiclo,
   ResultadoCiclo,
   ResultadoCria,
@@ -83,6 +86,19 @@ export const anios = (valor: number | null | undefined): string =>
 
 export const litros = (valor: number | null | undefined, decimales = 1): string =>
   valor === null || valor === undefined ? SIN_DATO : `${numero(valor, decimales)} L`;
+
+/** Kilos: el peso de una pesada, y la ganancia diaria de la recría (decisión 108). */
+export const kilos = (valor: number | null | undefined, decimales = 0): string =>
+  valor === null || valor === undefined ? SIN_DATO : `${numero(valor, decimales)} kg`;
+
+/**
+ * La condición corporal, en la escala de 1 a 5.
+ *
+ * Dos decimales y no uno: se califica de a cuartos —3, 3,25, 3,5— y con un
+ * decimal un 3,25 se muestra como 3,3, que es un número que nadie escribió.
+ */
+export const condicion = (valor: number | null | undefined): string =>
+  valor === null || valor === undefined ? SIN_DATO : numero(valor, 2);
 
 // ── El vocabulario, en castellano ────────────────────────────────────────────
 //
@@ -149,8 +165,15 @@ export const TIPO_EVENTO: Record<TipoEvento, string> = {
   aborto: 'Aborto',
   secado: 'Secado',
   control_lechero: 'Control lechero',
+  // Los tres que el backend agregó entre las decisiones 99 y 108. Se nombran por
+  // lo que el tambero hace y no por el tipo del modelo: nadie "carga una
+  // medición", pesa una vaquillona o le pone la condición corporal.
+  medicion: 'Peso y condición',
+  tratamiento: 'Tratamiento',
+  traslado: 'Cambio de lote',
   baja: 'Baja',
   anulacion: 'Anulación',
+  correccion: 'Corrección',
 };
 
 export const MOTIVO_BAJA: Record<MotivoBaja, string> = {
@@ -158,6 +181,48 @@ export const MOTIVO_BAJA: Record<MotivoBaja, string> = {
   muerte: 'Muerte',
   descarte: 'Descarte',
   otro: 'Otro',
+};
+
+/**
+ * **Por qué** se fue, que es otra pregunta que cómo salió (decisión 106).
+ *
+ * `mastitis` y `podal` se llaman igual que en `MOTIVO_TRATAMIENTO` a propósito,
+ * porque son la misma cosa: de qué se enferma el rodeo y por qué se van las vacas
+ * se leen juntas, y dos nombres distintos para lo mismo romperían esa lectura.
+ */
+export const CAUSA_BAJA: Record<CausaBaja, string> = {
+  reproduccion: 'Reproducción',
+  mastitis: 'Mastitis',
+  podal: 'Problemas de patas',
+  produccion: 'Baja producción',
+  edad: 'Edad',
+  enfermedad: 'Otra enfermedad',
+  accidente: 'Accidente',
+  otro: 'Otro',
+};
+
+export const MOTIVO_TRATAMIENTO: Record<MotivoTratamiento, string> = {
+  mastitis: 'Mastitis',
+  metritis: 'Metritis',
+  podal: 'Patas',
+  respiratorio: 'Respiratorio',
+  reproductivo: 'Reproductivo',
+  parasitario: 'Parasitario',
+  otro: 'Otro',
+};
+
+/**
+ * La escala de distocia, nombrada por **quién tuvo que estar** (decisión 107).
+ *
+ * Es la del núcleo traducida y no una reinterpretación: el que la carga es el que
+ * estuvo ahí, así que "la tuvo que sacar el veterinario" se elige sin consultar
+ * ninguna tabla del 1 al 5.
+ */
+export const DISTOCIA: Record<GradoDistocia, string> = {
+  normal: 'Parió sola',
+  asistencia_leve: 'Con una mano',
+  asistencia_fuerte: 'Con fuerza o aparejo',
+  veterinario: 'Tuvo que venir el veterinario',
 };
 
 export const SEXO_CRIA: Record<SexoCria, string> = {
@@ -242,6 +307,21 @@ export function detallePayload(tipo: TipoEvento, payload: unknown): string | nul
       if (pajuela !== null) partes.push(`pajuela ${pajuela}`);
       break;
     }
+    case 'tacto_positivo': {
+      // Las dos mitades de las decisiones 111 y 112. La edad de gestación se
+      // escribe tal como la declaró el veterinario, sin convertirla a fecha de
+      // concepción: esa cuenta la hace el núcleo, y repetirla acá sería calcular
+      // dominio en la pantalla que solo tiene que mostrar lo que se cargó.
+      const gestacion = cifra(payload, 'dias_gestacion');
+      if (gestacion !== null) partes.push(`preñez de ${dias(gestacion)}`);
+      // El id del servicio no se escribe —es un uuid y no le dice nada a nadie—
+      // pero **que se haya apuntado sí importa**: es la diferencia entre una
+      // preñez atribuida al último servicio y una atribuida al que prendió.
+      if (texto(payload, 'inseminacion_id') !== null) {
+        partes.push('atribuida a un servicio en particular');
+      }
+      break;
+    }
     case 'parto': {
       const lista = campo(payload, 'crias');
       if (Array.isArray(lista)) {
@@ -252,6 +332,45 @@ export function detallePayload(tipo: TipoEvento, payload: unknown): string | nul
         const linea = crias(validas);
         if (linea !== '') partes.push(linea);
       }
+      const grado = texto(payload, 'distocia');
+      if (grado !== null) partes.push(DISTOCIA[grado as GradoDistocia] ?? grado);
+      break;
+    }
+    case 'medicion': {
+      const cc = cifra(payload, 'condicion_corporal');
+      if (cc !== null) partes.push(`condición ${numero(cc, 2)}`);
+      const peso = cifra(payload, 'peso');
+      if (peso !== null) partes.push(`${numero(peso)} kg`);
+      break;
+    }
+    case 'tratamiento': {
+      const producto = texto(payload, 'producto');
+      if (producto !== null) partes.push(producto);
+      const motivo = texto(payload, 'motivo');
+      if (motivo !== null) {
+        partes.push((MOTIVO_TRATAMIENTO[motivo as MotivoTratamiento] ?? motivo).toLowerCase());
+      }
+      // El retiro se escribe **siempre que venga, incluso en cero**: un "sin
+      // retiro" dicho es lo que distingue al producto que no lo tiene del dato
+      // que nadie cargó, y esa distinción es la razón por la que el campo es
+      // obligatorio en la API (decisión 99).
+      const retiro = cifra(payload, 'retiro_leche_dias');
+      if (retiro !== null) {
+        partes.push(retiro === 0 ? 'sin retiro de leche' : `retiro de leche ${dias(retiro)}`);
+      }
+      const carne = cifra(payload, 'retiro_carne_dias');
+      if (carne !== null) partes.push(`retiro de carne ${dias(carne)}`);
+      const detalleTratamiento = texto(payload, 'detalle');
+      if (detalleTratamiento !== null) partes.push(detalleTratamiento);
+      break;
+    }
+    case 'traslado': {
+      // `lote: null` es legítimo y significa sacarlo del lote (decisión 100), así
+      // que acá no se puede usar el `texto()` de arriba: devuelve null para el
+      // campo ausente y para el explícito, y son dos hechos distintos.
+      const lote = campo(payload, 'lote');
+      if (lote === null) partes.push('al rodeo general');
+      else if (typeof lote === 'string' && lote !== '') partes.push(`al lote ${lote}`);
       break;
     }
     case 'control_lechero': {
@@ -268,6 +387,13 @@ export function detallePayload(tipo: TipoEvento, payload: unknown): string | nul
     case 'baja': {
       const motivo = texto(payload, 'motivo');
       if (motivo !== null) partes.push(MOTIVO_BAJA[motivo as MotivoBaja] ?? motivo);
+      // Cómo salió y **por qué se fue** son dos datos y se escriben los dos
+      // (decisión 106): "Descarte · reproducción" dice lo que "Descarte" solo no
+      // dice, que es qué hay que arreglar en el tambo.
+      const causa = texto(payload, 'causa');
+      if (causa !== null) {
+        partes.push((CAUSA_BAJA[causa as CausaBaja] ?? causa).toLowerCase());
+      }
       const detalle = texto(payload, 'detalle');
       if (detalle !== null) partes.push(detalle);
       break;

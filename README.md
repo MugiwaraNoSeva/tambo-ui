@@ -25,7 +25,7 @@ derecho; con varios hay una lista, y el último elegido queda guardado.
    parámetros, o editarle el nombre y archivarlo;
 3. **su gente** — quién entra y con qué permiso, y la persona entera: nombre,
    contraseña, si está activa, si es administradora;
-4. **sus parámetros** — los diecisiete números del dominio, y el historial de
+4. **sus parámetros** — los veintidós números del dominio, y el historial de
    bajo qué reglas se decidió cada cosa.
 
 El menú del medio existe porque las tres cosas tienen frecuencias distintas:
@@ -104,10 +104,11 @@ diferencia que el otro espera leer ya no es la misma. Contra una demo limpia, lo
 trece pasan. Bajar y volver a levantar la demo cuesta veinte segundos; perseguir
 ese rojo, una tarde.
 
-**No hace falta ni base ni API levantada.** La verificación pesada vive en los 476
+**No hace falta ni base ni API levantada.** La verificación pesada vive en los 857
 tests de `mu/`, `db/` y `api/`; repetirla contra un mock probaría que el mock
 obedece, no que el sistema anda. Acá se prueba lo que la pantalla **muestra** de
-lo que la respuesta trae y lo que **manda** de lo que el formulario junta.
+lo que la respuesta trae y lo que **manda** de lo que el formulario junta. Son
+**355**.
 
 Las respuestas de mentira están en `tests/fixtures.ts`, tipadas contra los tipos
 del cliente —una fixture desalineada del contrato no compila— y con los datos de
@@ -135,7 +136,7 @@ src/
 
 Dieciséis pantallas, en **dos árboles**. Las del tambo son once: login, conexión
 (el selector), tablero, rodeo, ficha, **partos y lactancias**, carga de evento
-—que por dentro son el menú de los nueve tipos y el formulario de uno—,
+—que por dentro son el menú de los doce tipos y el formulario de uno—,
 **corrida**, alta, tanque y mi cuenta.
 Las del panel son cinco —los tambos, el menú de uno, su gente, sus parámetros, y
 todas las personas— y se dibujan **afuera** del establecimiento activo, porque no
@@ -409,7 +410,7 @@ cara de irreversible, porque no lo es: se deshace con el mismo botón.
 
 ### Los parámetros son su propia pantalla, y la mitad es explicación
 
-Los diecisiete números del dominio no van al lado del campo "nombre": cambiarle
+Los veintidós números del dominio no van al lado del campo "nombre": cambiarle
 el nombre a un tambo y cambiar con qué números decide el sistema no son la misma
 clase de cosa. Tienen su pantalla, colgada del menú del tambo.
 
@@ -429,7 +430,7 @@ Lo que la hace distinta de un formulario:
   dice `validarConfig`, y su mensaje se muestra tal cual.
 - **Los valores de fábrica vienen de la API** (`GET /config-default`). La
   decisión 51 le prohíbe a esta UI importar valores del núcleo, así que copiarse
-  los diecisiete números sería duplicar el dominio en el peor lugar posible. El
+  los veintidós números sería duplicar el dominio en el peor lugar posible. El
   botón **rellena el formulario y no guarda**: quien vuelve a fábrica igual tiene
   que mirar lo que queda y confirmarlo.
 - **Abajo está el historial**, que es para lo que existe todo esto: cada versión
@@ -882,14 +883,14 @@ Los renglones del reparto pasaron de 36 px a 44 y estrenaron la flecha `›`: se
 renglones con un número a la derecha y sin flecha se leen como una tabla, y una
 tabla no se toca.
 
-### La carga suelta: un menú de nueve y un formulario de uno
+### La carga suelta: un menú de doce y un formulario de uno
 
 Este README anotaba el desplegable del tipo de evento como el único toque
 pendiente de la remodelación, y concluía que la respuesta era la corrida. **Lo
 sigue siendo para el caso masivo**: veinticinco tactos se cargan ahí, eligiendo
 el tipo una vez. Esto es lo otro, la carga suelta de una vaca.
 
-`#/animales/:id/cargar` pasó a ser un menú de los nueve tipos, agrupado por
+`#/animales/:id/cargar` pasó a ser un menú de los doce tipos, agrupado por
 **Reproducción**, **Producción** y **Salida**, y adentro de reproducción en el
 orden del ciclo —celo, servicio, diagnóstico, parto— y no en el alfabético: así
 se lee como el recorrido de una vaca. Cada entrada dice qué es en un renglón,
@@ -899,17 +900,24 @@ formulario de ese tipo, con solo sus campos.
 
 Son **dos toques** hasta el formulario contra los tres del desplegable —abrir,
 elegir, confirmar—, y conviene anotar lo que se descubrió armando el prototipo:
-**cinco de los nueve tipos no llevan payload** —celo, tacto positivo, tacto
-negativo, aborto y secado—, así que más de la mitad de las veces el menú lleva a
-una pantalla con un campo. La ganancia no es el formulario propio: es no abrir un
-desplegable de nueve. Los cinco comparten un componente, porque cinco pantallas
-idénticas con el título cambiado serían cinco lugares donde arreglar lo mismo.
+**cuatro de los doce tipos no llevan payload** —celo, tacto negativo, aborto y
+secado—, así que un tercio de las veces el menú lleva a una pantalla con un campo.
+La ganancia no es el formulario propio: es no abrir un desplegable de doce. Los
+cuatro comparten un componente, porque cuatro pantallas idénticas con el título
+cambiado serían cuatro lugares donde arreglar lo mismo.
+
+Eran nueve y cinco: **el menú es lo que hizo barato el crecimiento**. Los tres
+tipos que entraron con la decisión 113 —tratamiento, medición y traslado— son tres
+renglones más y un formulario cada uno; en el desplegable habrían sido tres
+opciones más y otra tanda de campos que aparecen y desaparecen debajo. Y el tacto
+positivo se fue de los "sin payload" cuando las decisiones 111 y 112 le dieron los
+suyos.
 
 Dos decisiones chicas que se ven de cerca:
 
 - **el segmento del tipo es el `TipoEvento` tal cual lo escribe la API**
   (`tacto_positivo`, no `tacto-positivo`). Un segundo vocabulario para las mismas
-  nueve cosas es una tabla de traducción que se puede despegar del contrato, y
+  doce cosas es una tabla de traducción que se puede despegar del contrato, y
   esta dirección no se lee en voz alta ni se tipea a mano;
 - **un `:tipo` que no se reconoce cae en el menú**, con el mismo criterio con que
   `deParametros` descarta un filtro desconocido. Un cartel de "eso no existe"
@@ -954,21 +962,26 @@ no vale un viaje.
 
 Dos cosas chicas sobre la línea de tiempo que es lo segundo que se mira siempre.
 
-**Cuatro chips y no once tipos.** Lo que se le pregunta a un historial es "cuándo
+**Cinco chips y no quince tipos.** Lo que se le pregunta a un historial es "cuándo
 parió" o "cuántas veces la inseminaron", y para eso el celo y los dos tactos son
-una sola pregunta: cómo viene el ciclo. Once chips serían tres renglones de
+una sola pregunta: cómo viene el ciclo. Quince chips serían cuatro renglones de
 pantalla arriba de lo que se vino a leer. Los tipos que no están en ningún grupo
-—el alta, el aborto, el secado, la baja, la anulación— no desaparecen: son los
-que se ven cuando no hay ningún chip puesto, que es como abre la ficha. Acá sí es
-el componente `Chips` y no el marcado de los atajos de fecha, porque son filtros
-que se sueltan. El chip **filtra y nada más**: no reordena, no agrupa y no
-pagina.
+—el alta, el aborto, el secado, la baja, la anulación, la corrección— no
+desaparecen: son los que se ven cuando no hay ningún chip puesto, que es como abre
+la ficha. Acá sí es el componente `Chips` y no el marcado de los atajos de fecha,
+porque son filtros que se sueltan. El chip **filtra y nada más**: no reordena, no
+agrupa y no pagina.
+
+El quinto chip —"Sanidad y manejo", con el tratamiento, la medición y el
+traslado— entró con la decisión 113 y se ganó el lugar: "cuándo la trataron" es lo
+primero que pregunta el veterinario, y contestarlo scrolleando cuarenta renglones
+es el mismo problema que los otros cuatro vinieron a resolver.
 
 El filtrado es en el cliente sobre el log que ya está cargado, así que no cuesta
 un pedido; la cuenta del título es la de lo que se está mostrando —un "(12)"
-arriba de tres renglones se lee como que faltan nueve—; y qué se puede anular se
-sigue calculando sobre **todos** los eventos, que no puede depender de qué chip
-está puesto.
+arriba de tres renglones se lee como que faltan nueve—; y qué se puede anular no
+depende de qué chip está puesto: es **cada evento vigente**, desde que la decisión
+101 dejó de juzgarlo por posición.
 
 **Y `fecha_registro` dejó de estar de adorno.** Llegaba en cada evento y ninguna
 pantalla la miraba: la ficha contaba cuándo *pasó* y nunca cuándo se *anotó*. El
@@ -977,6 +990,86 @@ pago. Aparece **solo cuando las dos fechas difieren**, con la misma forma que la
 marca de "otras reglas" —habla cuando hay algo que decir y se calla en los demás
 casos— y contesta una pregunta concreta: por qué esta vaca no estaba en la lista
 de esa mañana.
+
+## Alcanzar al contrato (decisión 113)
+
+Entre las decisiones 96 y 112 el backend sumó **cuatro tipos de evento, dos
+dimensiones enteras —la sanitaria y el cuerpo—, la raza, el lote, seis endpoints y
+cinco parámetros de `Config`**. Esta UI no se enteró de ninguno, y siguió
+compilando y andando: un campo de más en una respuesta JSON no rompe nada.
+
+Lo que se perdía no era una excepción sino una pantalla. La peor, concreta:
+`para_descartar_leche` —la única alerta con **consecuencia legal** del sistema— la
+contestaba la API desde la decisión 99 y no había dónde verla.
+
+### La copia de tipos no avisa, pero una vez actualizada no deja seguir
+
+`src/api/nucleo.ts` es una copia manual de los tipos del núcleo (decisión 66) y
+nada garantiza que siga al original. Lo que sí la ata es que los
+`Record<TipoEvento, string>` de `formato.ts` **dejan de compilar** cuando aparece
+un valor nuevo. O sea: la copia no avisa que falta algo, pero apenas se actualiza,
+el compilador obliga a nombrar lo nuevo — que es el único mecanismo barato que
+empuja a mostrarlo. Por eso la tanda empieza por los tipos y no por las pantallas:
+actualizar `nucleo.ts` produjo una lista de errores que **es** la lista de trabajo.
+
+### El defecto que solo se ve escribiendo la pantalla
+
+La de parámetros del tambo trataba la `Config` entera como "un `Number()` por
+campo". `factores_madurez` (decisión 105) es un **array**:
+
+```
+String([1.32, 1.16])   → "1.32, 1.16"    ← se lee bien en el input
+Number("1.32, 1.16")   → NaN
+JSON.stringify(NaN)    → null            ← lo que viajaba a la API
+```
+
+La pantalla mostraba los factores correctos, el botón de guardar quedaba
+habilitado siempre —`NaN !== array` es cierto en cada dibujo— y al guardar mandaba
+un `null` en el lugar de la tabla que corrige la producción de las vaquillonas.
+Ninguna de las tres cosas tira una excepción. Es de la familia de la decisión 57:
+**un tipo no es una unidad, y una copia no es un import.** La conversión pasó a
+ser dos funciones con nombre (`comoTexto`/`desdeTexto`) y un
+`ParametroNumerico = Exclude<keyof Config, 'factores_madurez'>` que le deja al
+compilador vigilar que nadie meta el array entre los números.
+
+### Las decisiones de pantalla, y su porqué
+
+- **Lo no declarado no se declara solo.** La distocia y la causa de baja arrancan
+  en "No lo anoté" y no en el valor más benigno. Un desplegable que arranque en
+  "Parió sola" convierte el silencio en una afirmación — inventar el dato hacia el
+  lado que hace quedar mejor al tambo, que es justo lo que las decisiones 106 y
+  107 evitan contándolo aparte.
+- **El selector de servicio aparece cuando la pregunta existe.** Con un solo
+  servicio en el ciclo, apuntar y no apuntar pliegan igual: a falta de puntero la
+  API usa el último, y el último es ese. Con dos o más aparece, que es el caso del
+  celo falso (decisión 112).
+- **El tacto pide el animal, y ese pedido no bloquea.** Es el único formulario del
+  menú que necesita la proyección —por `servicios_del_ciclo`— y si no vuelve, el
+  tacto se carga igual sin el puntero. Un tacto que no se puede cargar porque una
+  lectura de apoyo falló sería mucho peor que uno atribuido al último servicio.
+- **Sacar del lote es un gesto explícito.** `lote: null` significa volver al rodeo
+  general (decisión 100); con un campo de texto suelto, "no escribí nada todavía"
+  y "que vuelva al general" se ven igual, y el segundo se haría sin querer.
+- **`fecha_incierta` tiene su propio aviso**, distinto de `datos_incompletos`. Es
+  la decisión 110 del lado de la pantalla: un parto de monta forzado tiene fecha
+  confiable —la vieron parir— y decir ahí que la curva está sucia repetiría el
+  error que esa decisión corrigió en el núcleo.
+- **El botón de anular va en todo evento vigente**, que es lo que la decisión 101
+  dejó pendiente de la 57. Antes iba solo en el último porque la regla era LIFO;
+  ahora se juzga por consecuencia, y el rechazo trae la lista de qué resolver
+  primero — que `Rechazo` ya sabía dibujar desde la decisión 14.
+
+### Lo que quedó afuera, y por qué
+
+Las pantallas de los cinco indicadores de rodeo (`/toros`, `/servicios`,
+`/prenez`, `/salidas`, `/partos`) y la del `/reparto`. **El cliente y los tipos
+están**, con sus fixtures escritas con números que cierran entre ellos; lo que
+falta es dibujarlas. Son informes que se miran sentado, y lo de esta tanda era lo
+que **el que carga no podía ver**.
+
+Y un hueco de la decisión 102: **la corrección no tiene gesto**. La ficha marca el
+evento corregido —lo mínimo para no mentir sobre qué vale— pero no hay forma de
+emitir una `correccion` desde la pantalla.
 
 ## El escritorio, que es el caso de la mitad de las pantallas
 
@@ -1020,8 +1113,8 @@ la misma tabla, sobre la operación más frecuente del sistema:
 El camino de una vaca sola baja por tres cosas: la ficha dejó de traer cinco
 lecturas, la carga dejó de pedir el animal, y el atajo de la fila saltea la ficha
 entera. Los toques bajan menos que los pedidos, y el que quedaba era el
-**desplegable del tipo de evento** de la carga suelta: son nueve tipos y no
-entran en un segmentado ni en una fila de chips.
+**desplegable del tipo de evento** de la carga suelta: eran nueve tipos —hoy son
+doce— y no entran en un segmentado ni en una fila de chips.
 
 De ahí salía la segunda fila, que es la que justifica la remodelación entera:
 **de 16 pedidos por vaca a 1,2, y de 6 toques a 1.**
@@ -1233,6 +1326,12 @@ nada. "Mi cuenta" ahora vive en los dos árboles.
 El backend vive en **`https://github.com/MugiwaraNoSeva/tambo.git`**: el núcleo
 (`mu/`), la persistencia (`db/`), la API (`api/`) y la demo. Ahí está también la
 spec, **`proyecto_app_tambo-1.md`**: §5.6 (los códigos de error y su columna
-"¿Forzable?"), §7 (las decisiones — de la 50 a la 67 son de la UI, y la 81 nació
-de este repo: `GET /establecimientos`, sin la cual no hay selector que armar) y **§9 (el
-contrato de la API, la única fuente de verdad sobre requests y respuestas)**.
+"¿Forzable?"), §7 (las decisiones — de la 50 a la 67 son de la UI, la 81 nació de
+este repo —`GET /establecimientos`, sin la cual no hay selector que armar— y la
+**113** es la tanda que alcanzó al contrato) y **§9 (el contrato de la API, la
+única fuente de verdad sobre requests y respuestas)**.
+
+Las de la UI se numeran **allá y no acá** por la decisión 66: el registro de
+decisiones es uno solo aunque el código viva en dos repos, y partirlo en dos
+listas que se referencian entre sí sería la forma más rápida de que ninguna de las
+dos esté completa.

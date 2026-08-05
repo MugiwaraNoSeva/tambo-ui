@@ -27,7 +27,7 @@ import { Armazon } from '../componentes/armazon';
 import { Aviso, Cargando, Cifra, Tarjeta, TarjetaCaida } from '../componentes/basicos';
 import { CurvaLactancia } from '../componentes/CurvaLactancia';
 import { usarEstablecimiento } from '../establecimiento';
-import { crias, fechaCorta, litros, numero } from '../formato';
+import { DISTOCIA, condicion, crias, fechaCorta, litros, numero } from '../formato';
 import { aAnimal, usarCaravanaDelHash, usarVuelta } from '../ruteo';
 import { usarPedido } from '../usarPedido';
 
@@ -90,12 +90,27 @@ function UnaLactancia({ lactancia: l }: { lactancia: LactanciaConNumeros }) {
     >
       {/* Va arriba de todo y no al pie: si la fecha de inicio no es confiable,
           tampoco lo son los días en leche, que es el eje de la curva que sigue.
-          Leer el aviso después del dibujo sería enterarse tarde. */}
-      {l.datos_incompletos && (
-        <Aviso tono="atencion" titulo="Datos incompletos">
-          La abrió un parto cargado con "confirmar igual": la fecha de inicio no es confiable, y
-          con ella tampoco los días en leche de la curva.
+          Leer el aviso después del dibujo sería enterarse tarde.
+
+          **Son dos avisos y no uno desde la decisión 110**, y la diferencia es
+          justamente la que esa decisión separó: `datos_incompletos` dice que el
+          payload del parto puede estar a medias, y `fecha_incierta` que lo que no
+          cierra es la fecha. Solo el segundo se lleva puesta la curva. Un parto
+          de monta forzado tiene una fecha perfectamente confiable —la vieron
+          parir— y mostrar ahí "los días en leche no son confiables" sería repetir
+          el error que la 110 vino a arreglar, ahora del lado de la pantalla. */}
+      {l.fecha_incierta ? (
+        <Aviso tono="atencion" titulo="La fecha del parto no es confiable">
+          Lo que se forzó al cargarlo pone en duda la fecha, y con ella los días en leche que son
+          el eje de la curva.
         </Aviso>
+      ) : (
+        l.datos_incompletos && (
+          <Aviso tono="atencion" titulo="Datos incompletos">
+            La abrió un parto cargado con "confirmar igual", así que su ciclo queda afuera de los
+            indicadores. La fecha sí es confiable: la curva se lee normal.
+          </Aviso>
+        )
       )}
 
       <CurvaLactancia curva={l.curva} pico={l.pico} />
@@ -109,6 +124,26 @@ function UnaLactancia({ lactancia: l }: { lactancia: LactanciaConNumeros }) {
         <Cifra rotulo="RCS máximo" valor={numero(l.rcs_maximo)} />
       </div>
 
+      {/* El equivalente maduro va **aparte y con su factor al lado** (decisión
+          105). Aparte, porque contesta otra pregunta: "a 305 días" compara vacas
+          de la misma lactancia y esta compara **entre** lactancias — es la que
+          permite mirar a una vaquillona y a una vaca hecha en la misma columna,
+          que es lo que decide descartes.
+
+          Y con el factor a la vista porque un número que se multiplicó por 1,32
+          tiene que poder decir por qué: sin él, la primera lactancia de una
+          vaquillona aparece treinta por ciento más alta que la real y nadie sabe
+          de dónde salió. */}
+      {l.equivalente_maduro_305 !== null && (
+        <>
+          <h3>Comparada con una vaca madura</h3>
+          <div className="cifras">
+            <Cifra rotulo="Equivalente maduro" valor={litros(l.equivalente_maduro_305, 0)} />
+            <Cifra rotulo="Factor aplicado" valor={numero(l.factor_madurez, 2)} />
+          </div>
+        </>
+      )}
+
       {/* El parto que la abrió. La fecha es la de inicio de la lactancia —son el
           mismo hecho— y las crías vienen con la lactancia, así que esto no cuesta
           un pedido más. Cuando el parto no las declaró, no se inventa un renglón:
@@ -120,6 +155,18 @@ function UnaLactancia({ lactancia: l }: { lactancia: LactanciaConNumeros }) {
           <span className="renglon">
             {l.crias.length === 0 ? 'Sin crías declaradas.' : crias(l.crias)}
           </span>
+          {/* Cuánta ayuda necesitó (107) y con qué cuerpo llegó (108). Van juntas
+              porque contestan lo mismo —cómo entró a esta lactancia— y juntas
+              explican los días abiertos que vienen después. Ninguna se inventa:
+              la distocia sin declarar y la condición sin medir no dicen nada. */}
+          {l.distocia !== null && (
+            <span className="renglon">Ayuda al parir: {DISTOCIA[l.distocia].toLowerCase()}</span>
+          )}
+          {l.condicion_al_parto !== null && (
+            <span className="renglon">
+              Condición corporal al parto: {condicion(l.condicion_al_parto)}
+            </span>
+          )}
         </li>
       </ul>
     </Tarjeta>

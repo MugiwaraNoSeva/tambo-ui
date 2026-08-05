@@ -72,7 +72,7 @@ describe('los parámetros del tambo', () => {
     expect(screen.getByText(/tiene que caer entre la mínima y la máxima/i)).toBeInTheDocument();
   });
 
-  it('manda los diecisiete enteros, no el que cambió', async () => {
+  it('manda la Config entera, no el parámetro que cambió', async () => {
     const falsa = montarConfig({
       [`PATCH /establecimientos/${EST}`]: { cuerpo: establecimiento },
     });
@@ -86,15 +86,42 @@ describe('los parámetros del tambo', () => {
 
     await waitFor(() => {
       const cuerpo = falsa.cuerpoDe(`PATCH /establecimientos/${EST}`) as {
-        config: Record<string, number>;
+        config: Record<string, unknown>;
         motivo: string;
       };
-      // Los diecisiete: se validan entre ellos, así que uno solo no se puede
-      // juzgar.
-      expect(Object.keys(cuerpo.config)).toHaveLength(17);
+      // Los veintidós: se validan entre ellos, así que uno solo no se puede
+      // juzgar. Eran diecisiete hasta que entraron la tolerancia de gestación
+      // (111), el techo de peso (108) y los tres del equivalente maduro (105).
+      expect(Object.keys(cuerpo.config)).toHaveLength(22);
       expect(cuerpo.config['dias_pve']).toBe(60);
       expect(cuerpo.config['dias_gestacion']).toBe(283);
       expect(cuerpo.motivo).toBe('Charla con el veterinario.');
+    });
+  });
+
+  it('los factores de madurez viajan como lista y no como NaN', async () => {
+    // El único parámetro que **no es un número suelto** (decisión 105), y la
+    // trampa que casi se paga: la conversión vieja hacía `Number("1.32, 1.16")`,
+    // que da `NaN`, y `JSON.stringify` lo serializa como `null`. La pantalla
+    // seguía mostrando los factores correctos y guardaba un `null` en el lugar de
+    // la tabla que corrige la producción de las vaquillonas.
+    const falsa = montarConfig({
+      [`PATCH /establecimientos/${EST}`]: { cuerpo: establecimiento },
+    });
+    render(<App />);
+
+    const campo = await screen.findByLabelText('Factores de madurez (uno por lactancia)');
+    expect(campo).toHaveValue('1.32, 1.16, 1.08, 1.03, 1');
+
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '1.28, 1.14, 1.05, 1');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar los parámetros' }));
+
+    await waitFor(() => {
+      const cuerpo = falsa.cuerpoDe(`PATCH /establecimientos/${EST}`) as {
+        config: Record<string, unknown>;
+      };
+      expect(cuerpo.config['factores_madurez']).toEqual([1.28, 1.14, 1.05, 1]);
     });
   });
 

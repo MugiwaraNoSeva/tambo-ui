@@ -103,7 +103,13 @@ describe('la pantalla de partos', () => {
     expect(falsa.pedidos.filter((p) => p.ruta.endsWith(`/animales/${V102}`))).toHaveLength(0);
   });
 
-  it('avisa cuando la fecha de inicio no es confiable, y por qué eso ensucia la curva', async () => {
+  it('un parto forzado con fecha confiable no dice que la curva esté sucia', async () => {
+    // El caso de la decisión 110, que partió en dos lo que era un solo flag. La
+    // 106 parió de monta: el parto entró forzado —nunca figuró preñada— así que
+    // su ciclo sale de los indicadores, **pero la fecha es la que es**: la vieron
+    // parir. Antes de la 110 esta lactancia avisaba que sus días en leche no eran
+    // confiables, que era falso y le costaba la edad al primer parto a cada
+    // vaquillona que parió de toro.
     montarPartos({
       [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: {
         cuerpo: lactanciasSinControles,
@@ -112,12 +118,87 @@ describe('la pantalla de partos', () => {
     render(<App />);
 
     expect(await screen.findByText(/datos incompletos/i)).toBeInTheDocument();
-    expect(screen.getByText(/la fecha de inicio no es confiable/i)).toBeInTheDocument();
+    expect(screen.getByText(/la fecha sí es confiable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/pone en duda la fecha/i)).not.toBeInTheDocument();
     // Y una lactancia sin controles no dibuja una curva vacía: lo dice. La
     // acumulada de una sin controles es "sin datos", no 0 (decisión 37).
     expect(screen.getByText(/todavía no hay controles lecheros/i)).toBeInTheDocument();
     expect(document.querySelector('.curva')).toBeNull();
     expect(cifra('Acumulada')).toBe('sin datos');
+  });
+
+  it('y cuando lo forzado sí pone en duda la fecha, avisa que la curva se ensucia', async () => {
+    montarPartos({
+      [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: {
+        cuerpo: {
+          ...lactanciasSinControles,
+          lactancias: [
+            { ...lactanciasSinControles.lactancias[0]!, fecha_incierta: true },
+          ],
+        },
+      },
+    });
+    render(<App />);
+
+    expect(await screen.findByText(/la fecha del parto no es confiable/i)).toBeInTheDocument();
+    expect(screen.getByText(/los días en leche que son el eje de la curva/i)).toBeInTheDocument();
+    // El otro aviso no se repite: son dos formas de decir lo mismo y el más
+    // fuerte manda.
+    expect(screen.queryByText(/^datos incompletos$/i)).not.toBeInTheDocument();
+  });
+
+  it('el equivalente maduro va aparte y con su factor al lado (decisión 105)', async () => {
+    montarPartos();
+    render(<App />);
+    await screen.findByRole('heading', { name: /Lactancia 3/ });
+
+    // Aparte de "A 305 días" porque contesta otra pregunta: aquella compara vacas
+    // de la misma lactancia y esta compara **entre** lactancias, que es lo que
+    // permite mirar a una vaquillona y a una vaca hecha en la misma columna.
+    expect(cifra('A 305 días')).toBe('4666 L');
+    expect(cifra('Equivalente maduro')).toBe('5039 L');
+    // Y el factor, porque un número que se multiplicó por 1,08 tiene que poder
+    // decir por qué: sin él, la lactancia de una vaquillona aparece treinta por
+    // ciento más alta que la real y nadie sabe de dónde salió.
+    expect(cifra('Factor aplicado')).toBe('1,08');
+  });
+
+  it('sin equivalente maduro no dibuja la sección vacía', async () => {
+    montarPartos({
+      [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: {
+        cuerpo: lactanciasSinControles,
+      },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: /Lactancia 2/ });
+
+    expect(screen.queryByText('Comparada con una vaca madura')).not.toBeInTheDocument();
+  });
+
+  it('el parto dice cuánta ayuda necesitó y con qué cuerpo llegó', async () => {
+    montarPartos();
+    render(<App />);
+    await screen.findByRole('heading', { name: /Lactancia 3/ });
+
+    // Las dos juntas (decisiones 107 y 108) porque contestan lo mismo —cómo entró
+    // a esta lactancia— y juntas explican los días abiertos que vienen después.
+    expect(screen.getByText(/ayuda al parir: con una mano/i)).toBeInTheDocument();
+    expect(screen.getByText(/condición corporal al parto: 3,25/i)).toBeInTheDocument();
+  });
+
+  it('y no inventa ninguna de las dos cuando no se declararon', async () => {
+    montarPartos({
+      [`GET /establecimientos/${EST}/animales/${V102}/lactancias`]: {
+        cuerpo: lactanciasSinControles,
+      },
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: /Lactancia 2/ });
+
+    // Un parto sin grado declarado se cuenta aparte, no como normal: escribir
+    // "parió sola" acá sería la misma mentira, del lado de la pantalla.
+    expect(screen.queryByText(/ayuda al parir/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/condición corporal al parto/i)).not.toBeInTheDocument();
   });
 
   it('un animal sin lactancias lo dice, no deja la pantalla en blanco', async () => {

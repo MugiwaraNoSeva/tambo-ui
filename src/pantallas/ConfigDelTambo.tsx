@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Los parámetros del tambo: los diecisiete números con los que decide el núcleo.
+// Los parámetros del tambo: los veintidós con los que decide el núcleo.
 //
 // Es la pantalla más peligrosa del panel, y por eso la mitad de lo que hay acá
 // no es formulario sino explicación. Cambiar estos números no toca el historial
@@ -40,18 +40,34 @@ import { aPanelTambo } from '../ruteo';
 import { mensajeDe, usarPedido } from '../usarPedido';
 
 /**
- * Los diecisiete, con el nombre que usa la gente y no el de la variable.
+ * Los veintidós, con el nombre que usa la gente y no el de la variable.
  *
  * Los textos salen de §5.5 de la spec, que es donde están escritos una vez. Acá
  * no se decide nada del dominio: se decide **cómo se lee**, que es trabajo de
  * esta capa.
+ *
+ * **Veintiuno son números sueltos y uno es una lista** —los factores de madurez
+ * de la decisión 105—. Esa diferencia no es cosmética: hasta que se agregó, esta
+ * pantalla podía tratar la `Config` entera como "un `Number()` por campo", y esa
+ * suposición estaba escrita en tres lugares distintos. Ver `Borrador`.
  */
 interface Parametro {
-  campo: keyof Config;
+  campo: ParametroNumerico;
   etiqueta: string;
   ayuda: string;
-  unidad: 'días' | 'litros' | 'DEL';
+  unidad: 'días' | 'litros' | 'DEL' | 'kg' | 'factor';
+  /**
+   * Cuánto se mueve la flecha del input. Uno salvo en los dos parámetros del
+   * equivalente maduro, que son decimales chicos: con `step=1` el navegador
+   * rechaza un 0,0005 perfectamente válido.
+   */
+  paso?: number;
+  /** El piso del input. Cero en los que lo admiten: desactivar un ajuste es legítimo. */
+  minimo?: number;
 }
+
+/** Los campos de `Config` que son un número suelto: todos menos `factores_madurez`. */
+type ParametroNumerico = Exclude<keyof Config, 'factores_madurez'>;
 
 interface Grupo {
   titulo: string;
@@ -131,6 +147,13 @@ const GRUPOS: Grupo[] = [
         ayuda: 'La más larga que se considera plausible.',
         unidad: 'días',
       },
+      {
+        campo: 'dias_tolerancia_gestacion',
+        etiqueta: 'Tolerancia de la edad de preñez',
+        ayuda:
+          'Cuánto puede diferir la edad que declara el veterinario al tactar de la que sale del servicio anotado. Un ciclo estral: el error que importa es estar corrido un servicio entero.',
+        unidad: 'días',
+      },
     ],
   },
   {
@@ -186,14 +209,44 @@ const GRUPOS: Grupo[] = [
         ayuda: 'Más que esto en un control diario es un error de carga.',
         unidad: 'litros',
       },
+      {
+        campo: 'peso_max_medicion',
+        etiqueta: 'Techo de kilos por pesada',
+        ayuda:
+          'Espeja al de litros: atrapa la balanza pesada con el corral adentro, no un animal grande de verdad.',
+        unidad: 'kg',
+      },
+    ],
+  },
+  {
+    titulo: 'Equivalente maduro',
+    regla:
+      'Son de la raza y no del manejo: la tabla de un Holando no es la de un Jersey. Sirven para comparar la lactancia de una vaquillona con la de una vaca hecha.',
+    parametros: [
+      {
+        campo: 'edad_referencia_primer_parto',
+        etiqueta: 'Edad de referencia al primer parto',
+        ayuda: 'La edad para la que el factor de la primera lactancia vale tal cual.',
+        unidad: 'días',
+      },
+      {
+        campo: 'ajuste_por_dia_edad_primer_parto',
+        etiqueta: 'Ajuste por día de edad',
+        ayuda:
+          'Cuánto baja el factor de la primera lactancia por cada día de edad al parto por encima de la referencia: una vaquillona que parió más grande necesita menos corrección. En cero, no se ajusta por edad.',
+        unidad: 'factor',
+        paso: 0.0001,
+        minimo: 0,
+      },
     ],
   },
 ];
 
-/** Los diecisiete rótulos, sin los grupos: los usa quien no dibuja el formulario. */
-const ETIQUETAS: Partial<Record<keyof Config, string>> = Object.fromEntries(
-  GRUPOS.flatMap((g) => g.parametros.map((p) => [p.campo, p.etiqueta])),
-);
+/** Los rótulos, sin los grupos: los usa quien no dibuja el formulario. */
+const ETIQUETAS: Partial<Record<keyof Config, string>> = {
+  ...Object.fromEntries(GRUPOS.flatMap((g) => g.parametros.map((p) => [p.campo, p.etiqueta]))),
+  factores_madurez: 'Factores de madurez',
+};
 
 /**
  * Qué cambió entre dos versiones, dicho para leer.
@@ -205,18 +258,48 @@ const ETIQUETAS: Partial<Record<keyof Config, string>> = Object.fromEntries(
  */
 export function diferenciasDeConfig(vieja: Config, actual: Config): string[] {
   return (Object.keys(ETIQUETAS) as (keyof Config)[])
-    .filter((campo) => vieja[campo] !== actual[campo])
+    .filter((campo) => comoTexto(vieja[campo]) !== comoTexto(actual[campo]))
     .map(
       (campo) =>
-        `${(ETIQUETAS[campo] ?? campo).toLowerCase()}: ${vieja[campo]} en vez de ${actual[campo]}`,
+        `${(ETIQUETAS[campo] ?? campo).toLowerCase()}: ${comoTexto(vieja[campo])} en vez de ${comoTexto(actual[campo])}`,
     );
 }
 
-/** El formulario trabaja con texto: un input vacío no es un número. */
+// ── El borrador, y el parámetro que no es un número ──────────────────────────
+//
+// El formulario trabaja con texto: un input vacío no es un número. Eso alcanzaba
+// mientras la `Config` eran diecisiete enteros, y `factores_madurez` (decisión
+// 105) rompió la suposición — es un **array**.
+//
+// La trampa no fue teórica y conviene dejarla anotada, porque no se vio: con la
+// conversión vieja, `String([1.32, 1.16])` daba `"1.32,1.16"` —que hasta se lee
+// bien— y `Number("1.32,1.16")` daba `NaN`, que `JSON.stringify` serializa como
+// `null`. O sea: la pantalla mostraba los factores correctos, el botón de guardar
+// quedaba habilitado siempre —`NaN !== array` es cierto en cada dibujo— y al
+// guardar mandaba un `null` en el lugar de la tabla que corrige la producción de
+// las vaquillonas. Nada de eso tira una excepción.
+//
+// Por eso ahora la conversión pasa por dos funciones con nombre en vez de un
+// `Number()` derramado sobre `Object.entries`, y `ParametroNumerico` deja que el
+// compilador vigile que nadie meta el array en la lista de los números.
+
+/** Lo que se muestra en el input. La lista va separada por comas, que es como se lee. */
+const comoTexto = (valor: number | number[]): string =>
+  Array.isArray(valor) ? valor.join(', ') : String(valor);
+
+/** Y la vuelta: de lo que se escribió al número —o a la lista— que espera la API. */
+const desdeTexto = (campo: keyof Config, texto: string): number | number[] =>
+  campo === 'factores_madurez'
+    ? texto
+        .split(',')
+        .map((parte) => Number(parte.trim()))
+        .filter((n) => !Number.isNaN(n))
+    : Number(texto);
+
 type Borrador = Record<keyof Config, string>;
 
 const aBorrador = (config: Config): Borrador =>
-  Object.fromEntries(Object.entries(config).map(([k, v]) => [k, String(v)])) as Borrador;
+  Object.fromEntries(Object.entries(config).map(([k, v]) => [k, comoTexto(v)])) as Borrador;
 
 export function ConfigDelTambo({ id }: { id: string }) {
   const traerTambo = useCallback(() => api.establecimiento(id), [id]);
@@ -298,8 +381,11 @@ function Formulario({
     setBorrador(aBorrador(config));
   }, [config]);
 
+  // Se comparan **los textos** y no los valores: comparar un array con `!==`
+  // siempre da distinto —son referencias— y el botón de guardar quedaría
+  // habilitado sin que nadie haya tocado nada.
   const cambio = Object.entries(borrador).some(
-    ([campo, valor]) => Number(valor) !== config[campo as keyof Config],
+    ([campo, valor]) => valor !== comoTexto(config[campo as keyof Config]),
   );
 
   async function enviar(evento: FormEvent) {
@@ -308,10 +394,10 @@ function Formulario({
     setError(null);
     setListo(false);
     try {
-      // Los diecisiete enteros, no el que cambió: se validan entre ellos, así que
-      // un campo suelto no se puede juzgar solo.
+      // La `Config` entera, no el campo que cambió: se validan entre ellos, así
+      // que uno suelto no se puede juzgar solo.
       const nueva = Object.fromEntries(
-        Object.entries(borrador).map(([k, v]) => [k, Number(v)]),
+        Object.entries(borrador).map(([k, v]) => [k, desdeTexto(k as keyof Config, v)]),
       ) as unknown as Config;
       await api.editarEstablecimiento(id, {
         config: nueva,
@@ -345,8 +431,8 @@ function Formulario({
                 <input
                   type="number"
                   inputMode="numeric"
-                  min={1}
-                  step={1}
+                  min={p.minimo ?? 1}
+                  step={p.paso ?? 1}
                   value={borrador[p.campo]}
                   onChange={(e) =>
                     setBorrador((b) => ({ ...b, [p.campo]: e.target.value }))
@@ -356,6 +442,32 @@ function Formulario({
               </Campo>
             );
           })}
+
+          {/* Los factores van en **su** grupo y con un campo de texto, porque son
+              una lista de largo variable y no un número: uno por número de
+              lactancia, y el último se aplica a todas las siguientes —el "5+" de
+              las tablas publicadas—.
+
+              El aviso no es decorativo: los valores que trae el sistema son del
+              orden de magnitud de las tablas de Holando y **no son una tabla
+              oficial**. Un factor equivocado no rompe nada; devuelve un número
+              plausible y equivocado, que es la peor forma de fallar. */}
+          {grupo.titulo === 'Equivalente maduro' && (
+            <Campo
+              etiqueta="Factores de madurez (uno por lactancia)"
+              ayuda="Separados por coma, de la primera lactancia en adelante. El último se aplica a esa y a todas las siguientes. Termina en 1 porque la vaca madura es la referencia; un solo 1 desactiva el ajuste."
+            >
+              <input
+                value={borrador.factores_madurez}
+                onChange={(e) =>
+                  setBorrador((b) => ({ ...b, factores_madurez: e.target.value }))
+                }
+                inputMode="decimal"
+                autoComplete="off"
+                required
+              />
+            </Campo>
+          )}
         </Tarjeta>
       ))}
 

@@ -38,6 +38,7 @@ import {
   enPalabras,
   filtrar,
   hayFiltro,
+  lotesDe,
   type Filtros,
 } from '../filtros';
 import {
@@ -97,6 +98,15 @@ export function Rodeo() {
     [todas, filtros],
   );
 
+  // Los chips de lote salen **de los datos** y no de un vocabulario: un lote es
+  // un nombre que el tambo escribió (decisión 100). Se calculan sobre la lista
+  // entera y no sobre la filtrada, o filtrar por un lote haría desaparecer a los
+  // demás chips y no habría cómo cambiar de corral sin soltar el filtro.
+  const lotes: readonly Opcion<string>[] = useMemo(
+    () => (todas === undefined ? [] : lotesDe(todas).map((l) => ({ valor: l, rotulo: l }))),
+    [todas],
+  );
+
   if (cargando) return <Cargando que="Trayendo el rodeo…" />;
   if (error !== null || datos === null) {
     return <TarjetaCaida titulo="El rodeo" error={error} reintentar={recargar} />;
@@ -144,6 +154,23 @@ export function Rodeo() {
           elegida={filtros.categoria}
           alElegir={(v) => cambiar('categoria', v)}
         />
+
+        {/* El corral, y solo si el tambo usa lotes: un tambo que no los usa no
+            tiene por qué ver un grupo de chips vacío. Es el filtro que hace que
+            esta pantalla se pueda usar **parado en el corral**, que es como se
+            recorre un tambo — y el que le da sentido a que `lote` viaje en cada
+            fila de la lista y no solo en la ficha. */}
+        {lotes.length > 0 && (
+          <>
+            <h3>Lote</h3>
+            <Chips
+              etiqueta="Lote"
+              opciones={lotes}
+              elegida={filtros.lote}
+              alElegir={(v) => cambiar('lote', v)}
+            />
+          </>
+        )}
 
         <Casilla
           etiqueta="Mostrar también las de baja"
@@ -223,6 +250,10 @@ function DetalleDeFila({ animal }: { animal: Fila }) {
       </span>
       <span className="renglon">
         {animal.categoria === null ? '' : etiquetaCategoria(animal.categoria)}
+        {/* El corral, cuando lo tiene. Va acá y no en una etiqueta aparte porque
+            no es un estado del animal sino dónde está parado, que es exactamente
+            lo que hace falta saber cuando se lee la lista con el rodeo delante. */}
+        {animal.lote !== null && ` · lote ${animal.lote}`}
         {animal.fecha_ultimo_parto !== null &&
           ` · parió el ${fechaCorta(animal.fecha_ultimo_parto)}`}
       </span>

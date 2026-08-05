@@ -18,6 +18,7 @@
 
 import type {
   CategoriaAlimentacion,
+  CausaBaja,
   Config,
   ControlLechero,
   Cria,
@@ -25,37 +26,73 @@ import type {
   EstadoProductivo,
   EstadoReproductivo,
   EstadoVida,
+  EvaluacionDeToros,
+  GradoDistocia,
   MotivoBaja,
+  MotivoTratamiento,
   Proyeccion,
   RegistroTanque,
+  RepartoDeLote,
+  ResumenDeDistocia,
+  ResumenDeSalidas,
+  ResumenDeServicios,
   ResumenKPIs,
+  ResumenPrenez,
   ResumenRodeo,
   TipoEvento,
 } from './nucleo';
 
 export type {
   CategoriaAlimentacion,
+  CausaBaja,
   Ciclo,
   ComposicionRodeo,
   Config,
+  ConteoPrenez,
   ControlLechero,
   Cria,
+  DistociaPorGrado,
+  EstadisticaToro,
   EstadoAnimal,
   EstadoInicial,
   EstadoProductivo,
   EstadoReproductivo,
   EstadoVida,
+  EvaluacionDeToros,
+  GradoDistocia,
   Lactancia,
+  Medicion,
   MotivoBaja,
+  MotivoTratamiento,
   OrigenCiclo,
+  PayloadAnulacion,
+  PayloadBaja,
+  PayloadControlLechero,
+  PayloadCorreccion,
+  PayloadInseminacion,
+  PayloadMedicion,
+  PayloadParto,
+  PayloadTactoPositivo,
+  PayloadTratamiento,
+  PayloadTraslado,
   Proyeccion,
   RegistroTanque,
+  RepartoDeLote,
+  ResumenDeDistocia,
+  ResumenDeSalidas,
+  ResumenDeServicios,
   ResumenKPIs,
+  ResumenPrenez,
   ResumenRodeo,
   ResultadoCiclo,
   ResultadoCria,
+  SalidaPorCausa,
+  ServicioDelCiclo,
   SexoCria,
+  Tasas,
   TipoEvento,
+  Tratamiento,
+  VentanaPrenez,
 } from './nucleo';
 
 // ── Quién soy y qué puedo (`/auth`) ──────────────────────────────────────────
@@ -294,11 +331,25 @@ export interface RespuestaEstablecimiento {
 export interface FilaAnimal {
   animal_id: string;
   caravana: string | null;
+  /**
+   * El nombre de la raza, ya resuelto contra el catálogo (decisión 109). Es
+   * **descriptiva**: no entra en ninguna regla, y el núcleo ni la conoce. Viaja
+   * en la lista por lo mismo que la caravana — es de lo poco que distingue a un
+   * animal de otro cuando se los mira en una pantalla.
+   */
+  raza: string | null;
+  raza_codigo: string | null;
   vida: EstadoVida;
   reproductivo: EstadoReproductivo | null;
   productivo: EstadoProductivo | null;
   /** Null en las de baja: al que ya no está en el rodeo no se le da dieta. */
   categoria: CategoriaAlimentacion | null;
+  /**
+   * En qué corral está (decisión 100). Va en la lista y no solo en la ficha
+   * porque es con lo que se recorre el tambo: se abre la pantalla parado en un
+   * corral, no pensando en un animal.
+   */
+  lote: string | null;
   fecha_ultimo_parto: string | null;
 }
 
@@ -307,12 +358,42 @@ export interface RespuestaAnimales {
   animales: FilaAnimal[];
 }
 
-/** La ficha: la proyección cacheada con la caravana y la versión de la fila. */
+/**
+ * La ficha: la proyección cacheada con la caravana, la raza y la versión.
+ *
+ * **`version` es opcional porque con `?fecha` no viene**, y eso no es un olvido de
+ * la API: la versión es el contador con el que se resuelve la concurrencia al
+ * escribir, o sea una propiedad de la fila de hoy. Devolverla junto a un estado
+ * de marzo sería ofrecer el número con el que escribir sobre una foto. La raza sí
+ * viaja en las dos, y es la de hoy: es un atributo del animal y no un estado que
+ * el log reconstruya.
+ */
 export interface RespuestaAnimal {
   animal_id: string;
   caravana: string;
-  version: number;
+  raza: string | null;
+  raza_codigo: string | null;
+  version?: number;
+  /** Solo con `?fecha`: qué día es esta foto. Ausente en la ficha de hoy. */
+  fecha?: string;
   proyeccion: Proyeccion;
+}
+
+// ── El catálogo de razas (decisión 109) ──────────────────────────────────────
+
+/**
+ * Una raza del catálogo. **No cuelga de ningún establecimiento**, y es lo que la
+ * hace útil: que "Jersey" sea la misma Jersey en todos los tambos es el punto de
+ * que exista la tabla. Es lo que permite ofrecer una lista en vez de un campo
+ * libre, que es lo único que de verdad mantiene limpio un dato así.
+ */
+export interface Raza {
+  codigo: string;
+  nombre: string;
+}
+
+export interface RespuestaRazas {
+  razas: Raza[];
 }
 
 /**
@@ -322,6 +403,12 @@ export interface RespuestaAnimal {
  */
 export interface CuerpoAlta {
   caravana: string;
+  /**
+   * El código del catálogo (decisión 109). Va **al lado** de `caravana` y no
+   * adentro del payload a propósito: es un atributo de la fila del animal, como
+   * la caravana, y no un dato del evento `alta` que el fold vaya a leer.
+   */
+  raza_codigo?: string | null;
   fecha_evento?: string;
   observaciones?: string | null;
   forzado?: boolean;
@@ -376,6 +463,15 @@ export interface EventoHistorial {
   forzado: boolean;
   ciclo_id: string | null;
   anulado_por: string | null;
+  /**
+   * La última corrección que lo tocó, o null (decisión 102).
+   *
+   * El evento se muestra **como se cargó** —el log es append-only— y este campo
+   * es lo que le dice a la pantalla que lo que está viendo ya no es lo que vale.
+   * Sin mostrarlo, un renglón corregido y uno intacto se leen igual, que es la
+   * única forma en que la corrección puede hacer daño.
+   */
+  corregido_por: string | null;
   vigente: boolean;
   /**
    * Con qué versión de la `Config` se juzgó este evento. Es el id y no los
@@ -395,10 +491,27 @@ export interface RespuestaEventos {
 
 // ── KPIs y lactancias ────────────────────────────────────────────────────────
 
+/**
+ * Los KPIs del núcleo **más el cuerpo** (decisión 108), que es lo que los
+ * explica: la condición al parto es el mejor predictor del desempeño
+ * reproductivo, y la ganancia en recría es por qué la edad al primer parto es la
+ * que es. Los cuatro nacen en §9 y no en el núcleo, que los sirve por separado.
+ */
+export interface KPIsApi extends ResumenKPIs {
+  /** La última medida a la fecha de hoy, en la escala de 1 a 5. */
+  condicion_corporal: number | null;
+  /** El último peso conocido, en kilos. */
+  peso: number | null;
+  /** Con qué condición llegó al último parto. */
+  condicion_al_parto: number | null;
+  /** Kilos por día ganados en la recría: la meta de la decisión 22, medida. */
+  ganancia_diaria_recria: number | null;
+}
+
 export interface RespuestaKPIs {
   animal_id: string;
   fecha: string;
-  kpis: ResumenKPIs;
+  kpis: KPIsApi;
 }
 
 /** Una lactancia con sus números ya calculados por el núcleo. */
@@ -408,14 +521,31 @@ export interface LactanciaConNumeros {
   fecha_inicio: string;
   fecha_fin: string | null;
   datos_incompletos: boolean;
+  /** Distinto de lo anterior (decisión 110): el payload puede estar a medias sin
+   *  que la fecha del parto esté en discusión. */
+  fecha_incierta: boolean;
   crias: Cria[];
+  /** Cuánta ayuda necesitó el parto que la abrió (decisión 107). */
+  distocia: GradoDistocia | null;
+  /** Con qué cuerpo llegó a ese parto (decisión 108). Va al lado de la distocia
+   *  porque las dos contestan lo mismo: cómo entró a esta lactancia. */
+  condicion_al_parto: number | null;
   curva: ControlLechero[];
   pico: ControlLechero | null;
   promedio_controles: number | null;
   rcs_maximo: number | null;
   /** Null —nunca 0— cuando no hay con qué calcularla (decisión 37). */
   acumulada: number | null;
+  /** Compara vacas **de la misma lactancia**. */
   estandarizada_305: number | null;
+  /**
+   * Por cuánto se multiplicó para llegar al equivalente maduro. Viaja al lado del
+   * número a propósito: uno que se multiplicó por 1,32 tiene que poder decir por
+   * qué (decisión 105).
+   */
+  factor_madurez: number | null;
+  /** Y esta es la que compara **entre** lactancias: la vaquillona contra la vaca hecha. */
+  equivalente_maduro_305: number | null;
 }
 
 export interface RespuestaLactancias {
@@ -432,10 +562,14 @@ export interface AnimalDeLista {
   caravana: string | null;
 }
 
-/** El resumen del núcleo con las dos listas ya enriquecidas. */
-export type ResumenRodeoApi = Omit<ResumenRodeo, 'para_revisar' | 'para_secar'> & {
+/** El resumen del núcleo con las **tres** listas ya enriquecidas. */
+export type ResumenRodeoApi = Omit<
+  ResumenRodeo,
+  'para_revisar' | 'para_secar' | 'para_descartar_leche'
+> & {
   para_revisar: AnimalDeLista[];
   para_secar: AnimalDeLista[];
+  para_descartar_leche: AnimalDeLista[];
 };
 
 export interface RespuestaRodeo {
@@ -447,6 +581,71 @@ export interface RespuestaAlertas {
   fecha: string;
   para_revisar: AnimalDeLista[];
   para_secar: AnimalDeLista[];
+  /**
+   * Las que hoy **no van al tanque**: su leche está en período de retiro
+   * (decisión 99).
+   *
+   * Es la tercera desde esa decisión y es de otra naturaleza que las dos de
+   * arriba: aquellas avisan de un problema de manejo y esta de uno **legal**.
+   * Viene en `/alertas` y no solo en la ficha de cada animal porque quien ordeña
+   * necesita la lista antes de empezar, no ir a fijarse una por una.
+   */
+  para_descartar_leche: AnimalDeLista[];
+}
+
+// ── El reparto por corral (decisión 100) ─────────────────────────────────────
+
+/**
+ * `GET …/reparto` — **qué corral come qué**.
+ *
+ * `resumen.categorias` contesta cuántos animales del tambo caen en cada
+ * categoría, y con eso se pide la ración; para **entregarla** hace falta el
+ * desglose por corral, que es la unidad en que se reparte la comida.
+ */
+export interface RespuestaReparto {
+  fecha: string;
+  lotes: RepartoDeLote[];
+}
+
+// ── Los indicadores del rodeo ────────────────────────────────────────────────
+//
+// Cinco endpoints con la misma forma de sobre: el `fecha` del servidor y, los que
+// aceptan ventana, el período que efectivamente se usó — `null` cuando no se
+// acotó. Eso último no es decorativo: una tasa sobre la vida entera del log
+// promedia años de manejo distinto y no se parece a ninguna meta, así que la
+// pantalla tiene que poder decir sobre qué está hablando.
+
+/** `GET …/servicios?desde&hasta` — la tasa de concepción del rodeo (decisión 98). */
+export interface RespuestaServicios extends ResumenDeServicios {
+  fecha: string;
+  desde: string | null;
+  hasta: string | null;
+}
+
+/** `GET …/toros` — qué rinde cada toro (decisión 96). **No acepta período.** */
+export interface RespuestaToros extends EvaluacionDeToros {
+  fecha: string;
+}
+
+/** `GET …/prenez?hasta&ventanas` — la tasa de preñez a 21 días (decisión 104). */
+export interface RespuestaPrenez extends ResumenPrenez {
+  fecha: string;
+  /** El último día de la última ventana: lo pedido, o hoy. */
+  hasta: string;
+}
+
+/** `GET …/salidas?desde&hasta` — por qué se van las vacas (decisión 106). */
+export interface RespuestaSalidas extends ResumenDeSalidas {
+  fecha: string;
+  desde: string | null;
+  hasta: string | null;
+}
+
+/** `GET …/partos?desde&hasta` — cuánto costaron los partos (decisión 107). */
+export interface RespuestaPartosDelRodeo extends ResumenDeDistocia {
+  fecha: string;
+  desde: string | null;
+  hasta: string | null;
 }
 
 // ── Tanque ───────────────────────────────────────────────────────────────────
@@ -465,6 +664,15 @@ export interface RespuestaTanque {
   fecha: string;
   desde: string | null;
   hasta: string | null;
+  /**
+   * Qué lote se pidió, o `null` por el tambo entero (decisión 100).
+   *
+   * Sin él se suman **solo los registros sin lote**, que es el total por
+   * definición (decisión 33); con él se filtran los dos lados —la leche de ese
+   * lote sobre las vacas en ordeñe de ese lote—, que es lo que hace comparable el
+   * `litros_por_vaca_en_ordene` de un corral.
+   */
+  lote: string | null;
   registros: RegistroTanque[];
   litros_totales: number;
   promedio_diario: number | null;
@@ -473,5 +681,49 @@ export interface RespuestaTanque {
   litros_por_vaca_en_ordene: number | null;
 }
 
-/** Motivos de baja, para el desplegable. El tipo del núcleo manda. */
+// ── Las listas cerradas, para los desplegables ───────────────────────────────
+//
+// Son **valores** y no tipos, así que no vienen de `nucleo.ts`: la decisión 51
+// prohíbe importar valores del núcleo y la 66 se llevó el paquete. Lo que las ata
+// al original es la anotación — un valor que el backend saque de la unión deja de
+// compilar acá, y uno que agregue lo encuentra el `Record` de `formato.ts`.
+
+/** Motivos de baja: **cómo** salió. Obligatorio en el payload. */
 export const MOTIVOS_BAJA: readonly MotivoBaja[] = ['venta', 'muerte', 'descarte', 'otro'];
+
+/**
+ * Causas de baja: **por qué** se fue (decisión 106). Opcional, a diferencia del
+ * motivo — un rodeo se migra desde una libreta que casi nunca la anotó.
+ */
+export const CAUSAS_BAJA: readonly CausaBaja[] = [
+  'reproduccion',
+  'mastitis',
+  'podal',
+  'produccion',
+  'edad',
+  'enfermedad',
+  'accidente',
+  'otro',
+];
+
+/** Por qué se trató al animal (decisión 99). */
+export const MOTIVOS_TRATAMIENTO: readonly MotivoTratamiento[] = [
+  'mastitis',
+  'metritis',
+  'podal',
+  'respiratorio',
+  'reproductivo',
+  'parasitario',
+  'otro',
+];
+
+/**
+ * La escala de distocia **en orden, de menos a más ayuda** (decisión 107). El
+ * orden importa: es ordinal y se lee de corrido, no por frecuencia ni alfabético.
+ */
+export const GRADOS_DISTOCIA: readonly GradoDistocia[] = [
+  'normal',
+  'asistencia_leve',
+  'asistencia_fuerte',
+  'veterinario',
+];

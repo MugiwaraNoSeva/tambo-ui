@@ -10,14 +10,23 @@ import {
   TOKEN,
   V102,
   alertas,
+  animal102,
   animales,
   animalesConBajas,
   establecimiento,
+  partosDelRodeo,
   personas,
+  prenez,
+  razas,
   rechazoForzable,
   rechazoNoForzable,
+  reparto,
+  rodeo,
+  salidas,
+  servicios,
   tanque,
   tanqueDelPeriodo,
+  toros,
   usuarioDesactivado,
   usuarioEscritura,
 } from './fixtures';
@@ -71,6 +80,86 @@ describe('las rutas de §9', () => {
     await api.tanque(EST);
     expect(falsa.pedidos[0]?.ruta).toContain('?desde=2026-07-20&hasta=2026-07-29');
     expect(falsa.pedidos[1]?.ruta).not.toContain('?');
+  });
+
+  // ── Las lecturas que la API sumó entre las decisiones 96 y 109 ─────────────
+  //
+  // Ninguna existía de este lado, y el costo de eso no era un error visible sino
+  // una pantalla que no se podía escribir. Lo que estos tests fijan es la ruta y
+  // la forma de la cola, que es todo lo que el cliente decide.
+
+  it('el catálogo de razas no cuelga de ningún establecimiento', async () => {
+    // Es lo que lo hace útil (decisión 109): que "Jersey" sea la misma Jersey en
+    // todos los tambos. Colgarlo del establecimiento sería un catálogo por tambo,
+    // que es exactamente el campo libre que vino a reemplazar.
+    const falsa = montarApi({ 'GET /razas': { cuerpo: razas } });
+    const traidas = await api.razas();
+    expect(falsa.pedidos[0]?.ruta).toBe('/razas');
+    expect(traidas.razas.map((r) => r.codigo)).toEqual(['HOL', 'JER', 'HXJ']);
+  });
+
+  it('la ficha y el rodeo aceptan `fecha`, y sin ella no la mandan', async () => {
+    const falsa = montarApi({
+      [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: animal102 },
+      [`GET /establecimientos/${EST}/animales/${V102}?fecha=2026-03-01`]: { cuerpo: animal102 },
+      [`GET /establecimientos/${EST}/rodeo`]: { cuerpo: rodeo },
+      [`GET /establecimientos/${EST}/rodeo?fecha=2026-03-01`]: { cuerpo: rodeo },
+    });
+
+    await api.animal(EST, V102);
+    await api.animal(EST, V102, '2026-03-01');
+    await api.rodeo(EST);
+    await api.rodeo(EST, '2026-03-01');
+
+    expect(falsa.pedidos.map((p) => p.ruta)).toEqual([
+      `/establecimientos/${EST}/animales/${V102}`,
+      `/establecimientos/${EST}/animales/${V102}?fecha=2026-03-01`,
+      `/establecimientos/${EST}/rodeo`,
+      `/establecimientos/${EST}/rodeo?fecha=2026-03-01`,
+    ]);
+  });
+
+  it('los indicadores del rodeo van cada uno a su ruta, con su período', async () => {
+    const falsa = montarApi({
+      [`GET /establecimientos/${EST}/servicios?desde=2025-08-01&hasta=2026-07-29`]: {
+        cuerpo: servicios,
+      },
+      [`GET /establecimientos/${EST}/toros`]: { cuerpo: toros },
+      [`GET /establecimientos/${EST}/prenez?ventanas=26`]: { cuerpo: prenez },
+      [`GET /establecimientos/${EST}/salidas?desde=2025-08-01`]: { cuerpo: salidas },
+      [`GET /establecimientos/${EST}/partos`]: { cuerpo: partosDelRodeo },
+      [`GET /establecimientos/${EST}/reparto`]: { cuerpo: reparto },
+    });
+
+    await api.servicios(EST, { desde: '2025-08-01', hasta: '2026-07-29' });
+    // `/toros` no acepta período **y es deliberado**: la fertilidad de un toro es
+    // una propiedad suya que no cambia con el año.
+    await api.toros(EST);
+    await api.prenez(EST, { ventanas: 26 });
+    // Media ventana: el `hasta` que no vino no se cuela como `hasta=undefined`,
+    // que la API contestaría con un 400 por un string de más.
+    await api.salidas(EST, { desde: '2025-08-01' });
+    await api.partosDelRodeo(EST);
+    await api.reparto(EST);
+
+    expect(falsa.pedidos.map((p) => p.ruta)).toEqual([
+      `/establecimientos/${EST}/servicios?desde=2025-08-01&hasta=2026-07-29`,
+      `/establecimientos/${EST}/toros`,
+      `/establecimientos/${EST}/prenez?ventanas=26`,
+      `/establecimientos/${EST}/salidas?desde=2025-08-01`,
+      `/establecimientos/${EST}/partos`,
+      `/establecimientos/${EST}/reparto`,
+    ]);
+  });
+
+  it('el tanque filtra por lote, que es lo que hace comparable el litro por vaca', async () => {
+    // Sin `lote` suma solo los registros sin lote —el total del tambo por
+    // definición, decisión 33—; con él se filtran los dos lados.
+    const falsa = montarApi({
+      [`GET /establecimientos/${EST}/tanque?lote=Orde%C3%B1e+1`]: { cuerpo: tanque },
+    });
+    await api.tanque(EST, { lote: 'Ordeñe 1' });
+    expect(falsa.pedidos[0]?.ruta).toBe(`/establecimientos/${EST}/tanque?lote=Orde%C3%B1e+1`);
   });
 
   it('devuelve el cuerpo tal cual lo trae la API', async () => {

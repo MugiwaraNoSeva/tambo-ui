@@ -11,10 +11,12 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
+import { anotarFechaDeLaRespuesta } from '../src/reloj';
 import { aAnimal, aPartos, aRodeo } from '../src/ruteo';
 import { montarApi, type ApiFalsa, type Manejador } from './servidor';
 import {
   EST,
+  HOY,
   V102,
   V106,
   animal102,
@@ -64,6 +66,146 @@ const esperarHistorial = () => screen.findByRole('heading', { name: /^El histori
 const abrir = async (titulo: string): Promise<void> => {
   await userEvent.click(await screen.findByRole('button', { name: titulo }));
 };
+
+describe('la raza y el lote, que identifican al animal', () => {
+  it('los muestra cuando el animal los tiene', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarFicha();
+
+    // La raza es **descriptiva** y no entra en ninguna regla (decisión 109): va
+    // arriba con lo que identifica al animal y no abajo con los indicadores.
+    expect(dato('Raza')).toBe('Holando');
+    expect(dato('Lote')).toBe('Ordeñe 1');
+  });
+
+  it('y no deja un "sin datos" cuando el tambo no los usa', async () => {
+    // Un rodeo que nunca cargó razas vería el mismo reproche cuatrocientas veces.
+    // Lo que falta acá no es un dato que el sistema no pudo calcular —eso sí se
+    // dice— sino un atributo opcional que nadie llenó.
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}`]: {
+        cuerpo: {
+          ...animal102,
+          raza: null,
+          raza_codigo: null,
+          proyeccion: {
+            ...animal102.proyeccion,
+            estado: { ...animal102.proyeccion.estado, lote: null },
+          },
+        },
+      },
+    });
+    render(<App />);
+    await esperarFicha();
+
+    expect(screen.queryByText('Raza')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lote')).not.toBeInTheDocument();
+  });
+});
+
+describe('la sanidad, que es la única alerta con consecuencia legal', () => {
+  /** La misma 102 con el tratamiento todavía en período de retiro. */
+  const enRetiro = {
+    ...animal102,
+    proyeccion: {
+      ...animal102.proyeccion,
+      tratamientos: [
+        {
+          ...animal102.proyeccion.tratamientos[0]!,
+          fecha: '2026-07-27',
+          leche_apta_desde: '2026-07-31',
+        },
+      ],
+    },
+  };
+
+  it('avisa cuando la leche de hoy no puede ir al tanque', async () => {
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}`]: { cuerpo: enRetiro },
+    });
+    // El hoy sale del servidor y **nunca del celular** (decisión 52): con el reloj
+    // del corral corrido un día, la ficha diría que la leche ya es apta el día que
+    // todavía no lo es. Acá se fija el mismo hoy que ve la app de verdad, o el
+    // test dependería del día en que se corre.
+    anotarFechaDeLaRespuesta({ fecha: HOY });
+    render(<App />);
+    await esperarFicha();
+
+    const aviso = screen
+      .getByText(/hoy su leche no va al tanque/i)
+      .closest('.aviso') as HTMLElement;
+    // La fecha va **en el aviso** y no solo en la lista de abajo: es el dato que
+    // decide qué se hace con esa vaca esta mañana.
+    expect(aviso.textContent).toContain('31/07/2026');
+    expect(aviso.textContent).toMatch(/arruina la carga entera del tambo/i);
+  });
+
+  it('y con el retiro ya vencido lista el tratamiento sin avisar nada', async () => {
+    // El mismo tratamiento, cuatro meses después. Si el aviso apareciera igual,
+    // aparecería siempre — y una alerta que está siempre no es una alerta.
+    montarFicha();
+    anotarFechaDeLaRespuesta({ fecha: HOY });
+    render(<App />);
+    await esperarFicha();
+
+    expect(screen.getByText(/mastijet/i)).toBeInTheDocument();
+    expect(screen.getByText(/leche apta desde el 18\/01\/2026/i)).toBeInTheDocument();
+    expect(screen.queryByText(/hoy su leche no va al tanque/i)).not.toBeInTheDocument();
+  });
+
+  it('sin tratamientos no dibuja la tarjeta', async () => {
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}`]: {
+        cuerpo: { ...animal102, proyeccion: { ...animal102.proyeccion, tratamientos: [] } },
+      },
+    });
+    render(<App />);
+    await esperarFicha();
+
+    expect(screen.queryByRole('heading', { name: 'Sanidad' })).not.toBeInTheDocument();
+  });
+});
+
+describe('el cuerpo del animal (decisión 108)', () => {
+  it('las mediciones van plegadas, de la última a la primera', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarFicha();
+
+    await abrir('Peso y condición');
+    // Acotado a **su** tarjeta: la de sanidad, que va arriba, también dibuja una
+    // `.lista-simple`, y sin acotar este test leería los tratamientos.
+    const tarjeta = screen
+      .getByRole('button', { name: 'Peso y condición' })
+      .closest('section') as HTMLElement;
+    const renglones = [...tarjeta.querySelectorAll('.lista-simple li')].map(
+      (li) => li.textContent,
+    );
+    // La del 15/06 primero: lo que se lee de estas es una tendencia, y se empieza
+    // por dónde está hoy. La condición va con dos decimales porque se califica de
+    // a cuartos: con uno solo, un 3,25 se mostraría como 3,3.
+    expect(renglones[0]).toContain('15/06/2026');
+    expect(renglones[0]).toContain('condición 2,75');
+    expect(renglones[1]).toContain('10/01/2026');
+    expect(renglones[1]).toContain('585 kg');
+  });
+
+  it('los KPIs traen el cuerpo aparte, porque explica a los de arriba', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarFicha();
+
+    await abrir('Los números');
+    await screen.findByText('Días abiertos');
+    expect(cifra('Condición corporal')).toBe('2,75');
+    expect(cifra('Peso')).toBe('585 kg');
+    expect(cifra('Condición al parto')).toBe('3,25');
+    // La 102 entró al tambo hecha: no tiene pesadas de recría con las que
+    // calcularla. "Sin datos" y no 0 (decisión 37).
+    expect(cifra('Ganancia en recría')).toBe('sin datos');
+  });
+});
 
 describe('el estado del animal', () => {
   it('pone la caravana en el encabezado y los dos ejes con palabras', async () => {
@@ -250,6 +392,72 @@ describe('el historial', () => {
  * Acá sí es el componente `Chips` y no el marcado de los atajos de fecha: son
  * filtros que se sueltan, y soltarlo devuelve la línea de tiempo entera.
  */
+describe('la corrección, que no se ve si no se marca', () => {
+  it('marca el evento que una corrección superseded (decisión 102)', async () => {
+    // El evento se muestra **como se cargó** —el log es append-only— así que sin
+    // la marca un renglón que ya no vale se lee igual que uno intacto. Es la
+    // única forma en que una corrección puede hacer daño.
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}/eventos`]: {
+        cuerpo: {
+          ...eventos102,
+          eventos: eventos102.eventos.map((e) =>
+            e.id === 'e102-4' ? { ...e, corregido_por: 'corr-1' } : e,
+          ),
+        },
+      },
+    });
+    render(<App />);
+    await esperarHistorial();
+
+    const control = screen
+      .getByText(/12\/07\/2026 — Control lechero/)
+      .closest('li') as HTMLElement;
+    expect(within(control).getByText('corregido después')).toBeInTheDocument();
+    // Y los demás no la llevan: una marca en los cuarenta renglones no marca nada.
+    expect(screen.getAllByText('corregido después')).toHaveLength(1);
+  });
+});
+
+describe('los servicios del ciclo (decisión 112)', () => {
+  it('los lista cuando hay más de uno, que es el celo falso', async () => {
+    montarFicha({
+      [`GET /establecimientos/${EST}/animales/${V102}`]: {
+        cuerpo: {
+          ...animal102,
+          proyeccion: {
+            ...animal102.proyeccion,
+            estado: {
+              ...animal102.proyeccion.estado,
+              servicios_del_ciclo: [
+                { evento_id: 'ins-1', fecha: '2026-05-20' },
+                { evento_id: 'ins-2', fecha: '2026-06-10' },
+              ],
+            },
+          },
+        },
+      },
+    });
+    render(<App />);
+    await esperarFicha();
+
+    // Es lo único que deja ver el caso que esa decisión resolvió: una vaca que se
+    // sirvió, mostró celo estando preñada y se re-sirvió. Con "última
+    // inseminación" sola, el primero de los dos no existe en ninguna pantalla.
+    expect(screen.getByText(/servicios de este ciclo/i).textContent).toContain(
+      '20/05/2026 · 10/06/2026',
+    );
+  });
+
+  it('y con uno solo no dice nada: ya lo dice "última inseminación"', async () => {
+    montarFicha();
+    render(<App />);
+    await esperarFicha();
+
+    expect(screen.queryByText(/servicios de este ciclo/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('filtrar el historial por tipo', () => {
   const tipo = (rotulo: string): HTMLElement =>
     within(screen.getByRole('group', { name: 'Filtrar el historial por tipo' })).getByRole(

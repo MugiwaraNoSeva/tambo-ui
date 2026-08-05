@@ -48,6 +48,60 @@ function cifra(rotulo: string): string {
   return caja?.querySelector('.valor')?.textContent ?? '';
 }
 
+describe('la leche que hoy no va al tanque (decisión 99)', () => {
+  it('va primera, antes que las dos listas de manejo', async () => {
+    montarTablero();
+    render(<App />);
+    await screen.findByText(/hoy no van al tanque/i);
+
+    // El orden del tablero es el orden de la mañana, y esta es la única lista
+    // cuya ventana se cierra al empezar a ordeñar: después, saberlo no sirve. Las
+    // otras dos avisan de un problema de manejo y se pueden atender más tarde.
+    const titulos = [...document.querySelectorAll('h2')].map((h) => h.textContent);
+    const retiro = titulos.findIndex((t) => t?.includes('Hoy no van al tanque'));
+    const revisar = titulos.findIndex((t) => t?.includes('Para revisar'));
+    expect(retiro).toBeGreaterThanOrEqual(0);
+    expect(retiro).toBeLessThan(revisar);
+  });
+
+  it('dice qué hay que hacer con esas vacas, que no es cargarles nada', async () => {
+    montarTablero();
+    render(<App />);
+    await screen.findByText(/hoy no van al tanque/i);
+
+    // Lo que está en juego no es su tarro: es la carga entera del tambo. Sin este
+    // renglón la tarjeta sería una lista de caravanas sin decir para qué.
+    expect(screen.getByText(/se pierde la carga entera del tambo/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /^106/ })).toBeInTheDocument();
+  });
+
+  it('no ofrece corrida: no hay evento que cargarles', async () => {
+    montarTablero();
+    render(<App />);
+    await screen.findByText(/hoy no van al tanque/i);
+
+    // Las dos reproductivas sí la tienen —veinticinco tactos se cargan de
+    // corrido—; acá lo que se hace pasa en la sala de ordeñe y no en el sistema.
+    expect(screen.getByRole('link', { name: 'Tactarlas todas' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Secarlas todas' })).toBeInTheDocument();
+    const enCorridas = screen
+      .getAllByRole('link')
+      .filter((a) => a.getAttribute('href')?.startsWith('#/corrida'));
+    expect(enCorridas).toHaveLength(2);
+  });
+
+  it('sin ninguna en retiro lo dice con una frase, que es la buena noticia', async () => {
+    montarTablero({ [`GET /establecimientos/${EST}/alertas`]: { cuerpo: alertasVacias } });
+    render(<App />);
+
+    expect(
+      await screen.findByText(/toda la leche de hoy puede ir al tanque/i),
+    ).toBeInTheDocument();
+    // Y sin el aviso, que solo corresponde cuando hay algo que apartar.
+    expect(screen.queryByText(/se pierde la carga entera del tambo/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('las dos listas de trabajo', () => {
   it('muestran la caravana y llevan a la ficha del animal', async () => {
     montarTablero();
